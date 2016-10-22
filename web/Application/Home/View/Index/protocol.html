@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Protocol管理 | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="travis">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span3">
+      <div class="well sidebar-nav">
+        <ul class="nav nav-list">
+          <li class="nav-header"><i class="icon-wrench"></i> 队列信息</li>
+          <li><a href="__CONTROLLER__/index">Job管理</a></li>
+          <li class="active"><a href="__CONTROLLER__/protocol">Protocol管理</a></li>
+          <li><a href="__CONTROLLER__/reference">Reference管理</a></li>
+          <li class="nav-header"><i class="icon-th"></i> 系统管理</li>
+          <li><a href="__CONTROLLER__/system">系统设置</a></li>
+          <li><a href="__CONTROLLER__/user">用户管理</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="span9">
+      <div class="span9">
+        <div class="row-fluid">
+          <div class="page-header">
+            <h1>添加Protocol</h1>
+          </div>
+          <form class="form-horizontal" method="post" action="__CONTROLLER__/newProtocol">
+            <fieldset>
+              <div class="control-group">
+                <label class="control-label" for="name">Protocol名称</label>
+                <div class="controls">
+                  <input type="text" class="input-xlarge" id="name" name="name" required />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for="inputPassword">验证码</label>
+                <div class="controls">
+                  <input type="text" id="inputPassword" class="form-control input-xlarge" placeholder="请输入验证码"  errormsg="Enter words below." nullmsg="Please enter security code." datatype="*5-5" name="verify" required>
+                </div>
+              </div>
+			  <p></p>
+              <div class="form-group">
+                <div class="controls"> <img class="verifyimg reloadverify" alt="Click to switch" src="{:U('verify')}" style="cursor:pointer;"> </div>
+                <div class="controls Validform_checktip text-warning"></div>
+              </div>
+              <div class="form-actions">
+                <input type="submit" class="btn btn-success btn-large" value="添加" />
+              </div>
+            </fieldset>
+          </form>
+        </div>
+        <div class="page-header">
+          <h1>Protocol列表</h1>
+        </div>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Protocol</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <volist name="prol" id="hit">
+              <tr class="pending-user">
+                <td>{$hit.id}</td>
+                <td>{$hit.name}</td>
+                <td><span class="user-actions"><a href="__CONTROLLER__/delProtocol/pro/{$hit.id}" class="label label-important">删除</a> <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showNewStep({$hit.id});">添加步骤</span> <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-success" onclick="showSteps({$hit.id});">查看现有步骤</span></span></td>
+              </tr>
+            </volist>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="newStep" tabindex="-1" role="dialog" aria-labelledby="newStep">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">为Protocol添加新步骤</h4>
+      </div>
+      <div class="modal-body"> </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="steps" tabindex="-1" role="dialog" aria-labelledby="steps">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Protocol的现有步骤</h4>
+      </div>
+      <div class="modal-body"> </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+<hr>
+<include file="Base/foot"/> 
+<script src="__PUBLIC__/js/jquery.js"></script> 
+<script src="__PUBLIC__/js/bootstrap.min.js"></script> 
+<script type="text/javascript">
+  $(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });
+    function showNewStep(recId){
+      $.get("__CONTROLLER__/newStep/pro/"+recId, function(result){
+        $('#newStep .modal-body').html(result)
+        $('#newStep').modal();
+      });
+    }
+    function showSteps(recId){
+      $.get("__CONTROLLER__/showSteps/pro/"+recId, function(result){
+        $('#steps .modal-body').html(result)
+        $('#steps').modal();
+      });
+    }
+  </script>
+</body>
+</html>

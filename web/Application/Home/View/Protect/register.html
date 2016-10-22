@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign up | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="travis">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span2"></div>
+    <div class="span8">
+      <div class="well">
+        <h1 class="margin-base-vertical text-center" style="text-align:center;">Sign up CPBQueue</h1>
+        <form class="form-horizontal" method="post" action="__CONTROLLER__/reg">
+          <div class="control-group"></div>
+          <div class="control-group">
+              <input type="email" class="input-block-level" name="user" id="inputEmail" placeholder="E-mail address" required>
+          </div>
+          <div class="control-group">
+              <input type="password" class="input-block-level" name="passwd" id="inputPassword" placeholder="Password" required>
+          </div>
+          <div class="controls Validform_checktip text-warning"></div>
+          <div class="control-group">
+          <div class="span6">
+              <button class="input-block-level btn btn-primary" type="submit">Sign up</button>
+          </div>
+          <div class="span6">
+              <a class="input-block-level btn btn-success" href="__CONTROLLER__/login" >Sign in</a>
+          </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="span2"></div>
+  </div>
+  <hr>
+<include file="Base/foot"/>
+</div>
+<script src="__PUBLIC__/js/jquery.js"></script> 
+<script src="__PUBLIC__/js/bootstrap.min.js"></script> 
+<script>
+$(document)
+	    	.ajaxStart(function(){
+	    		$("button:submit").addClass("log-in").attr("disabled", true);
+	    	})
+	    	.ajaxStop(function(){
+	    		$("button:submit").removeClass("log-in").attr("disabled", false);
+	    	});
+
+
+    	$("form").submit(function(){
+    		var self = $(this);
+    		$.post(self.attr("action"), self.serialize(), success, "json");
+    		return false;
+
+    		function success(data){
+    			if(data.status){
+    				window.location.href = '__CONTROLLER__/login';
+    			} else {
+    				self.find(".Validform_checktip").text(data.info);
+    				$(".reloadverify").click();
+    			}
+    		}
+    	});
+  $(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });
+  $(function () {
+  $('[data-toggle="popover"]').popover()
+})
+  </script>
+</body>
+</html>

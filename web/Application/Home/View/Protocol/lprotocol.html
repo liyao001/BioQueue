@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Protocol | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="travis">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<link href="__PUBLIC__/css/messenger.css" rel="stylesheet">
+<link href="__PUBLIC__/css/messenger-theme-future.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+<div class="row-fluid">
+  <div class="span2">
+    <div class="well sidebar-nav">
+      <ul class="nav nav-list">
+        <li class="nav-header"><a href="__APP__"><i class="icon-home"></i> Dashboard</a></li>
+        <li class="nav-header"><i class="icon-list"></i> Job</li>
+        <li><a href="__MODULE__/Job/ajob">New Job</a></li>
+        <li><a href="__MODULE__/Job/qjob">Job Status</a></li>
+        <li class="nav-header"><i class="icon-pencil"></i> Protocol</li>
+        <li><a href="__MODULE__/Protocol">New Protocol</a></li>
+        <li class="active"><a href="__MODULE__/Protocol/lprotocol">Edit Protocol</a></li>
+        <li class="nav-header"><a href="__MODULE__/Reference"><i class="icon-book"></i> Reference</a></li>
+        <li class="nav-header"><i class="icon-lock"></i> System</li>
+        <li><a href="__MODULE__/System">Settings</a></li>
+        <li><a href="__MODULE__/System/user">Users</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="span10">
+    <div class="row-fluid">
+      <div class="page-header">
+        <h1>Protocol List</h1>
+      </div>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Protocol</th>
+            <th>Operation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <volist name="prol" id="hit">
+            <tr class="pending-user">
+              <td>{$hit.id}</td>
+              <td>{$hit.name}</td>
+              <td>
+              	<span class="user-actions">
+              		<span data-pid="{$hit.id}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-important">Delete</span>
+              		<span style="display: inline-block; cursor:pointer;" class="label label-warning" onclick="showNewStep({$hit.id});">Add Step</span>
+              		<span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({$hit.id});">Check Steps</span>
+              		<span data-pid="{$hit.id}" style="cursor:pointer;" onclick="showShare({$hit.id});" class="label label-info">Share</span>
+              	</span>
+              </td>
+            </tr>
+          </volist>
+        </tbody>
+      </table>
+      {$page}
+      <div id="stepsContainer" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="newStep" tabindex="-1" role="dialog" aria-labelledby="newStep">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Add New Step</h4>
+      </div>
+      <div class="modal-body"> </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="ml" tabindex="-1" role="dialog" aria-labelledby="ml">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Step Check Point</h4>
+      </div>
+      <div class="modal-body"> </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="share" tabindex="-1" role="dialog" aria-labelledby="share">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Share your protocols with others</h4>
+      </div>
+      <div class="modal-body">
+      	<form method="post" action="__CONTROLLER__/shareWithPeer">
+  			<fieldset>
+	    		<legend>Share with a peer</legend>
+	    		<label>Peer's username (E-mail address)</label>
+	    		<input type="email" id="peer" name="peer" placeholder="Enter peer's username here">
+	    		<input type="hidden" id="pro" name="pro">
+	    		<span class="help-block">You can only share your protocol with one peer at a time.</span>
+			    <button type="submit" class="btn">Share with a peer</button>
+			</fieldset>
+		</form>
+		<legend>Share with public</legend>
+		<span class="help-block">By clicking button below, you will visit CPBQueue's Online Repository, which stores your protocol and shares them with the public.</span>
+		<a href="http://queue.yaoli.space/Open" class="btn btn-block btn-primary">Share with public</a>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<hr>
+<include file="Base/foot"/> 
+<script src="__PUBLIC__/js/jquery.js"></script> 
+<script src="__PUBLIC__/js/bootstrap.min.js"></script> 
+<script src="__PUBLIC__/js/messenger.min.js"></script> 
+<script type="text/javascript">
+  function edit(obj){
+    var self = $(obj);
+    var txt = $.trim(self.text());
+    var input = $("<input class='input-block-level' type='text'>");
+    input.attr("value", txt);
+    self.html(input);
+    input.click(function(){return false;});
+    input.trigger("focus");
+    input.blur(function(){
+      var newTxt = input.val();
+      if (newTxt != txt){
+        self.html(newTxt);
+        $.get("__CONTROLLER__/updateParameter/parent/"+self.attr("data-pid")+"/step/"+self.attr("data-sid")+"/parameter/"+encodeURI(newTxt));
+      }
+    });
+    
+  };
+	function delProtocol(obj){
+		var self = $(obj);
+		$.get("__CONTROLLER__/delProtocol/pro/"+self.attr("data-pid"), function(data){
+			  if(data.status){
+				  self.parent().parent().parent().hide("slow");
+			  };
+		  });
+	}
+    function showNewStep(recId){
+      $.get("__CONTROLLER__/newStep/pro/"+recId, function(result){
+        $('#newStep .modal-body').html(result)
+        $('#newStep').modal();
+      });
+    }
+    function showSteps(recId){
+      $.get("__CONTROLLER__/showSteps/pro/"+recId, function(result){
+        if ($('#stepsContainer').css("display") != 'none'){
+        	$('#stepsContainer').hide("fast");
+        }
+        $('#stepsContainer').html(result);
+        $('#stepsContainer').show("slow");
+      });
+    }
+    function showML(obj){
+    	var self = $(obj);
+    	if (self.text() == 'CPU'){
+    		var url = '__MODULE__/Learning/getCPU/hash/'+self.attr('data-hash');
+    	}else if(self.text() == 'Memory'){
+    		var url = '__MODULE__/Learning/getMem/hash/'+self.attr('data-hash');
+    	}else if(self.text() == 'Disk'){
+    		var url = '__MODULE__/Learning/getDisk/hash/'+self.attr('data-hash');
+    	}
+    	if (url){
+    		$.get(url, function(result){
+    	        $('#ml .modal-body').html(result)
+    	        $('#ml').modal();
+    	    });
+    	}
+    }
+    function showShare(proId){
+    	$('#share #pro').val(proId);
+        $('#share').modal();
+      }
+    $("form").submit(function(){
+		var self = $(this);
+		$('.modal').modal('hide');
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+	
+		function success(data){
+			if(data.status){
+				Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+				$("#peer").val('');
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+	});
+  </script>
+</body>
+</html>
