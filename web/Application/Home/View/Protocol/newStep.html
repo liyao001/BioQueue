@@ -1,0 +1,44 @@
+<form class="form-horizontal" method="post" action="__CONTROLLER__/newStepO">
+  <fieldset>
+    <div class="control-group">
+      <label class="control-label" for="software">Software*:</label>
+      <div class="controls">
+          <input type="text" class="input-xlarge" id="software" name="software" required />
+      </div>
+  </div>
+  <div class="control-group">
+      <label class="control-label" for="parameter">Parameters*:</label>
+      <div class="controls">
+      <input type="text" class="input-xlarge" id="parameter" name="parameter" />
+      </div>
+  </div>
+<pre>You can use varibles or references when defining the parameters. Below are some of the system level variable:
+  <ul><li>InitInput: The initial input files which maps to files you provide when you create a job.</li><li>LastOutput: Output files of last step.</li><li>LastOutputN: The n-th output file of last step (in alphabetical order).</li><li>job: job ID.</li><li>ThreadN: The number of CPUs in the running node.</li></ul>All varibles should be surrounded by curly-braces, like {ThreadN}.
+</pre>
+    <div class="form-group">
+      <label class="control-label" for="inputPassword">CAPTCHA:</label>
+      <div class="controls">
+        <input type="text" id="inputPassword" class="form-control input-xlarge" placeholder="Please enter the five characters."  errormsg="Please enter the five characters." nullmsg="Please enter the five characters." datatype="*5-5" name="verify" required="required">
+      </div>
+    </div>
+	<p></p>
+    <div class="form-group">
+      <div class="controls"> <img class="verifyimg reloadverify" alt="Click to switch" src="{:U('verify')}" style="cursor:pointer;"> </div>
+      <div class="controls Validform_checktip text-warning"></div>
+    </div>
+    <hr><input type="hidden" name="parent" value="{$id}">
+    <div class="form-group" style="text-align: center;">
+      <button type="submit" class="btn btn-success btn-large">Add</button>   
+    </div>
+  </fieldset>
+</form>
+<script type="text/javascript">$(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });</script>

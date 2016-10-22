@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Job | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Li Yao">
+<meta http-equiv="refresh" content="30">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span2">
+      <div class="well sidebar-nav">
+        <ul class="nav nav-list">
+          <li class="nav-header"><a href="__APP__"><i class="icon-home"></i> Dashboard</a></li>
+          <li class="nav-header"><i class="icon-list"></i> Job</li>
+          <li><a href="__MODULE__/Job/ajob">New Job</a></li>
+          <li class="active"><a href="__MODULE__/Job/qjob">Job Status</a></li>
+          <li class="nav-header"><i class="icon-pencil"></i> Protocol</li>
+          <li><a href="__MODULE__/Protocol">New Protocol</a></li>
+          <li><a href="__MODULE__/Protocol/lprotocol">Edit Protocol</a></li>
+          <li class="nav-header"><a href="__MODULE__/Reference"><i class="icon-book"></i> Reference</a></li>
+          <li class="nav-header"><i class="icon-lock"></i> System</li>
+          <li><a href="__MODULE__/System">Settings</a></li>
+          <li><a href="__MODULE__/System/user">Users</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="span10">
+      <div class="row-fluid">
+        <div class="page-header">
+          <h1 id="task">Job Status</h1>
+        </div>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Protocol</th>
+              <th>Input files</th>
+              <th>Output folder</th>
+              <th>Status</th>
+              <th>Create time</th>
+              <th>Last update</th>
+              <th>Operation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <volist name="quel" id="hit">
+              <tr class="pending-user">
+                <td class="no-leak-table">{$hit.id}</td>
+                <td class="no-leak-table">{$hit.protocol}</td>
+                <td class="no-leak-table limited-table-25em">{$hit.inputfile}</td>
+                <td class="no-leak-table"><span href="__MODULE__/Job/showFolder/job/{$hit.id}" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({$hit.id});">{$hit.result}</span></td>
+                <td class="no-leak-table status"><if condition="($hit.status eq -1)"><i class="icon-ok"></i>
+                  <elseif condition="$hit.status eq -2"/><i class="icon-pause"></i>Waiting at CP
+          <elseif condition="$hit.status eq -3"/><i class="icon-remove"></i><span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({$hit.id});">Logs</span>
+          <elseif condition="$hit.status eq 0"/><i class="icon-time"></i>Waiting
+          <else /><i class="icon-play"></i>Running ({$hit.status})
+        </if></td>
+                <td class="no-leak-table">{$hit.ctime}</td>
+        <td class="no-leak-table">{$hit.updatetime}</td>
+                <td class="no-leak-table"><if condition="($hit.status eq -1)"><span class="user-actions"><span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                  <elseif condition="$hit.status eq 0"/><span class="user-actions"><span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                  <elseif condition="$hit.status eq -3"/><span class="user-actions"><span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</span> <span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                  <elseif condition="$hit.status gt 0"/><span class="user-actions"><span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-important" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
+                  <elseif condition="$hit.status eq -2"/><span class="user-actions"><span data-jid="{$hit.id}" style="cursor:pointer;" class="label label-important" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
+        </if></td>
+              </tr>
+            </volist>
+          </tbody>
+        </table>
+        {$page}
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="showLog" tabindex="-1" role="dialog" aria-labelledby="showLog">
+	<div class="modal-dialog" role="document">
+	  <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="myModalLabel">Logs</h4>
+        </div>
+        <div class="modal-body"> </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="showLog">
+	<div class="modal-dialog" role="document">
+	  <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title" id="myModalLabel">Result</h4>
+        </div>
+        <div class="modal-body"> </div>
+      </div>
+    </div>
+  </div>
+  <hr>
+  <include file="Base/foot"/> </div>
+<script src="__PUBLIC__/js/jquery.js"></script>
+<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+<script>
+  $(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });
+  $(function () {
+  $('[data-toggle="popover"]').popover();
+});
+  function showLog(recId){
+      $.get("__CONTROLLER__/showLog/jobId/"+recId, function(result){
+        $('#showLog .modal-body').html(result);
+        $('#showLog').modal();
+      });
+    }
+  function showFolder(recId){
+      $.get("__MODULE__/Job/showFolder/job/"+recId, function(result){
+        $('#showFd .modal-body').html(result);
+        $('#showFd').modal();
+      });
+    }
+  function delJob(obj){
+	  var self = $(obj);
+	  $.get("__CONTROLLER__/delJob/job/"+self.attr("data-jid"), function(data){
+		  if(data.status){
+			  self.parent().parent().parent().hide("slow");
+		  };
+	  });
+  }
+  function reRunJob(obj){
+	  var self = $(obj);
+	  $.get("__CONTROLLER__/reRun/job/"+self.attr("data-jid"), function(data){
+		  if(data.status){
+			  self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Waiting');
+		  };
+	  });
+  }
+  function resumeJob(obj){
+	  var self = $(obj);
+	  $.get("__CONTROLLER__/resume/job/"+self.attr("data-jid"), function(data){
+		  if(data.status){
+			  self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Waiting');
+		  };
+	  });
+  }
+  function delFile(obj){
+		var self = $(obj);
+		  $.get("__MODULE__/Job/delFile/file/"+self.attr("data-path"), function(data){
+			  if(data.status){
+				  self.parent().hide();
+			  };
+		  });
+	};
+  function terJob(obj){
+		var self = $(obj);
+		  $.get("__MODULE__/Job/terminate/job/"+self.attr("data-jid"), function(data){
+			  if(data.status){
+				  self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Terminating');
+			  };
+		  });
+	};
+  </script>
+</body>
+</html>

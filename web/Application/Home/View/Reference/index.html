@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Reference | CPBQueue</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="travis">
+
+    <link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+	  <link href="__PUBLIC__/css/site.css" rel="stylesheet">
+    <link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="__PUBLIC__/css/messenger.css" rel="stylesheet">
+    <link href="__PUBLIC__/css/messenger-theme-future.css" rel="stylesheet">
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <include file="Base/head"/>
+    <div class="container-fluid">
+      <div class="row-fluid">
+        <div class="span2">
+          <div class="well sidebar-nav">
+            <ul class="nav nav-list">
+          <li class="nav-header"><a href="__APP__"><i class="icon-home"></i> Dashboard</a></li>
+          <li class="nav-header"><i class="icon-list"></i> Job</li>
+          <li><a href="__MODULE__/Job/ajob">New Job</a></li>
+          <li><a href="__MODULE__/Job/qjob">Job Status</a></li>
+          <li class="nav-header"><i class="icon-pencil"></i> Protocol</li>
+          <li><a href="__MODULE__/Protocol">New Protocol</a></li>
+          <li><a href="__MODULE__/Protocol/lprotocol">Edit Protocol</a></li>
+          <li class="nav-header active"><a href="__MODULE__/Reference"><i class="icon-book"></i> Reference</a></li>
+          <li class="nav-header"><i class="icon-lock"></i> System</li>
+          <li><a href="__MODULE__/System">Settings</a></li>
+          <li><a href="__MODULE__/System/user">Users</a></li>
+        </ul>
+          </div>
+        </div>
+        <div class="span10">
+          <!-- <div class="span9"> -->
+        <div class="row-fluid">
+      <div class="page-header">
+        <h1>New Reference</h1>
+      </div>
+      <form class="form-horizontal" method="post" action="__CONTROLLER__/newReference">
+        <fieldset>
+          <div class="control-group">
+            <label class="control-label" for="name">Reference Name</label>
+            <div class="controls">
+              <input type="text" class="input-xlarge" id="name" name="name" required />
+            </div>
+          </div>
+          <div class="control-group">
+            <label class="control-label" for="name">Reference Value</label>
+            <div class="controls">
+              <input type="text" class="input-xlarge" id="path" name="path" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="control-label" for="verify">CAPTCHA</label>
+            <div class="controls">
+              <input type="text" id="verify" class="form-control input-xlarge" placeholder="Please enter the five characters below."  errormsg="Please enter the five characters below." nullmsg="Please enter the five characters below." datatype="*5-5" name="verify" required>
+            </div>
+          </div>
+		  <p></p>
+          <div class="form-group">
+            <div class="controls"> <img class="verifyimg reloadverify" alt="Click to switch" src="{:U('verify')}" style="cursor:pointer;"> </div>
+            <div class="controls Validform_checktip text-warning"></div>
+          </div>
+          <div class="form-actions">
+            <input type="submit" class="btn btn-success btn-large" value="Add" />
+          </div>   
+        </fieldset>
+      </form>
+      </div>
+      <div class="page-header">
+        <h1>Reference List</h1>
+      </div>
+      <table class="table table-bordered" id="rtable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Operation</th>
+          </tr>
+        </thead>
+        <tbody>
+        <volist name="refl" id="hit">
+        <tr class="pending-user">
+          <td>{$hit.id}</td>
+          <td>{$hit.name}</td>
+          <td>{$hit.path}</td>
+          <td><span class="user-actions"><span onclick="delProtocol(this);" data-rid="{$hit.id}" class="label label-important" style="cursor:pointer;">Delete</span></span></td>
+        </tr>
+        </volist>
+        </tbody>
+      </table>
+      </div>
+      </div>
+        <!-- </div> -->
+      </div>
+      <hr>
+
+<include file="Base/foot"/> </div>
+
+<script src="__PUBLIC__/js/jquery.js"></script>
+<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+<script src="__PUBLIC__/js/messenger.min.js"></script>
+<script type="text/javascript">
+function delProtocol(obj){
+	var self = $(obj);
+	$.get("__CONTROLLER__/delRef/pro/"+self.attr("data-rid"), function(data){
+		if(data.status){
+			self.parent().parent().parent().hide("slow");
+		};
+	});
+}
+  $(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });
+$(document)
+  .ajaxStart(function(){
+    $("button:submit").attr("disabled", true);
+  })
+  .ajaxStop(function(){
+    $("button:submit").attr("disabled", false);
+  });
+  $("form").submit(function(){
+    var self = $(this);
+    $.post(self.attr("action"), self.serialize(), success, "json");
+    return false;
+  
+    function success(data){
+      if(data.status){
+        $(".reloadverify").click();
+        Messenger().post({
+          message: 'Created successfully!',
+          showCloseButton: true
+        });
+        addNew(data.info, $("#name").val(), $("#path").val());
+        $("#name").val('');
+        $("#path").val('');
+        $("#verify").val('');
+      } else {
+        Messenger().post({
+          message: data.info,
+          type: 'error',
+          showCloseButton: true
+        });
+        $(".reloadverify").click();
+        $("#verify").val('');
+      }
+    }
+});
+function addNew(rid, key, value)
+{ 
+  var table1 = $('#rtable'); 
+  var firstTr = table1.find('tbody>tr:first'); 
+  var row = $("<tr></tr>"); 
+  var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td>";
+  row.append(td);
+  table1.append(row);
+}
+  </script>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Step2: Create and Configure Database | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="travis">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span2"></div>
+    <div class="span8"> 
+      <!-- <div class="span9"> -->
+      <div class="row-fluid">
+        <div class="page-header">
+          <h1>Step2: Create and Configure Database</h1>
+        </div>
+        <div class="progress progress-striped active">
+          <div class="bar" style="width: 50%;"></div>
+        </div>
+        <form action="__SELF__" method="post" target="_self">
+          <div class="create-database">
+            <h2>Define Database Connection</h2>
+            <div>
+              <select name="db[]">
+                <option>mysqli</option>
+                <option>mysql</option>
+              </select>
+              <span>The database driver. We recommend <code>mysqli</code> if it is available.</span> </div>
+            <div>
+              <input type="text" name="db[]" value="127.0.0.1" required>
+              <span>The hostname of your database server. e.g.: 127.0.0.1</span> </div>
+            <div>
+              <input type="text" name="db[]" required>
+              <span>The name of the database you want to connect to.</span> </div>
+            <div>
+              <input type="text" name="db[]" required>
+              <span>The username used to connect to the database.</span> </div>
+            <div>
+              <input type="password" name="db[]" required>
+              <span>The password used to connect to the database.</span> </div>
+            <div>
+              <input type="text" name="db[]" value="3306">
+              <span>The port used to connect to the database. e.g.: 3306.</span> </div>
+            <div>
+              <input type="text" name="db[]" value="">
+              <span>You can add an optioanl prefix, which will be added to the table name.</span> </div>
+          </div>
+          <h2>Runtime Configuration</h2>
+          <div>
+              <input type="number" name="cpu" id="cpu" value="127.0.0.1" required>
+              <span>The number of processors that your computing node has. e.g.: 16</span> </div>
+            <div>
+              <input type="number" name="mem" id="mem" required>
+              <span>Memory of your computing node (Gb). e.g.: 64</span> </div>
+          <h2>Adiministrator Configuration</h2>
+          <div>
+              <input type="email" name="user" id="user" required>
+              <span>Email address of the administrator. e.g.: webmaster@institute.org</span> </div>
+            <div>
+              <input type="password" name="passwd" id="passwd" required>
+              <span>Password</span> </div>
+        </form>
+        <button id="submit" type="button" class="btn btn-primary btn-large" onclick="$('form').submit();return false;">Next</button></div>
+      <!-- </div> --> 
+    </div>
+    <div class="span2"></div>
+  </div>
+</div>
+<hr>
+<include file="Base/foot"/> 
+<script src="__PUBLIC__/js/jquery.js"></script>
+</body>
+</html>

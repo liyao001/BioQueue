@@ -1,0 +1,22 @@
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>调用程序</th>
+			<th>参数</th>
+			<th>预置输出</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+	<volist name="stepl" id="hit">
+	<tr class="pending-user">
+		<td>{$hit.id}</td>
+		<td>{$hit.software}</td>
+		<td>{$hit.parameter}</td>
+		<td>{$hit.specify_output}</td>
+		<td><a href="__CONTROLLER__/delStep/pro/{$hit.id}" class="label label-success">删除</a></td>
+	</tr>
+	</volist>
+	</tbody>
+</table>

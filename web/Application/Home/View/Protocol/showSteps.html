@@ -1,0 +1,35 @@
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>Software</th>
+			<th>Parameter</th>
+			<th>Check point</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+	<volist name="stepl" id="hit">
+	<tr class="pending-user">
+		<td>{$hit.id}</td>
+		<td>{$hit.software}</td>
+		<td class="editble" onclick="edit(this);" data-sid="{$hit.id}" data-pid="{$hit.parent}">{$hit.parameter}</td>
+		<td>
+			<span class="label label-warning cpu" data-hash="{$hit.hash}" onclick="showML(this);" style="cursor:pointer;">CPU</span>
+			<span class="label label-info mem" data-hash="{$hit.hash}" onclick="showML(this);" style="cursor:pointer;">Memory</span>
+			<span class="label label-success disk" data-hash="{$hit.hash}" onclick="showML(this);" style="cursor:pointer;">Disk</span></td>
+		<td><span class="user-actions"><a href="#" class="label label-success dels" data-sid="{$hit.id}">Delete</a></span></td>
+	</tr>
+	</volist>
+	</tbody>
+</table>
+<script type="text/javascript">
+$("table td .dels").click(function(){
+	var self = $(this);
+	$.get("__CONTROLLER__/delStep/pro/"+self.attr('data-sid'), function(data){
+		if(data.status){
+			self.parent().parent().parent().remove();
+		}
+	});
+});
+</script>

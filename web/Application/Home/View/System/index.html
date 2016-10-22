@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>System Settings | CPBQueue</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="travis">
+
+    <link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+	<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+    <link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <include file="Base/head"/>
+    <div class="container-fluid">
+      <div class="row-fluid">
+        <div class="span2">
+          <div class="well sidebar-nav">
+            <ul class="nav nav-list">
+	          <li class="nav-header"><a href="__APP__"><i class="icon-home"></i> Dashboard</a></li>
+	          <li class="nav-header"><i class="icon-list"></i> Job</li>
+	          <li><a href="__MODULE__/Job/ajob">New Job</a></li>
+	          <li><a href="__MODULE__/Job/qjob">Job Status</a></li>
+	          <li class="nav-header"><i class="icon-pencil"></i> Protocol</li>
+	          <li><a href="__MODULE__/Protocol">New Protocol</a></li>
+	          <li><a href="__MODULE__/Protocol/lprotocol">Edit Protocol</a></li>
+	          <li class="nav-header"><a href="__MODULE__/Reference"><i class="icon-book"></i> Reference</a></li>
+	          <li class="nav-header"><i class="icon-lock"></i> System</li>
+	          <li class="active"><a href="__MODULE__/System">Settings</a></li>
+	          <li><a href="__MODULE__/System/user">Users</a></li>
+	        </ul>
+          </div>
+        </div>
+        <div class="span10">
+          <div class="row-fluid">
+            <div class="page-header">
+              <h1>System Settings</h1>
+            </div>
+            <form class="form-horizontal" method="post" action="__CONTROLLER__/updateSystemSettings">
+              <fieldset>
+                <div class="control-group">
+                  <label class="control-label" for="path">Run folder</label>
+                  <div class="controls">
+                    <input type="text" class="input-xlarge" id="path" name="path" value="{:F('RUNFOLDER')}" required />
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label class="control-label" for="cpu">Processors</label>
+                  <div class="controls">
+                    <input type="number" class="input-xlarge" id="cpu" name="cpu" value="{:F('CPU')}" required />
+                  </div>
+                </div>
+                <div class="control-group">
+                  <label class="control-label" for="mem">Memory(Gb)</label>
+                  <div class="controls">
+                    <input type="number" class="input-xlarge" id="mem" name="mem" value="{:F('MEM')}" required />
+                  </div>
+                </div>
+              </fieldset>
+              <div class="form-actions">
+                <input type="submit" class="btn btn-success btn-large" value="Update" />
+              </div>
+            </form>
+            <div class="page-header">
+              <h1>System Status</h1>
+            </div>
+            <div><a href="__CONTROLLER__/delDeadlock" class="btn btn-danger">Clean Dead Lock</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr>
+
+<include file="Base/foot"/> </div>
+
+    <script src="__PUBLIC__/js/jquery.js"></script>
+	<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+  <script type="text/javascript">
+  $(function(){
+    var verifyimg = $(".verifyimg").attr("src");
+      $(".reloadverify").click(function(){
+          if( verifyimg.indexOf('?')>0){
+              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
+            }else{
+                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
+            }
+        });
+  });
+    function showNewStep(recId){
+      $.get("__CONTROLLER__/newStep/pro/"+recId, function(result){
+        $('#newStep .modal-body').html(result)
+        $('#newStep').modal();
+      });
+    }
+    function showSteps(recId){
+      $.get("__CONTROLLER__/showSteps/pro/"+recId, function(result){
+        $('#steps .modal-body').html(result)
+        $('#steps').modal();
+      });
+    }
+  </script>
+  </body>
+</html>

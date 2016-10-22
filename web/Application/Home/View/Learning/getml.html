@@ -1,0 +1,26 @@
+<table class="table">
+<tbody>
+	<tr>
+		<td colspan="4" style="text-align:center;">
+			<if condition="$hit['img'] eq ''">No plot.
+			<else /><img src="{$hit.img}">
+			</if>
+		</td>
+	</tr>
+	<tr>
+		<td>a</td>
+		<td>b</td>
+		<td>r</td>
+		<td>average</td>
+	</tr>
+	<tr>
+		<td>{$hit.a}</td>
+		<td>{$hit.b}</td>
+		<td>{$hit.r}</td>
+		<td>{$hit.av}</td>
+	</tr>
+</tbody>
+</table>
+<p style="text-align:center;">
+	<a class="btn btn-large btn-block btn-success" href="__CONTROLLER__/accept">Import</a>
+</p>

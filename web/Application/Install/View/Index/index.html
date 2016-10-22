@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Install | CPBQueue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="travis">
+<link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
+<link href="__PUBLIC__/css/site.css" rel="stylesheet">
+<link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<include file="Base/head"/>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span2"></div>
+    <div class="span8"> 
+      <!-- <div class="span9"> -->
+      <div class="row-fluid">
+        <div class="hero-unit" style="text-align:center;"><img src="__PUBLIC__/img/logo.png" width="200px" style="display:block;margin:auto;"/>
+          <h1>CPBQueue</h1>
+          <p>A checkpoint-based queue system for bioinformatics.</p>
+          <p> <a class="btn btn-primary btn-large" href="__CONTROLLER__/step1"> Accept License Agreement and Install CPBQueue</a> </p>
+          <ul class="inline">
+          	<li><a href="#"  data-toggle="modal" data-target="#non-commercial">Non-Commercial Use License</a></li>
+            <li><a href="#"  data-toggle="modal" data-target="#commercial">Commercial Use License</a></li>
+            <li><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2.0</a></li>
+          </ul>
+        </div>
+      </div>
+      <!-- </div> --> 
+    </div>
+    <div class="span2"></div>
+  </div>
+</div>
+<div class="modal fade" id="commercial" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <h4 class="modal-title" id="myModalLabel">Commercial Use License</h4>
+      </div>
+      <div class="modal-body">
+        If you plan to use CPBQueue in any for-profit application, you are required to purchase a license. To do so, please contact softwarelicensing@broadinstitute.org to discuss your application with our license manager.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" data-dismiss="modal">Accept</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="non-commercial" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        <h4 class="modal-title" id="myModalLabel">ACADEMIC NON-COMMERCIAL RESEARCH PURPOSES</h4>
+      </div>
+      <div class="modal-body">
+        Under this license, you can use the program and view the source code for free as long as you are using CPBQueue strictly for non-profit purposes. If your usage qualifies for this license, you can download the program and start using it right away.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" data-dismiss="modal">Accept</button>
+      </div>
+    </div>
+  </div>
+</div>
+<hr>
+<include file="Base/foot"/> 
+<script src="__PUBLIC__/js/jquery.js"></script>
+<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+</body>
+</html>
