@@ -20,7 +20,7 @@ class IndexController extends Controller {
 		if (ini_get('allow_url_fopen')){
 			$func[] = array('fopen(url)', 'Enabled', 'ok-sign');
 		}else{
-			$func[] = array('fopen(url)', 'Disabled', 'remove-circle');
+			$func[] = array('fopen(url)', 'Disabled', 'remove-sign');
 		}
 		session('step', 1);
 		$this->assign('env', $env);

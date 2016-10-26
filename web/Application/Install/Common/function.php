@@ -9,7 +9,7 @@ function check_env(){
 	);
 
 	if($items['php'][3] < $items['php'][1]){
-		$items['php'][4] = 'remove-circle';
+		$items['php'][4] = 'remove-sign';
 		session('error', true);
 	}
 
@@ -19,7 +19,7 @@ function check_env(){
 		$tmp = function_exists('gd_info') ? gd_info() : array();
 		if(empty($tmp['GD Version'])){
 			$items['gd'][3] = 'Not installed';
-			$items['gd'][4] = 'remove-circle';
+			$items['gd'][4] = 'remove-sign';
 			session('error', true);
 		} else {
 			$items['gd'][3] = $tmp['GD Version'];
@@ -29,7 +29,7 @@ function check_env(){
 		if(function_exists('disk_free_space')) {
 			$items['disk'][3] = floor(disk_free_space(INSTALL_APP_PATH) / (1024*1024)).'M';
 			if (str_replace('M', '', $items['disk'][3]) < str_replace('M', '', $items['disk'][1])){
-				$items['disk'][4] = 'remove-circle';
+				$items['disk'][4] = 'remove-sign';
 				session('error', true);
 			}
 		}
@@ -53,11 +53,11 @@ function check_dirfile(){
 			if(!is_writable(INSTALL_APP_PATH . $val[3])) {
 				if(is_dir($items[1])) {
 					$val[1] = 'Cannot write file!';
-					$val[2] = 'error';
+					$val[2] = 'remove-sign';
 					session('error', true);
 				} else {
 					$val[1] = 'Cannot write file!';
-					$val[2] = 'error';
+					$val[2] = 'remove-sign';
 					session('error', true);
 				}
 			}
@@ -65,13 +65,13 @@ function check_dirfile(){
 			if(file_exists(INSTALL_APP_PATH . $val[3])) {
 				if(!is_writable(INSTALL_APP_PATH . $val[3])) {
 					$val[1] = 'Cannot write file!';
-					$val[2] = 'error';
+					$val[2] = 'remove-sign';
 					session('error', true);
 				}
 			} else {
 				if(!is_writable(dirname(INSTALL_APP_PATH . $val[3]))) {
 					$val[1] = 'Cannot write file!';
-					$val[2] = 'error';
+					$val[2] = 'remove-sign';
 					session('error', true);
 				}
 			}
@@ -91,7 +91,7 @@ function check_func(){
 	foreach ($items as &$val) {
 		if(!function_exists($val[0])){
 			$val[1] = 'Disabled';
-			$val[2] = 'remove-circle';
+			$val[2] = 'remove-sign';
 			$val[3] = 'Enable';
 			session('error', true);
 		}
