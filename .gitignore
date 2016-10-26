@@ -1,3 +1,7 @@
 .project
 *.log
 /web/Application/Runtime/*
+web/Application/Common/Conf/config.php
+*.lock
+web/config.conf
+.pydevproject
