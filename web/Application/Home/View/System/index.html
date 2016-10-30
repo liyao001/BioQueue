@@ -9,6 +9,8 @@
     <link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
 	<link href="__PUBLIC__/css/site.css" rel="stylesheet">
     <link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="__PUBLIC__/css/messenger.css" rel="stylesheet">
+	<link href="__PUBLIC__/css/messenger-theme-future.css" rel="stylesheet">
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -59,6 +61,13 @@
                     <input type="number" class="input-xlarge" id="mem" name="mem" value="{:F('MEM')}" required />
                   </div>
                 </div>
+                <div class="control-group">
+                  <label class="control-label" for="dquota">User Disk Quota(Gb)</label>
+                  <div class="controls">
+                    <input type="number" class="input-xlarge" id="dquota" name="dquota" value="{:F('UDISKQ')}" min="0" max="{:round(disk_total_space(F('RUNFOLDER'))/1024/1024/1024)}" required />
+                    <i id="tooltip" class="icon-info-sign" data-toggle="tooltip" title="Total Disk Space(Gb): {:round(disk_total_space(F('RUNFOLDER'))/1024/1024/1024)}<br />Free Disk Space(Gb): {:round(disk_free_space(F('RUNFOLDER'))/1024/1024/1024)}"></i>
+                  </div>
+                </div>
               </fieldset>
               <div class="form-actions">
                 <input type="submit" class="btn btn-success btn-large" value="Update" />
@@ -67,7 +76,7 @@
             <div class="page-header">
               <h1>System Status</h1>
             </div>
-            <div><a href="__CONTROLLER__/delDeadlock" class="btn btn-danger">Clean Dead Lock</a></div>
+            <div><a href="__CONTROLLER__/delDeadlock" class="btn btn-danger">Clean Dead Lock</a>
           </div>
         </div>
       </div>
@@ -78,17 +87,31 @@
 
     <script src="__PUBLIC__/js/jquery.js"></script>
 	<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+	<script src="__PUBLIC__/js/messenger.min.js"></script>
+	<script src="__PUBLIC__/js/site.js"></script>
   <script type="text/javascript">
-  $(function(){
-    var verifyimg = $(".verifyimg").attr("src");
-      $(".reloadverify").click(function(){
-          if( verifyimg.indexOf('?')>0){
-              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
-            }else{
-                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
-            }
-        });
-  });
+  $('#tooltip').tooltip();
+  $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+	
+		function success(data){
+			if(data.status){
+				$(".reloadverify").click();
+				Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+	});
     function showNewStep(recId){
       $.get("__CONTROLLER__/newStep/pro/"+recId, function(result){
         $('#newStep .modal-body').html(result)

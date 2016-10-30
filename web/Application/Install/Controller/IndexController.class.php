@@ -41,6 +41,7 @@ class IndexController extends Controller {
 				F('RUNFOLDER', realpath(APP_HOME).'/Workspace');
 				F('CPU', I('cpu'));
 				F('MEM', I('mem'));
+				F('UDISKQ', I('udiskq'));
 				
 				$ui = array(
 						'user'	=>	I('user'),
