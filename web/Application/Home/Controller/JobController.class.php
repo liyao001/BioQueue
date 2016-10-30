@@ -104,6 +104,7 @@ class JobController extends AuthController {
 			return false;
 		}
 	}
+
 	public function delJob($job){
 		if ($this->checkOwner('queue', array('user_id' => $this->userID))){
 			$queDB = M('queue');
@@ -148,9 +149,13 @@ class JobController extends AuthController {
 						'run_dir' => F('RUNFOLDER'),
 						'user_id' => $this->userID,);
 			}
-	
-			$queDB->add($data);
-			$this->success('Successfully added job into queue.');
+			if (getDirSize(F('RUNFOLDER')."/{$this->userID}") < F('UDISKQ')){
+				$queDB->add($data);
+				$this->success('Successfully added job into queue.');
+			}else{
+				$this->error('You have exceed the disk quota limit! Please delete some files!');
+			}
+			
 		}else{
 			$this->error('Wrong code!');
 		}
