@@ -156,10 +156,15 @@ function checkExistence($user){
 }
 function getDirSize($directory) {
 	//return folder size(Gb)
-	$size = 0;
-	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
-		$size += $file->getSize();
+	try{
+		$size = 0;
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
+			$size += $file->getSize();
+		}
+		return round($size/1073741824);
+	}finally {
+		return 0;
 	}
-	return round($size/1073741824);
+	
 }
 ?>
