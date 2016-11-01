@@ -171,6 +171,10 @@ function write_client_config($conf) {
 	$ini->setValue('datasets', 'trainStore', $conf['DB_PREFIX'].'training');
 	$ini->setValue('datasets', 'equation', $conf['DB_PREFIX'].'prediction');
 	$ini->setValue('env', 'log', realpath(APP_HOME).'/logs');
+	$ini->setValue('env', 'outputs', realpath(APP_HOME).'/Outputs');
+	$ini->setValue('env', 'workspace', realpath(APP_HOME).'/Workspace');
+	$ini->setValue('env', 'ftp_addr', $conf['FTPU']);
+	$ini->setValue('env', 'ftp_port', $conf['FTPP']);
 	$ini->setValue('ml', 'trainStore', realpath(APP_HOME).'/logs');
 	$ini->setValue('ml', 'imgStore', realpath(APP_HOME).'/Public/img/mls');
 	$ini->save();

@@ -50,7 +50,7 @@
             <div>
               <input type="text" name="db[]" value="3306">
               <span>The port used to connect to the database. e.g.: 3306.</span> </div>
-            <div>
+            <div style='display: none;'>
               <input type="text" name="db[]" value="">
               <span>You can add an optioanl prefix, which will be added to the table name.</span> </div>
           </div>
@@ -64,6 +64,13 @@
           <div>
             <input type="number" name="udiskq" id="udiskq" required>
             <span>User Disk Quota (Gb). e.g.: 100</span> </div>
+          <h2>FTP Configuration</h2>
+          <div>
+          	<input type="text" name="ftpu" id="ftpu" value='0.0.0.0' required>
+            <span>FTP Host: 0.0.0.0(Everyone can visit)/127.0.0.1(Local user can visit)</span> </div>
+          <div>
+            <input type="number" name="ftpp" id="ftpp" value='21' required>
+            <span>FTP Port: 21 by default.</span> </div>
           <h2>Adiministrator Configuration</h2>
           <div>
             <input type="email" name="user" id="user" required>
