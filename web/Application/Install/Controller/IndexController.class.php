@@ -38,10 +38,14 @@ class IndexController extends Controller {
 				list($DB['DB_TYPE'], $DB['DB_HOST'], $DB['DB_NAME'], $DB['DB_USER'], $DB['DB_PWD'],
 					 $DB['DB_PORT'], $DB['DB_PREFIX']) = $db;
 				$DB['logStore'] = realpath(APP_HOME).'/logs';
+				$DB['FTPU'] = I('ftpu');
+				$DB['FTPP'] = I('ftpp');
 				F('RUNFOLDER', realpath(APP_HOME).'/Workspace');
 				F('CPU', I('cpu'));
 				F('MEM', I('mem'));
 				F('UDISKQ', I('udiskq'));
+				F('FTPU', I('ftpu'));
+				F('FTPP', I('ftpp'));
 				
 				$ui = array(
 						'user'	=>	I('user'),
