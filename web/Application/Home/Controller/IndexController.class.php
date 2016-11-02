@@ -41,7 +41,7 @@ class IndexController extends AuthController {
     }
     public function showWorkspace(){
     	if ($this->checkOwner('queue', array('user_id' => $this->userID))){
-    		$userPath = pathJoin(F('RUNFOLDER'), $this->userID);
+    		$userPath = pathJoin(F('RUNFOLDER'), $this->userID, 'uploads');
     		session('UP-'.$this->userID, $userPath);
     		$this->treeFolder($userPath, $userPath);
     	}
