@@ -8,9 +8,11 @@
 <link href="__PUBLIC__/css/bootstrap.css" rel="stylesheet">
 <link href="__PUBLIC__/css/site.css" rel="stylesheet">
 <link href="__PUBLIC__/css/bootstrap-responsive.css" rel="stylesheet">
+<link href="__PUBLIC__/css/messenger.css" rel="stylesheet">
+<link href="__PUBLIC__/css/messenger-theme-future.css" rel="stylesheet">
 <!--[if lt IE 9]>
-      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+	<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
 </head>
 <body>
 <include file="Base/head"/>
@@ -57,17 +59,17 @@
                 	<elseif condition="$hit.status eq 2"/><span class="label label-warning">Administrator</span>
 					<elseif condition="$hit.status eq 3"/><span class="label label-important">Founder</span>
                     </if></td>
-					<td><if condition="($hit.status eq 0)"><span class="label label-important">Not approved</span>
+					<td class='user-stat'><if condition="($hit.status eq 0)"><span class="label label-important">Not approved</span>
                     	<else /> <span class="label label-success">Approved</span>
 					</if></td>
 					<td>
 						<div class="btn-group">
 							<a class="btn btn-mini dropdown-toggle" data-toggle="dropdown" href="#">Operation <span class="caret"></span></a>
 							<ul class="dropdown-menu">
-								<li><a href="__CONTROLLER__/deleteUser/toD/{$hit.id}"><i class="icon-trash"></i> Delete</a></li>
+								<li><a href="__CONTROLLER__/deleteUser/toD/{$hit.id}" class="userAct"><i class="icon-trash"></i> Delete</a></li>
 								<li class="nav-header">Assign role</li>
-								<li><a href="__CONTROLLER__/asAdmin/toD/{$hit.id}"><i class="icon-lock"></i> <strong>Administrator</strong></a></li>
-								<li><a href="__CONTROLLER__/asNUser/toD/{$hit.id}"><i class="icon-lock"></i> <strong>Normal User</strong></a></li>
+								<li><a href="__CONTROLLER__/asAdmin/toD/{$hit.id}" class="userAct"><i class="icon-lock"></i> <strong>Administrator</strong></a></li>
+								<li><a href="__CONTROLLER__/asNUser/toD/{$hit.id}" class="userAct"><i class="icon-lock"></i> <strong>Normal User</strong></a></li>
 							</ul>
 						</div>
 					</td>
@@ -82,19 +84,39 @@
   </div>
   <hr>
   <include file="Base/foot"/> </div>
-<script src="__PUBLIC__/js/jquery.js"></script> 
-<script src="__PUBLIC__/js/bootstrap.min.js"></script> 
+<script src="__PUBLIC__/js/jquery.js"></script>
+<script src="__PUBLIC__/js/bootstrap.min.js"></script>
+<script src="__PUBLIC__/js/messenger.min.js"></script>
 <script>
-  $(function(){
-    var verifyimg = $(".verifyimg").attr("src");
-      $(".reloadverify").click(function(){
-          if( verifyimg.indexOf('?')>0){
-              $(".verifyimg").attr("src", verifyimg+'&random='+Math.random());
-            }else{
-                $(".verifyimg").attr("src", verifyimg.replace(/\?.*$/,'')+'?'+Math.random());
-            }
-        });
-  });
+	$(document)
+	.ajaxStart(function(){
+		$("button:submit").attr("disabled", true);
+	})
+	.ajaxStop(function(){
+		$("button:submit").attr("disabled", false);
+	});
+	$(".userAct").click(function(){
+		var self = $(this);
+		$.get(self.attr("href"), success, "json");
+		return false;
+	
+		function success(data){
+			if(data.status){
+				Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+				//alert($(this).html());
+				//self.parents('.user-stat').html('<span class="label label-success">Approved</span>');
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+	});
   </script>
 </body>
 </html>
