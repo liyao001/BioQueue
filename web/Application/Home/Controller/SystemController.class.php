@@ -62,7 +62,7 @@ public function delDeadlock(){
 			}else{
 				$data['status'] = 2;
 				$userDB->where('id='.intval($toD))->save($data);
-				$this->success('OK!');
+				$this->success('OK! To enable new user to use FTP service, please restart the ftp server.');
 			}
 		}
 	}
