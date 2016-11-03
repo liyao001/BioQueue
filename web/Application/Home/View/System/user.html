@@ -55,7 +55,7 @@
 				<tr class="list-users">
 					<td>{$hit.id}</td>
 					<td>{$hit.user}</td>
-					<td><if condition="($hit.status eq 1)"><span class="label label-success">Normal User</span>
+					<td class='user-role'><if condition="($hit.status eq 1)"><span class="label label-success">Normal User</span>
                 	<elseif condition="$hit.status eq 2"/><span class="label label-warning">Administrator</span>
 					<elseif condition="$hit.status eq 3"/><span class="label label-important">Founder</span>
                     </if></td>
@@ -68,8 +68,8 @@
 							<ul class="dropdown-menu">
 								<li><a href="__CONTROLLER__/deleteUser/toD/{$hit.id}" class="userAct"><i class="icon-trash"></i> Delete</a></li>
 								<li class="nav-header">Assign role</li>
-								<li><a href="__CONTROLLER__/asAdmin/toD/{$hit.id}" class="userAct"><i class="icon-lock"></i> <strong>Administrator</strong></a></li>
-								<li><a href="__CONTROLLER__/asNUser/toD/{$hit.id}" class="userAct"><i class="icon-lock"></i> <strong>Normal User</strong></a></li>
+								<li><a href="__CONTROLLER__/asAdmin/toD/{$hit.id}" data-role="2" class="userAct"><i class="icon-lock"></i> <strong>Administrator</strong></a></li>
+								<li><a href="__CONTROLLER__/asNUser/toD/{$hit.id}" data-role="1" class="userAct"><i class="icon-lock"></i> <strong>Normal User</strong></a></li>
 							</ul>
 						</div>
 					</td>
@@ -95,9 +95,28 @@
 	.ajaxStop(function(){
 		$("button:submit").attr("disabled", false);
 	});
-	$(".userAct").click(function(){
+	$(".userAct").click(function(type=1){
 		var self = $(this);
-		$.get(self.attr("href"), success, "json");
+		$.get(self.attr("href"), function(data){
+      if(data.status){
+        Messenger().post({
+          message: data.info,
+          showCloseButton: true
+        });
+        if (self.attr('data-role') == 2){
+          self.parents('tr').children('.user-role').html('<span class="label label-warning">Administrator</span>');
+        }else{
+          self.parents('tr').children('.user-role').html('<span class="label label-success">Normal User</span>');
+        }
+        self.parents('tr').children('.user-stat').html('<span class="label label-success">Approved</span>');
+      } else {
+        Messenger().post({
+          message: data.info,
+          type: 'error',
+          showCloseButton: true
+        });
+      }
+    }, "json");
 		return false;
 	
 		function success(data){
@@ -106,7 +125,7 @@
 					message: data.info,
 					showCloseButton: true
 				});
-				//alert($(this).html());
+				alert($(this).html());
 				//self.parents('.user-stat').html('<span class="label label-success">Approved</span>');
 			} else {
 				Messenger().post({
