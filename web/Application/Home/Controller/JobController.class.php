@@ -130,25 +130,29 @@ class JobController extends AuthController {
 		if (check_verify(I('verify'))) {
 			$queDB = M('queue');
 			$par = I('parameter');
-			if (strpos($par, '=') === false){
+			
+			if (I('inputFile')){
+				$input = I('inputFile');
+			}elseif (I('inputFile-r')){
+				$input = '{Uploaded:'.join(I('inputFile-r'), '};{Uploaded:').'}';
+			}else{
+				$this->error('Error occurs when we try to handle your inputs.');
+			}
+			
+			if (substr($par, -1, 1) != ';'){
 				$data = array('protocol' => intval(I('protocol')),
-						'inputFile' => I('inputFile'),
-						'parameter' => $par,
-						'run_dir' => F('RUNFOLDER'),
-						'user_id' => $this->userID,);
-			}else if (substr($par, -1, 1) != ';'){
-				$data = array('protocol' => intval(I('protocol')),
-						'inputFile' => I('inputFile'),
+						'inputFile' => $input,
 						'parameter' => $par.';',
 						'run_dir' => F('RUNFOLDER'),
 						'user_id' => $this->userID,);
 			}else{
 				$data = array('protocol' => intval(I('protocol')),
-						'inputFile' => I('inputFile'),
+						'inputFile' => $input,
 						'parameter' => $par,
 						'run_dir' => F('RUNFOLDER'),
 						'user_id' => $this->userID,);
 			}
+			
 			if (getDirSize(F('RUNFOLDER')."/{$this->userID}") < F('UDISKQ')){
 				$queDB->add($data);
 				$this->success('Successfully added job into queue.');
@@ -169,6 +173,24 @@ class JobController extends AuthController {
 			session('UP-'.$this->userID, $userPath);
 			$storePath = pathJoin(F('RUNFOLDER'), $this->userID, $jobStore);
 			$this->treeFolder($userPath, $storePath);
+		}
+	}
+	public function showUploads(){
+		if ($this->userID){
+			$directory = F('RUNFOLDER').'/'.$this->userID.'/uploads';
+			$mydir=dir($directory);
+			if ($mydir){
+				while(@$file=$mydir->read()){
+					//$trace = base64_encode($mydir.'/'.$file);
+					if((is_dir("$directory/$file")) AND ($file!=".") AND ($file!="..")){
+						continue;
+					}else{
+						if ($file != '.' && $file != '..'){
+							echo "<label class='checkbox'><input type='checkbox' name='inputFile-r[]' id='inputFile-lf' value='$file'> $file</label>";
+						}
+					}
+				}
+			}
 		}
 	}
 	public function showLog($jobId){

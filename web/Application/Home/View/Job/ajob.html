@@ -59,7 +59,22 @@
                   <div class="control-group">
                     <label class="control-label" for="inputFile">Initial input file</label>
                     <div class="controls">
-                      <input type="text" class="input-xlarge" id="inputFile" name="inputFile" />
+                      <div class="btn-group">
+						<button type="button" class="btn" id="lf-trigger">Choose FTP file</button>
+						<button type="button" class="btn" id="rf-trigger">Fetch Remote file</button>
+					  </div>
+                    </div>
+                  </div>
+                  <div id="rf-container" class="control-group" style="display: none;">
+                    <label class="control-label" for="inputFile">Remote file (URL):</label>
+                    <div class="controls">
+                      <input type="text" class="input-xlarge" id="inputFile-rf" name="inputFile" />
+                    </div>
+                  </div>
+                  <div id="lf-container" class="control-group" style="display: none;">
+                    <label class="control-label" for="inputFile">Uploaded files:</label>
+                    <div class="controls" id="lf-list">
+                      
                     </div>
                   </div>
                   <div class="control-group">
@@ -146,6 +161,7 @@
 					showCloseButton: true
 				});
 				$("#inputFile").val('');
+				$("#inputFile-lf").removeAttr("checked");
 				$("#parameter").val('');
 				$("#run_dir").val('');
 				$("#verify").val('');
@@ -172,6 +188,27 @@
 	});
 	$(function () {
 		$('[data-toggle="popover"]').popover();
+	});
+	$("#rf-trigger").click(function(){
+		$("#rf-container").show('slow');
+		$("#lf-container").hide('slow');
+		$("#rf-trigger").attr("disabled", true);
+		$("#lf-trigger").attr("disabled", false);
+		$("#inputFile-lf").removeAttr("checked");
+		//return false;
+	});
+	$("#lf-trigger").click(function(){
+		$("#rf-container").hide('slow');
+		$("#rf-trigger").attr("disabled", false);
+		$("#lf-trigger").attr("disabled", true);
+		$("#inputFile-rf").val("");
+		$.get("__CONTROLLER__/showUploads", function(result){
+		    $('#lf-list').html(result);
+		    $('#lf-container').show();
+		    $("#rf-trigger").attr("disabled", false);
+			$("#lf-trigger").attr("disabled", true);
+		});
+		//return false;
 	});
   </script>
 </body>
