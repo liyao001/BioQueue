@@ -34,7 +34,7 @@ def loadUserTable():
         ws = getConfig('env', 'workspace')
         for u in cur.fetchall():
             userDir = os.path.join(ws, str(u[0]), 'uploads')
-            print userDir
+            
             if not os.path.exists(userDir):
                 os.makedirs(userDir)
             authorizere.add_user(u[1], u[2]+'{CPBQSPLIT}'+u[3], userDir, perm='elradfmw')

@@ -7,3 +7,4 @@ web/config.conf
 .pydevproject
 *.pyc
 worker/config.conf
+/web/Workspace/*
