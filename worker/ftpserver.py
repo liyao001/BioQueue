@@ -2,18 +2,20 @@
 from pyftpdlib.authorizers import DummyAuthorizer, AuthenticationFailed
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
-from databaseDriver import conMySQL
+from databaseDriver import con_mysql
 from hashlib import md5
-from baseDriver import getConfig
-import os, sys
+from baseDriver import get_config
+import os
+import sys
+
 
 class DummyMD5Authorizer(DummyAuthorizer):
 
     def validate_authentication(self, username, password, handler):
         try:
-            #password{CPBSPLIT}salt
-            storedPWCombain = self.user_table[username]['pwd']
-            pw, salt = storedPWCombain.split('{CPBQSPLIT}')
+            # password{CPBSPLIT}salt
+            stored_password_combine = self.user_table[username]['pwd']
+            pw, salt = stored_password_combine.split('{CPBQSPLIT}')
             password = password+salt
             if sys.version_info >= (3, 0):
                 for i in range(5):
@@ -25,31 +27,32 @@ class DummyMD5Authorizer(DummyAuthorizer):
         except KeyError:
             raise AuthenticationFailed
 
-def loadUserTable():
+
+def load_user_table():
     try:
-        con, cur = conMySQL()
+        con, cur = con_mysql()
         sql = '''SELECT `id`, `user`, `passwd`, `salt` FROM `user` WHERE `status` > 0;'''
         cur.execute(sql)
         authorizere = DummyMD5Authorizer()
-        ws = getConfig('env', 'workspace')
+        ws = get_config('env', 'workspace')
         for u in cur.fetchall():
-            userDir = os.path.join(ws, str(u[0]), 'uploads')
+            user_directory = os.path.join(ws, str(u[0]), 'uploads')
             
-            if not os.path.exists(userDir):
-                os.makedirs(userDir)
-            authorizere.add_user(u[1], u[2]+'{CPBQSPLIT}'+u[3], userDir, perm='elradfmw')
+            if not os.path.exists(user_directory):
+                os.makedirs(user_directory)
+            authorizere.add_user(u[1], u[2]+'{CPBQSPLIT}'+u[3], user_directory, perm='elradfmw')
         return authorizere
     except Exception, e:
         print e
         return 0
 
 if __name__ == "__main__":
-    authorizere = loadUserTable()
+    authorizere = load_user_table()
     if authorizere:
         handler = FTPHandler
         handler.authorizer = authorizere
         
-        server = FTPServer((getConfig('env', 'ftp_addr'), int(getConfig('env', 'ftp_port'))), handler)
+        server = FTPServer((get_config('env', 'ftp_addr'), int(get_config('env', 'ftp_port'))), handler)
         server.serve_forever()
     else:
         print '==Unable to Start CPBQueue FTP Server=='

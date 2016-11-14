@@ -1,152 +1,196 @@
 #!/usr/bin/env python
-from databaseDriver import conMySQL, getResource, updateResource
-import subprocess, checkPoint, HTMLParser, shlex, hashlib, time, os, baseDriver, re
+from databaseDriver import con_mysql, get_resource, update_resource
+import subprocess
+import checkPoint
+import HTMLParser
+import shlex
+import time
+import os
+import baseDriver
+import re
 
-con, cursor = conMySQL()
-thisInputSize = 0
-thisOutputSize = 0
-cumulativeOutputSize = 0
-traceId = 0
-iniFile = ''
+# con, cursor = con_mysql()
+this_input_size = 0
+this_output_size = 0
+cumulative_output_size = 0
+trace_id = 0
+ini_file = ''
 
-def getProtocol(proId):
-    '''Get entire protocol and assign those constants'''
-    html_parser = HTMLParser.HTMLParser()
-    query = '''SELECT software, parameter, specify_output, hash FROM %s WHERE `parent`=%s ORDER BY id ASC;''' % (baseDriver.getConfig("datasets", "protocolDb"), proId)
-    cursor.execute(query)
-    tmp = cursor.fetchall()
-    steps = [html_parser.unescape(str(step[0]).rstrip()+" "+str(step[1])) for step in tmp]
-    outs = [str(step[2]) for step in tmp]
-    hashes = [str(step[3]) for step in tmp]
-    parseProtocolCST(steps)
-    return steps, outs, hashes
 
-def parseProtocolCST(steps):
-    '''Replace constants in step'''
+def get_protocol(process_id):
+    """Get entire protocol and assign those constants"""
+    try:
+        con, cursor = con_mysql()
+        html_parser = HTMLParser.HTMLParser()
+        query = '''SELECT software, parameter, specify_output, hash FROM %s WHERE `parent`=%s ORDER BY id ASC;''' \
+                % (baseDriver.get_config("datasets", "protocolDb"), process_id)
+        cursor.execute(query)
+        tmp = cursor.fetchall()
+        steps = [html_parser.unescape(str(step[0]).rstrip() + " " + str(step[1])) for step in tmp]
+        outs = [str(step[2]) for step in tmp]
+        hashes = [str(step[3]) for step in tmp]
+        parse_protocol_cst(steps)
+        con.close()
+        return steps, outs, hashes
+    except Exception, e:
+        print e
+        return
+
+
+def parse_protocol_cst(steps):
+    """Replace constants in step"""
     from multiprocessing import cpu_count
-    CONSTANT = {
+    constant = {
         '{ThreadN}': cpu_count(),
     }
 
     for k, v in enumerate(steps):
-        for key in CONSTANT.keys():
+        for key in constant.keys():
             if v.find(key) != -1:
-                tmp = steps[k]
-                steps[k] = steps[k].replace(key, str(CONSTANT[key]))
+                steps[k] = steps[k].replace(key, str(constant[key]))
 
-def getJob():
-    '''Get job information from queue database'''
+
+def get_job():
+    """Get job information from queue database"""
     '''
-    dynSQL = """SELECT COUNT(*) FROM %s WHERE `status` > 0 or `status` = -2;"""%baseDriver.getConfig("datasets", "jobDb")
+    dynSQL = """SELECT COUNT(*) FROM %s WHERE `status` > 0 or `status` = -2;"""%baseDriver.get_config("datasets", "jobDb")
     cursor.execute(dynSQL)
     running = cursor.fetchone()
     con.commit()
     if int(running[0])!=0:
         return 0, 0, 0, 0, 0, 0, 0
     '''
-    query = """SELECT `id`, `protocol`, `inputFile`, `parameter`, `run_dir`, `user_id`, `resume` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" % baseDriver.getConfig("datasets", "jobDb")
-    cursor.execute(query)
-    res = cursor.fetchone()
-    if res != None:
-        id, protocol, inputFile, parameter, runDirctory, user, resume = res
-        baseDriver.update(baseDriver.getConfig("datasets", "jobDb"), id, 'status', -2)#mark job
-        return id, protocol, inputFile, parameter, runDirctory, user, int(resume)
-    else:
+    try:
+        con, cursor = con_mysql()
+        query = """SELECT `id`, `protocol`, `inputFile`, `parameter`, `run_dir`, `user_id`, `resume` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" \
+                % baseDriver.get_config("datasets", "jobDb")
+        cursor.execute(query)
+        res = cursor.fetchone()
+
+        if res is not None:
+            job_id, protocol, input_file, parameter, run_directory, user, resume = res
+            baseDriver.update(baseDriver.get_config("datasets", "jobDb"), job_id, 'status', -2)
+            con.close()
+            return job_id, protocol, input_file, parameter, run_directory, user, int(resume)
+        else:
+            con.close()
+            return 0, 0, 0, 0, 0, 0, 0
+    except Exception, e:
+        print e
         return 0, 0, 0, 0, 0, 0, 0
 
-def insertSQL(sql):
+
+def insert_sql(sql):
     try:
+        con, cursor = con_mysql()
         cursor.execute(sql)
-        id = cursor.insert_id()
+        row_id = cursor.insert_id()
         con.commit()
+        con.close()
     except Exception, e:
         print e
         return 0
-    return id
+    return row_id
 
-def callProc(parameter, step, jobId, rund='', stepHash=''):
-    global thisInputSize, thisOutputSize, cumulativeOutputSize, traceId, iniFile
-    isoFile = 0
+
+def call_process(parameter, step, job_id, run_directory='', step_hash=''):
+    global this_input_size, this_output_size, cumulative_output_size, trace_id, ini_file
+    iso_file = 0
     learning = 0
-    folderSizeBefore = 0
+    folder_size_before = 0
     try:
-        trainingNum = getTrainingItems(stepHash)
-        if rund != '':
-            if trainingNum < 100:
+        training_num = get_training_items(step_hash)
+        if run_directory != '':
+            if training_num < 100:
                 learning = 1
-            if thisInputSize == 0:
-                thisInputSize = baseDriver.getFolderSize(rund)
-                if thisInputSize == 0 and step == 0:
-                    thisInputSize = baseDriver.getRemoteSizeFactory(iniFile)
-                    isoFile = 1
+            if this_input_size == 0:
+                this_input_size = baseDriver.get_folder_size(run_directory)
+                if this_input_size == 0 and step == 0:
+                    this_input_size = baseDriver.get_remote_size_factory(ini_file)
+                    iso_file = 1
             else:
-                thisInputSize = thisOutputSize #in fact this is the last output
-            folderSizeBefore = baseDriver.getFolderSize(rund)
-            
-            if learning == 1:
-                traceId = createMachineLearningItem(stepHash, thisInputSize)
+                this_input_size = this_output_size
+            folder_size_before = baseDriver.get_folder_size(run_directory)
 
-            terProc = subprocess.Popen(["python", "procManeuver.py", "-p", str(os.getpid()), "-j", str(jobId)], shell=False, stdout = None, stderr = subprocess.STDOUT)
-            status, cpuN, memN, diskN = checkPoint.checkOk2Go(jobId, stepHash, thisInputSize, trainingNum)
-            while not status:
-                time.sleep(13)
-                status, cpuN, memN, diskN = checkPoint.checkOk2Go(jobId, stepHash, thisInputSize, trainingNum)
-            proc = subprocess.Popen(parameter, shell=False, stdout = subprocess.PIPE, stderr = subprocess.PIPE, cwd=rund)
-            if learning == 1 and stepHash != '':
-                learnProc = subprocess.Popen(["python", "mlCollector.py", "-p", str(proc.pid), "-n", str(stepHash), "-j", str(traceId)], shell=False, stdout = None, stderr = subprocess.STDOUT)
-        else:
-            status, cpuN, memN, diskN = checkPoint.checkOk2Go(jobId, stepHash)
-            while not status:
-                time.sleep(13)
-                status, cpuN, memN, diskN = checkPoint.checkOk2Go(jobId, stepHash)
-            proc = subprocess.Popen(parameter, shell=False, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        baseDriver.update(baseDriver.getConfig("datasets", "jobDb"), jobId, 'status', step+1)
-        stdout, stderr = proc.communicate()
-        stdout += stderr
-        baseDriver.recordJob(jobId, stdout)
-        
-        if rund != '':
-            if isoFile == 1:
-                thisInputSize = 0
-                isoFile = 0
-            thisOutputSize = baseDriver.getFolderSize(rund) - folderSizeBefore
-            #cpuBf, memBf, diskBf = getResource()
-            print '=='+str(jobId)+'=='+str(step)+'== diskN', diskN, 'outputSize', thisOutputSize
-            updateResource(float(cpuN), float(memN), float(diskN)-thisOutputSize)
-            cumulativeOutputSize += thisOutputSize
             if learning == 1:
-                baseDriver.update(baseDriver.getConfig("datasets", "trainStore"), traceId, 'out', thisOutputSize)
-        return proc.returncode
+                trace_id = create_machine_learning_item(step_hash, this_input_size)
+
+            process_maintain = subprocess.Popen(["python", "procManeuver.py", "-p", str(os.getpid()), "-j",
+                                                 str(job_id)], shell=False, stdout=None, stderr=subprocess.STDOUT)
+            status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
+                                                                                       this_input_size, training_num)
+            while not status:
+                time.sleep(13)
+                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
+                                                                                           this_input_size,
+                                                                                           training_num)
+            step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                            cwd=run_directory)
+            if learning == 1 and step_hash != '':
+                learn_process = subprocess.Popen(["python", "mlCollector.py", "-p", str(step_process.pid), "-n",
+                                                  str(step_hash), "-j", str(trace_id)], shell=False, stdout=None,
+                                                 stderr=subprocess.STDOUT)
+        else:
+            status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash)
+            while not status:
+                time.sleep(13)
+                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash)
+            step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        baseDriver.update(baseDriver.get_config("datasets", "jobDb"), job_id, 'status', step + 1)
+        stdout, stderr = step_process.communicate()
+        stdout += stderr
+        baseDriver.record_job(job_id, stdout)
+
+        if run_directory != '':
+            if iso_file == 1:
+                this_input_size = 0
+                iso_file = 0
+            this_output_size = baseDriver.get_folder_size(run_directory) - folder_size_before
+            print '==' + str(job_id) + '==' + str(step) + '== disk_needed', disk_needed, 'outputSize', this_output_size
+            update_resource(float(cpu_needed), float(memory_needed), float(disk_needed) - this_output_size)
+            cumulative_output_size += this_output_size
+            if learning == 1:
+                baseDriver.update(baseDriver.get_config("datasets", "trainStore"), trace_id, 'out', this_output_size)
+        return step_process.returncode
     except Exception, e:
         print 'Error caused by CPBQueue', e
-        #baseDriver.update(baseDriver.getConfig("datasets", "jobDb"), jobId, 'status', -3)
+        # baseDriver.update(baseDriver.get_config("datasets", "jobDb"), job_id, 'status', -3)
         return 1
 
-def createMachineLearningItem(stepHash, inputSize):
-    dynSQL = """INSERT INTO %s (`step`, `in`) VALUES ('%s', '%s');""" % (baseDriver.getConfig("datasets", "trainStore"), stepHash, str(inputSize))
+
+def create_machine_learning_item(step_hash, inputSize):
+    dyn_sql = """INSERT INTO %s (`step`, `in`) VALUES ('%s', '%s');""" \
+              % (baseDriver.get_config("datasets", "trainStore"), step_hash, str(inputSize))
     try:
-        cursor.execute(dynSQL)
-        id = con.insert_id()
+        con, cursor = con_mysql()
+        cursor.execute(dyn_sql)
+        record_id = con.insert_id()
         con.commit()
+        con.close()
     except Exception, e:
         print e
         return 0
-    return id
+    return record_id
 
-def getTrainingItems(stepHash):
-    dynSQL = """SELECT COUNT(*) FROM %s WHERE `step`='%s';""" % (baseDriver.getConfig("datasets", "trainStore"), stepHash)
+
+def get_training_items(step_hash):
+    dyn_sql = """SELECT COUNT(*) FROM %s WHERE `step`='%s';""" \
+              % (baseDriver.get_config("datasets", "trainStore"), step_hash)
     try:
-        cursor.execute(dynSQL)
+        con, cursor = con_mysql()
+        cursor.execute(dyn_sql)
         trains = cursor.fetchone()
         con.commit()
+        con.close()
         return trains[0]
     except Exception, e:
         print e
         return 0
 
-def soParser(all):
-    specialDict = {}
-    for output in all:
+
+def so_parser(all_output):
+    special_dict = {}
+    for output in all_output:
         if output.find(';') != -1:
             options = output.split(';')
             options.remove('')
@@ -154,10 +198,11 @@ def soParser(all):
                 k, v = option.split('=')
                 k.strip()
                 v.strip()
-                specialDict[k] = v
-    return specialDict
+                special_dict[k] = v
+    return special_dict
 
-def createUserFolder(uf, jf):
+
+def create_user_folder(uf, jf):
     try:
         if not os.path.exists(uf):
             os.mkdir(uf)
@@ -166,97 +211,101 @@ def createUserFolder(uf, jf):
     except Exception, e:
         print e
 
-def dynamicRun():
-    global traceId, iniFile, cumulativeOutputSize
-    outputSize = []; lastOutput = []; thisOutput = []; outputs = []; newFiles = []
-    outDic = {}
-    lastOutputS = ''
-    
-    jid, protocol, iniFile, indeedParameter, runf, userId, resume = getJob()
-    
-    if jid == 0 or protocol == 0 or iniFile == '':
+
+def dynamic_run():
+    global trace_id, ini_file, cumulative_output_size
+    outputs = []
+    new_files = []
+    out_dic = {}
+    last_output_string = ''
+
+    jid, protocol, ini_file, indeed_parameter, run_folder, user_id, resume = get_job()
+
+    if jid == 0 or protocol == 0 or ini_file == '':
         return 1
-    
-    resultStore = baseDriver.randSig()+str(jid)
-    userFolder = os.path.join(runf, str(userId))
-    runf = os.path.join(userFolder, resultStore)
-    
-    createUserFolder(userFolder, runf)
-    #initSet = {'result': resultStore, 'pid':os.getpid()}
-    #baseDriver.multiUpdate(baseDriver.getConfig("datasets", "jobDb"), jid, initSet)
-    baseDriver.update(baseDriver.getConfig("datasets", "jobDb"), jid, 'result', resultStore)
-    
-    steps, specialOutput, hs = getProtocol(protocol)
-    VARIABLE = {'firstFile': '{InitInput}', 
+
+    result_store = baseDriver.rand_sig() + str(jid)
+    user_folder = os.path.join(run_folder, str(user_id))
+    run_folder = os.path.join(user_folder, result_store)
+
+    create_user_folder(user_folder, run_folder)
+    # initSet = {'result': result_store, 'pid':os.getpid()}
+    # baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, initSet)
+    baseDriver.update(baseDriver.get_config("datasets", "jobDb"), jid, 'result', result_store)
+
+    steps, special_output, hs = get_protocol(protocol)
+    variable = {'firstFile': '{InitInput}',
                 'lastFile': '{LastOutput}',
                 'allOutput': '{AllOutputBefore}',
-                'jobId': '{job}',}
-    #ip = soParser(indeedParameter)
-    specialOutput.append(indeedParameter)
-    so = soParser(specialOutput)
-    rg = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE|re.DOTALL)
-    
-    lo = ''
-    for k,v in enumerate(steps):
-        #skip finished steps
+                'jobId': '{job}', }
+    # ip = so_parser(indeed_parameter)
+    special_output.append(indeed_parameter)
+    so = so_parser(special_output)
+    rg = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
+
+    for k, v in enumerate(steps):
+        # skip finished steps
         if k < resume:
             continue
-        #load cached output
+        # load cached output
         if resume != -1:
-            outDic = baseDriver.loadOutputDict(jid)
+            out_dic = baseDriver.load_output_dict(jid)
 
         for keyword in so.keys():
-            steps[k] = steps[k].replace('{'+keyword+'}', so[keyword])
+            steps[k] = steps[k].replace('{' + keyword + '}', so[keyword])
 
-        steps[k] = steps[k].replace(VARIABLE['firstFile'], iniFile)
-        steps[k] = steps[k].replace(VARIABLE['jobId'], str(jid))
-        steps[k] = steps[k].replace(VARIABLE['lastFile'], lastOutputS)
-        steps[k] = steps[k].replace(VARIABLE['allOutput'], ' '.join(outputs))
-        
-        for key, value in enumerate(newFiles):
-            steps[k] = steps[k].replace('{LastOutput'+str(key)+'}', value)
-            
-        for outItem in re.findall(rg, steps[k]):
-            if outDic.has_key(int(outItem[0])) and (int(outItem[1])-1) < len(outDic[int(outItem[0])]):
-                steps[k] = steps[k].replace('{Output'+outItem[0]+'-'+outItem[1]+'}', outDic[int(outItem[0])][int(outItem[1])-1])
+        steps[k] = steps[k].replace(variable['firstFile'], ini_file)
+        steps[k] = steps[k].replace(variable['jobId'], str(jid))
+        steps[k] = steps[k].replace(variable['lastFile'], last_output_string)
+        steps[k] = steps[k].replace(variable['allOutput'], ' '.join(outputs))
+
+        for key, value in enumerate(new_files):
+            steps[k] = steps[k].replace('{LastOutput' + str(key) + '}', value)
+
+        for out_item in re.findall(rg, steps[k]):
+            if out_item[0] in out_dic and (int(out_item[1]) - 1) < len(out_dic[int(out_item[0])]):
+                steps[k] = steps[k].replace('{Output' + out_item[0] + '-' + out_item[1] + '}',
+                                            out_dic[int(out_item[0])][int(out_item[1]) - 1])
         par = shlex.shlex(steps[k])
-        par.quotes='"'
-        par.whitespace_split=True
-        par.commenters=''
+        par.quotes = '"'
+        par.whitespace_split = True
+        par.commenters = ''
         parameters = list(par)
-        lastOutput = os.listdir(runf)
-        
-        if runf:
-            ret = callProc(parameters, k, jid, rund=runf, stepHash=hs[k])
+        last_output = os.listdir(run_folder)
+
+        if run_folder:
+            ret = call_process(parameters, k, jid, run_directory=run_folder, step_hash=hs[k])
         else:
-            ret = callProc(parameters, k, jid)
-        
-        runningSet = {'resume':k, 'status': -2}
-        baseDriver.multiUpdate(baseDriver.getConfig("datasets", "jobDb"), jid, runningSet)
-        
+            ret = call_process(parameters, k, jid)
+
+        running_set = {'resume': k, 'status': -2}
+        baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, running_set)
+
         if ret != 0:
-            print "Error when executing: "+steps[k]
-            m = {'status':-3, 'pid':-1}
-            baseDriver.multiUpdate(baseDriver.getConfig("datasets", "jobDb"), jid, m)
-            baseDriver.delete(baseDriver.getConfig("datasets", "trainStore"), traceId)
-            baseDriver.saveOutputDict(outDic, jid)
+            print "Error when executing: " + steps[k]
+            m = {'status': -3, 'pid': -1}
+            baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, m)
+            baseDriver.delete(baseDriver.get_config("datasets", "trainStore"), trace_id)
+            baseDriver.save_output_dict(out_dic, jid)
             return 2
-        thisOutput = os.listdir(runf)
-        newFiles = sorted(list(set(thisOutput).difference(set(lastOutput))))
-        outputs.extend(newFiles)
-        outDic[k+1] = newFiles
-        lastOutputS = ' '.join(list(set(thisOutput).difference(set(lastOutput))))
-    
-    finalSize = baseDriver.getFolderSize(runf)
-    updateResource(0, 0, cumulativeOutputSize-finalSize)
+        this_output = os.listdir(run_folder)
+        new_files = sorted(list(set(this_output).difference(set(last_output))))
+        outputs.extend(new_files)
+        out_dic[k + 1] = new_files
+        last_output_string = ' '.join(list(set(this_output).difference(set(last_output))))
+
+    final_size = baseDriver.get_folder_size(run_folder)
+    update_resource(0, 0, cumulative_output_size - final_size)
     if ret == 0:
-        #mark as finished
-        #m = {'status':-1, 'pid':-1}
-        #baseDriver.multiUpdate(baseDriver.getConfig("datasets", "jobDb"), jid, m)
-        baseDriver.update(baseDriver.getConfig("datasets", "jobDb"), jid, 'status', -1)
-        baseDriver.delOutputDict(jid)
+        # mark as finished
+        # m = {'status':-1, 'pid':-1}
+        # baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, m)
+        baseDriver.update(baseDriver.get_config("datasets", "jobDb"), jid, 'status', -1)
+        baseDriver.del_output_dict(jid)
     else:
         # save output
-        baseDriver.saveOutputDict(outDic, jid)
+        baseDriver.save_output_dict(out_dic, jid)
+
+
 if __name__ == '__main__':
-    dynamicRun()
+    dynamic_run()
