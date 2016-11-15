@@ -283,7 +283,7 @@ def dynamic_run():
 
         if ret != 0:
             print "Error when executing: " + steps[k]
-            m = {'status': -3, 'pid': -1}
+            m = {'status': -3, 'ter': -1}
             baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, m)
             baseDriver.delete(baseDriver.get_config("datasets", "trainStore"), trace_id)
             baseDriver.save_output_dict(out_dic, jid)

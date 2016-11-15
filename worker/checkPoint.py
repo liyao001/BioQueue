@@ -1,5 +1,6 @@
 #!/usb/bin/env python
 from numpy import *
+import numpy
 from databaseDriver import con_mysql, get_resource, update_resource
 from baseDriver import get_config, get_disk_free, get_cpu_available, get_memo_usage_available, rand_sig
 import pandas as pd
@@ -17,9 +18,12 @@ def load_train_frame(step_hash):
         conn, cur = con_mysql()
         sql = """SELECT * FROM `%s` WHERE `step`='%s';"""%(get_config("datasets", "trainStore"), step_hash)
         train_dataframe = pd.read_sql_query(sql, conn)
+        train_dataframe = train_dataframe.replace('-1', numpy.nan)
+        train_dataframe['in'] = train_dataframe['in'].astype('float32')
+        train_dataframe['out'] = train_dataframe['out'].astype('float32')
         train_dataframe['cpu'] = train_dataframe['cpu'].astype('float32')
         train_dataframe['mem'] = train_dataframe['mem'].astype('float32')
-        train_dataframe.fillna(train_dataframe.mean())
+        train_dataframe = train_dataframe.fillna(train_dataframe.mean())
         tmp_x = list(train_dataframe['in'])
         tmp_out = list(train_dataframe['out'])
         tmp_mem = list(train_dataframe['mem'])
