@@ -94,9 +94,9 @@ def con_mysql():
 
 
 def update(table, jid, field, value):
-    connection, cursor = con_mysql()
     query = """UPDATE `%s` SET `%s` = '%s' WHERE `id` = %s;""" % (table, field, value, jid)
     try:
+        connection, cursor = con_mysql()
         cursor.execute(query)
         connection.commit()
         connection.close()
@@ -107,13 +107,13 @@ def update(table, jid, field, value):
 
 
 def multi_update(table, jid, m):
-    connection, cursor = con_mysql()
     res = []
     for key in m:
         res.append("`%s` = '%s'" % (key, m[key]))
     dyn_sql = ', '.join(res)
     query = """UPDATE `%s` SET %s WHERE `id` = %s;""" % (table, dyn_sql, jid)
     try:
+        connection, cursor = con_mysql()
         cursor.execute(query)
         connection.commit()
         connection.close()
@@ -139,9 +139,9 @@ def get_field(field, table, key, value):
 
 
 def delete(table, record_id):
-    connection, cursor = con_mysql()
     query = """DELETE FROM `%s` WHERE `id` = '%s';""" % (table, record_id)
     try:
+        connection, cursor = con_mysql()
         cursor.execute(query)
         connection.commit()
         connection.close()

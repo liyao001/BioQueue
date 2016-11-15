@@ -1,12 +1,15 @@
 #!/usr/local/bin python
-import psutil, time, getopt, sys
+import psutil
+import time
+import getopt
+import sys
 from baseDriver import get_config, update
 from databaseDriver import con_mysql
 
-memList = []
-cpuList = []
-readList = []
-writeList = []
+mem_list = []
+cpu_list = []
+read_list = []
+write_list = []
 
 
 def get_mem(pid):
@@ -63,7 +66,9 @@ def main():
     if len(opts) == 0:
         sys.exit()
         
-    step_hash = ''; process_id = 0; job_id = 0
+    step_hash = ''
+    process_id = 0
+    job_id = 0
     
     for o, a in opts:
         if o in ("-n","--protocolStep"):
@@ -81,8 +86,8 @@ def main():
 
                 if process_info.is_running():
                     try:
-                        memList.append(get_mem(process_id))
-                        cpuList.append(get_cpu(process_id))
+                        mem_list.append(get_mem(process_id))
+                        cpu_list.append(get_cpu(process_id))
                         time.sleep(30)
                     except Exception, e:
                         print e
@@ -92,16 +97,16 @@ def main():
             else:
                 break
 
-        if len(memList) > 0:
-            mem_usage = max(memList)
+        if len(mem_list) > 0:
+            mem_usage = max(mem_list)
         else:
             mem_usage = -1
-        if len(cpuList) > 2:
-            samples = round(len(cpuList)*0.1)
-            cpuList.sort(reverse=True)
-            cpu_usage = sum(cpuList[0:samples])/samples
-        elif len(cpuList) == 1:
-            cpu_usage = cpuList[0]
+        if len(cpu_list) > 2:
+            samples = round(len(cpu_list)*0.1)
+            cpu_list.sort(reverse=True)
+            cpu_usage = sum(cpu_list[0:samples])/samples
+        elif len(cpu_list) == 1:
+            cpu_usage = cpu_list[0]
         else:
             cpu_usage = -1
         update(get_config('datasets', 'trainStore'), job_id, 'mem', mem_usage)
