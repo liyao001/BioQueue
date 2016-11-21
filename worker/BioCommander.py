@@ -212,6 +212,15 @@ def create_user_folder(uf, jf):
         print e
 
 
+def build_upload_file_path(user_folder, file_name):
+    upload_path = os.path.join(user_folder, 'uploads')
+    file_path = os.path.join(upload_path, file_name)
+    if os.path.exists(file_path):
+        return file_path
+    else:
+        return 0
+
+
 def dynamic_run():
     global trace_id, ini_file, cumulative_output_size
     outputs = []
@@ -241,7 +250,8 @@ def dynamic_run():
     # ip = so_parser(indeed_parameter)
     special_output.append(indeed_parameter)
     so = so_parser(special_output)
-    rg = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
+    output_replacement = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
+    uploaded_replacement = re.compile("\\{Uploaded:(.*?)}", re.IGNORECASE | re.DOTALL)
 
     for k, v in enumerate(steps):
         # skip finished steps
@@ -262,10 +272,17 @@ def dynamic_run():
         for key, value in enumerate(new_files):
             steps[k] = steps[k].replace('{LastOutput' + str(key) + '}', value)
 
-        for out_item in re.findall(rg, steps[k]):
+        for out_item in re.findall(output_replacement, steps[k]):
             if out_item[0] in out_dic and (int(out_item[1]) - 1) < len(out_dic[int(out_item[0])]):
                 steps[k] = steps[k].replace('{Output' + out_item[0] + '-' + out_item[1] + '}',
                                             out_dic[int(out_item[0])][int(out_item[1]) - 1])
+
+        for uploaded_item in re.findall(uploaded_replacement, steps[k]):
+            upload_file = build_upload_file_path(user_folder, uploaded_item)
+            if upload_file is not None:
+                steps[k] = steps[k].replace('{Uploaded:' + uploaded_item + '}',
+                                            upload_file)
+
         par = shlex.shlex(steps[k])
         par.quotes = '"'
         par.whitespace_split = True

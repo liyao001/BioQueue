@@ -195,15 +195,13 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                                 (get_config("datasets", "jobDb"), job_id)
                 cur.execute(get_running_sql)
                 running = cur.fetchone()
+                conn.close()
                 if running:
                     if running[0] == 0:
-                        conn.close()
                         return 1, 0, 0, 0
                     else:
-                        conn.close()
                         return 0, 0, 0, 0
                 else:
-                    conn.close()
                     return 1, 0, 0, 0
             elif training_num < 100:
                 cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
@@ -215,21 +213,17 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 memory_needed = int((am*in_size+bm)*0.9)
                 cpu_needed = int((ac*in_size+bc)*0.9)
                 print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', cpu_needed, 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', memory_needed, 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', disk_needed, 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
+                conn.close()
                 if disk_needed > get_disk_free(run_path) or disk_needed > disk_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
                 if memory_needed > get_memo_usage_available() or memory_needed > memory_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
                 if cpu_needed > get_cpu_available() or cpu_needed > cpu_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
 
                 if update_resource(-1*cpu_needed, -1*memory_needed, -1*disk_needed):
-                    conn.close()
                     return 1, cpu_needed, memory_needed, disk_needed
                 else:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
             else:
                 cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
@@ -241,22 +235,17 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 memory_needed = int((am*in_size+bm)*0.9)
                 cpu_needed = int((ac*in_size+bc)*0.9)
                 print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', cpu_needed, 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', memory_needed, 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', disk_needed, 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
-
+                conn.close()
                 if disk_needed > get_disk_free(run_path) or disk_needed > disk_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
                 if memory_needed > get_memo_usage_available() or memory_needed > memory_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
                 if cpu_needed > get_cpu_available() or cpu_needed > cpu_max_pool:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
 
                 if update_resource(-1*cpu_needed, -1*memory_needed, -1*disk_needed):
-                    conn.close()
                     return 1, cpu_needed, memory_needed, disk_needed
                 else:
-                    conn.close()
                     return 0, cpu_needed, memory_needed, disk_needed
     except Exception, err:
         print err
