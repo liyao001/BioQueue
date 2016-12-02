@@ -1,0 +1,187 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Dashboard | CPBQueue</title>
+<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+</head>
+<body>
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container-fluid">
+    	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+    		<span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
+    	</a>
+    	<a class="brand" href="__APP__">
+    		<span class='brand-slogan'>CPBQueue</span>
+    	</a>
+    	<div class="btn-group pull-right" style="margin-top:3px;">
+    		{% if user.is_authenticated %}
+                <a class="btn" href="{% url 'accounts:logout' %}"><i class="icon-user"></i> Log out</a>
+            {% endif %}
+		</div>
+	</div>
+  </div>
+</div>
+<div style="margin: 0 auto; width: 90%;">
+	<ul class="breadcrumb">
+	  <li><a href="#">Index</a> <span class="divider">/</span></li>
+	  <li class="active">Dashboard</li>
+	</ul>
+</div>
+<div class="row" style="padding: 5px; margin: 0 auto; width: 90%;">
+	<div class="metro-nav">
+		<div class="metro-nav-block nav-block-orange">
+		    <a data-original-title="" href="#cp" role="button" data-toggle="modal" data-target="#cp">
+            <!--<a href="{% url 'accounts:password_change' %}">-->
+		        <i class="icon-user"></i>
+		        <div class="info">Change</div>
+		        <div class="status">Password</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-deep-terques">
+		    <a data-original-title="" href="{% url 'ui:add_job' %}">
+		        <i class="icon-plus-sign"></i>
+		        <div class="info">Create</div>
+		        <div class="status">New Job</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-block-yellow double">
+		    <a data-original-title="" href="{% url 'ui:query_job' %}">
+		        <i class="icon-eye-open"></i>
+		        <div class="info">Running: {{ running_jobs }}</div>
+		        <div class="status">Job Status</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-block-green">
+		    <a data-original-title="" href="#" onclick="showFolder();">
+		        <i class="icon-folder-open"></i>
+		        <div class="info"></div>
+		        <div class="status">Sample Pool</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-block-red">
+		    <a data-original-title="" href="{% url 'ui:show_learning' %}">
+		        <i class="icon-bar-chart"></i>
+		        <div class="status">Machine Learning</div>
+		    </a>
+		</div>
+	</div>
+</div>
+<div class="row" style="padding: 5px; margin: 0 auto; width: 90%;">
+	<div class="metro-nav">
+		<div class="metro-nav-block nav-block-blue">
+		    <a data-original-title="" href="{% url 'ui:create_protocol' %}">
+		        <i class="icon-edit"></i>
+		        <div class="info">Create</div>
+		        <div class="status">Protocol</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-block-purple double">
+		    <a data-original-title="" href="{% url 'ui:query_protocol' %}">
+		        <i class="icon-pencil"></i>
+		        <div class="info">Edit</div>
+		        <div class="status">Protocol(Modify steps)</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-olive">
+		    <a data-original-title="" href="{% url 'ui:manage_reference' %}">
+		        <i class="icon-book"></i>
+		        <div class="info">Manage</div>
+		        <div class="status">Reference</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-light-brown">
+		    <a data-original-title="" href="{% url 'ui:settings' %}">
+		        <i class="icon-cog"></i>
+		        <div class="info">Settings</div>
+		        <div class="status">Authorization required</div>
+		    </a>
+		</div>
+		<div class="metro-nav-block nav-block-grey">
+		    <a data-original-title="" href="/admin/auth/user">
+		        <i class="icon-ok"></i>
+		        <div class="info">Users</div>
+		        <div class="status">Authorization required</div>
+		    </a>
+		</div>
+	</div>
+</div>
+<hr/>
+{% include 'ui/foot.html' %}
+<div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cp" style="width:276px;">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Change your password</h4>
+      </div>
+      <div class="modal-body">
+      <form action="{% url 'accounts:password_change' %}" method="post">
+          <div class="Validform_checktip alert" style="display: none;"></div>
+          <fieldset>
+              <label>Old Password</label>
+              <input type="password" name="old_password" id="old_password" placeholder="Old password" required>
+              <label>New Password</label>
+              <input type="password" name="new_password_1" id="new_password_1" placeholder="New password" required>
+              <label>Enter Your New Password Again</label>
+              <input type="password" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
+              {% csrf_token %}
+              <div><button type="submit" class="btn">Submit</button></div>
+          </fieldset>
+	  </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="showLog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">Upload Files</h4>
+            </div>
+            <div class="modal-body"> </div>
+        </div>
+    </div>
+</div>
+<script src="{% static "ui/js/jquery.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
+<script>
+$("form").submit(function(){
+    var self = $(this);
+    self.find(".Validform_checktip").hide();
+    $.post(self.attr("action"), self.serialize(), success, "json");
+    return false;
+
+    function success(data){
+        if(data.status){
+            window.location.href = '{% url 'accounts:login' %}';
+        } else {
+            self.find(".Validform_checktip").removeClass('alert-success').text(data.info).show();
+        }
+    }
+});
+function showFolder(){
+    $.get("{% url 'ui:show_workspace' %}", function(result){
+      $('#showFd .modal-body').html(result);
+      $('#showFd').modal();
+    });
+}
+function delFile(obj){
+	var self = $(obj);
+	$.get("/ui/delete-upload-file/"+self.attr("data-path"), function(data){
+		if(data.status){
+			self.parent().parent().hide('fast');
+		};
+	});
+};
+</script>
+</body>
+</html>

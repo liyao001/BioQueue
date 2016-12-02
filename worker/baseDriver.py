@@ -263,3 +263,11 @@ def del_output_dict(job):
         except Exception, e:
             print e
 
+
+def build_upload_file_path(user_folder, file_name):
+    upload_path = os.path.join(user_folder, 'uploads')
+    file_path = os.path.join(upload_path, file_name)
+    if os.path.exists(file_path):
+        return file_path
+    else:
+        return 0

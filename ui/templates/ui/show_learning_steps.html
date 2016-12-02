@@ -1,0 +1,23 @@
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>Software</th>
+			<th>Import Check point</th>
+		</tr>
+	</thead>
+	<tbody>
+	<volist name="stepl" id="hit">
+    {% for step in step_list %}
+	<tr class="pending-user">
+		<td>{{ step.id }}</td>
+		<td>{{ step.software }}</td>
+		<td>
+			<span class="label label-warning cpu" onclick="showML('{{ step.hash }}', 3);" style="cursor:pointer;">CPU</span>
+			<span class="label label-info mem" onclick="showML('{{ step.hash }}', 2);" style="cursor:pointer;">Memory</span>
+			<span class="label label-success disk" onclick="showML('{{ step.hash }}', 1);" style="cursor:pointer;">Disk</span>
+		</td>
+	</tr>
+	{% endfor %}
+	</tbody>
+</table>

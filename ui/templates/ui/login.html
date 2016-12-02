@@ -1,0 +1,45 @@
+{% extends "ui/single.html" %}
+{% block content %}
+<div class="well">
+    <h1 class="margin-base-vertical text-center" style="text-align:center;">Sign in CPBQueue</h1>
+    <form action="." method="post" class="form-horizontal">
+        <div class="control-group"></div>
+        <div class="Validform_checktip alert" style="display: none;"></div>
+        {{ form.as_p }}
+        {% csrf_token %}
+        <div class="control-group">
+            <div class="span6">
+              <button class="input-block-level btn btn-primary" type="submit" class="btn">
+              Sign in
+              </button>
+            </div>
+            <div class="span6">
+                <a class="input-block-level btn btn-success" type="submit" href="__CONTROLLER__/register">Sign up</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+$(document)
+    .ajaxStart(function(){
+        $("button:submit").addClass("log-in").attr("disabled", true);
+    })
+    .ajaxStop(function(){
+        $("button:submit").removeClass("log-in").attr("disabled", false);
+    });
+    $("form").submit(function(){
+        var self = $(this);
+        self.find(".Validform_checktip").hide();
+        $.post(self.attr("action"), self.serialize(), success, "json");
+        return false;
+
+        function success(data){
+            if(data.status){
+                window.location.href = data.url;
+            } else {
+                self.find(".Validform_checktip").text(data.info).show();
+            }
+        }
+    });
+{% endblock %}

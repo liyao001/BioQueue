@@ -1,0 +1,66 @@
+{% extends 'ui/base.html' %}
+{% block title %}Import Check Point | CPBQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Import Check Point</h1>
+    </div>
+    <table class="table table-bordered">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Protocol</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for protocol in protocol_list %}
+            <tr class="pending-user">
+                <td>{{ protocol.id }}</td>
+                <td><span onclick="showSteps({{ protocol.id }});" style="cursor:pointer;">{{ protocol.name }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <ul class="pager">
+        {% if protocol_list.has_previous %}
+            <li><a href="?page={{ protocol_list.previous_page_number }}">&lt;</a></li>
+        {% endif %}
+        <li><a>Page {{ protocol_list.number }} of {{ protocol_list.paginator.num_pages }}</a></li>
+        {% if protocol_list.has_next %}
+            <li><a href="?page={{ protocol_list.next_page_number }}">&gt;</a></li>
+        {% endif %}
+    </ul>
+    <div id="stepsContainer" style="display:none;"></div>
+</div>
+<div class="modal fade" id="ml" tabindex="-1" role="dialog" aria-labelledby="steps">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">Import Step Check Point</h4>
+            </div>
+            <div class="modal-body"> </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+    function showML(h, t){
+        $.get("{% url 'ui:fetch_learning' %}", {hash: h, type: t}, function(result){
+            $('#ml .modal-body').html(result.info);
+            $('#ml').modal();
+        });
+    }
+    function showSteps(recId){
+        $.get("{% url 'ui:show_learning_steps' %}", {parent: recId}, function(result){
+            if ($('#stepsContainer').css("display") != 'none'){
+                $('#stepsContainer').hide("fast");
+            }
+            $('#stepsContainer').html(result.info);
+            $('#stepsContainer').show("slow");
+        });
+    }
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends 'ui/base.html' %}
+{% block title %}Protocol | CPBQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Protocol List</h1>
+    </div>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Protocol</th>
+                <th>Operation</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for protocol in protocol_list %}
+            <tr class="pending-user">
+                <td>{{ protocol.id }}</td>
+                <td>{{ protocol.name }}</td>
+                <td>
+                    <span class="user-actions">
+                        <span data-pid="{{ protocol.id }}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-important">Delete</span>
+                        <span style="display: inline-block; cursor:pointer;" class="label label-warning" onclick="showNewStep({{ protocol.id }});">Add Step</span>
+                        <span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({{ protocol.id }});">Check Steps</span>
+                        <span data-pid="{$hit.id}" style="cursor:pointer;" onclick="showShare({{ protocol.id }});" class="label label-info">Share</span>
+                    </span>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <ul class="pager">
+        {% if protocol_list.has_previous %}
+            <li><a href="?page={{ protocol_list.previous_page_number }}">&lt;</a></li>
+        {% endif %}
+        <li><a>Page {{ protocol_list.number }} of {{ protocol_list.paginator.num_pages }}</a></li>
+        {% if protocol_list.has_next %}
+            <li><a href="?page={{ protocol_list.next_page_number }}">&gt;</a></li>
+        {% endif %}
+    </ul>
+    <div id="stepsContainer" style="display:none;"></div>
+</div>
+<div class="modal fade" id="newStep" tabindex="-1" role="dialog" aria-labelledby="newStep">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel">Add New Step</h4>
+            </div>
+            <div class="modal-body"> </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="ml" tabindex="-1" role="dialog" aria-labelledby="ml">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Step Check Point</h4>
+      </div>
+      <div class="modal-body"> </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="share" tabindex="-1" role="dialog" aria-labelledby="share">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Share your protocols with others</h4>
+      </div>
+      <div class="modal-body">
+      	<form method="post" action="{% url 'ui:share_with_peer' %}">
+  			<fieldset>
+	    		<legend>Share with a peer</legend>
+	    		<label>Peer's username</label>
+	    		<input type="text" id="peer" name="peer" placeholder="Enter peer's username here">
+	    		<input type="hidden" id="pro" name="pro">
+	    		<span class="help-block">You can only share your protocol with one peer at a time.</span>
+			    <button type="submit" class="btn">Share with a peer</button>
+			</fieldset>
+		</form>
+		<legend>Share with public</legend>
+		<span class="help-block">By clicking button below, you will visit CPBQueue's Online Repository, which stores your protocol and shares them with the public.</span>
+		<a href="http://queue.yaoli.space/Open" class="btn btn-block btn-primary">Share with public</a>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+    $("#edit-job").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+				Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+				self[0].reset();
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+    });
+    function delProtocol(obj){
+        var self = $(obj);
+        $.get("{% url 'ui:delete_protocol' %}", {id: self.attr("data-pid")}, function(data){
+            if(data.status){
+                self.parent().parent().parent().hide("slow");
+            };
+        });
+	}
+    function edit(obj){
+        var self = $(obj);
+        var txt = $.trim(self.text());
+        var input = $("<input class='input-block-level' type='text'>");
+        input.attr("value", txt);
+        self.html(input);
+        input.click(function(){return false;});
+        input.trigger("focus");
+        input.blur(function(){
+            var newTxt = input.val();
+            if (newTxt != txt){
+                self.html(newTxt);
+                $.get("{% url 'ui:update_parameter' %}", {parent:self.attr("data-pid"), id:self.attr("data-sid"), parameter:encodeURI(newTxt)}, function(data){
+                    if (data.status){
+                        Messenger().post({
+                            message: data.info,
+                            showCloseButton: true
+				        });
+                    }else{
+                        Messenger().post({
+                            message: data.info,
+                            type: 'error',
+                            showCloseButton: true
+				        });
+                    }
+                });
+            }
+        });
+    };
+    function showML(obj){
+        var self = $(obj);
+        if (self.text() == 'CPU'){
+            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 3}, function(data){
+                $('#ml .modal-body').html(data.info);
+                $('#ml').modal();
+            });
+        }else if(self.text() == 'Memory'){
+            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 2}, function(data){
+                $('#ml .modal-body').html(data.info);
+                $('#ml').modal();
+            });
+        }else if(self.text() == 'Disk'){
+            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 1}, function(data){
+                $('#ml .modal-body').html(data.info);
+                $('#ml').modal();
+            });
+        }
+    }
+    function showNewStep(recId){
+        $.get("{% url 'ui:add_step' %}", {protocol: recId}, function(data){
+            $('#newStep .modal-body').html(data.info);
+            $('#newStep').modal();
+        });
+    }
+    function showShare(proId){
+        $('#share #pro').val(proId);
+        $('#share').modal();
+    }
+    function showSteps(recId){
+        $('#stepsContainer').html('');
+        $.post("{% url 'ui:show_step' %}", {parent: recId}, function(data){
+            if(data.status){
+                if ($('#stepsContainer').css("display") != 'none'){
+                    $('#stepsContainer').hide("fast");
+                }
+                $('#stepsContainer').html(data.info);
+                $('#stepsContainer').show("slow");
+		    }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+				});
+            };
+        });
+    }
+{% endblock %}
