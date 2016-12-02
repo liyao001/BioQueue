@@ -15,6 +15,7 @@ this_output_size = 0
 cumulative_output_size = 0
 trace_id = 0
 ini_file = ''
+root_path = os.path.split(os.path.realpath(__file__))[0]
 
 
 def get_protocol(process_id):
@@ -61,7 +62,7 @@ def get_job():
     '''
     try:
         con, cursor = con_mysql()
-        query = """SELECT `id`, `protocol`, `inputFile`, `parameter`, `run_dir`, `user_id`, `resume` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" \
+        query = """SELECT `id`, `protocol_id`, `input_file`, `parameter`, `run_dir`, `user_id`, `resume` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" \
                 % baseDriver.get_config("datasets", "jobDb")
         cursor.execute(query)
         res = cursor.fetchone()
@@ -114,7 +115,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash=''):
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
 
-            process_maintain = subprocess.Popen(["python", "procManeuver.py", "-p", str(os.getpid()), "-j",
+            process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'), "-p", str(os.getpid()), "-j",
                                                  str(job_id)], shell=False, stdout=None, stderr=subprocess.STDOUT)
             status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
                                                                                        this_input_size, training_num)
@@ -126,7 +127,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash=''):
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             cwd=run_directory)
             if learning == 1 and step_hash != '':
-                learn_process = subprocess.Popen(["python", "mlCollector.py", "-p", str(step_process.pid), "-n",
+                learn_process = subprocess.Popen(["python", os.path.join(root_path, 'mlCollector.py'), "-p", str(step_process.pid), "-n",
                                                   str(step_hash), "-j", str(trace_id)], shell=False, stdout=None,
                                                  stderr=subprocess.STDOUT)
         else:
@@ -149,7 +150,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash=''):
             update_resource(float(cpu_needed), float(memory_needed), float(disk_needed) - this_output_size)
             cumulative_output_size += this_output_size
             if learning == 1:
-                baseDriver.update(baseDriver.get_config("datasets", "trainStore"), trace_id, 'out', this_output_size)
+                baseDriver.update(baseDriver.get_config("datasets", "trainStore"), trace_id, 'output', this_output_size)
         return step_process.returncode
     except Exception, e:
         print 'Error caused by CPBQueue', e
@@ -158,7 +159,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash=''):
 
 
 def create_machine_learning_item(step_hash, inputSize):
-    dyn_sql = """INSERT INTO %s (`step`, `in`) VALUES ('%s', '%s');""" \
+    dyn_sql = """INSERT INTO %s (`step`, `input`) VALUES ('%s', '%s');""" \
               % (baseDriver.get_config("datasets", "trainStore"), step_hash, str(inputSize))
     try:
         con, cursor = con_mysql()

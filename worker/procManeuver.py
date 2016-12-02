@@ -12,7 +12,7 @@ pid = None
 
 def if_terminate():
     try:
-        terminate_signal = baseDriver.get_field('ter', 'queue', 'id', str(jid))
+        terminate_signal = baseDriver.get_field('ter', baseDriver.get_config('datasets', 'jobDb'), 'id', str(jid))
         if terminate_signal:
             if pid in psutil.pids():
                 # Kill watched job

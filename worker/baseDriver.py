@@ -65,7 +65,7 @@ def get_disk_free(path='/'):
 def get_init_resource():
     cpu = cpu_count() * 100
     mem = list(psutil.virtual_memory())[0]
-    disk = list(psutil.disk_usage(get_config("ml", "trainStore")))[0]
+    disk = list(psutil.disk_usage(get_config("env", "workspace")))[0]
     return cpu, mem, disk
 
 

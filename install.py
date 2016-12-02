@@ -1,7 +1,15 @@
 #! /usr/bin/env python
 import os
 import sys
-from worker.baseDriver import set_config
+import ConfigParser
+
+
+def set_config(section, key, value):
+    config = ConfigParser.ConfigParser()
+    path = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
+    config.read(path)
+    config.set(section, key, value)
+    config.write(open(os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf', "w"))
 
 
 def get_random_secret_key():
@@ -37,9 +45,11 @@ def setup():
 
     log_path = os.path.join(workspace_path, 'logs')
     output_path = os.path.join(workspace_path, 'outputs')
+    train_path = os.path.join(workspace_path, 'training')
     try:
         os.mkdir(log_path)
         os.mkdir(output_path)
+        os.mkdir(train_path)
     except Exception, e:
         print 'Doesn\'t have the permission to write your workspace!'
         sys.exit(1)
@@ -47,6 +57,7 @@ def setup():
     set_config('env', 'workspace', workspace_path)
     set_config('env', 'log', log_path)
     set_config('env', 'outputs', output_path)
+    set_config('ml', 'trainStore', output_path)
 
     set_config('env', 'cpu', raw_input('CPU cores: '))
     set_config('env', 'mem', raw_input('Memory(Gb): '))
@@ -59,7 +70,9 @@ def setup():
     database_configure['password'] = raw_input('Database password: ')
     database_configure['port'] = raw_input('Database port: ')
 
+    print '===================================================='
     print 'Configuring database, please wait...'
+    print '===================================================='
 
     set_config('db', 'host', database_configure['host'])
     set_config('db', 'user', database_configure['user'])
@@ -83,9 +96,26 @@ def setup():
     setting_handler_new.write(setting_file)
     setting_handler_new.close()
 
-    os.system('pip install -r deploy/requirements.txt')
-    os.system('python manage.py migrate')
+    print '===================================================='
+    print 'Installing dependent python packages, please wait...'
+    print '===================================================='
 
+    pip_import_path = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
+    os.system('pip install -r %s' % pip_import_path)
+
+    django_manage_path = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
+
+    print '===================================================='
+    print 'Creating tables, please wait...'
+    print '===================================================='
+
+    os.system('python %s migrate' % django_manage_path)
+
+    print '===================================================='
+    print 'Now we\'ll create a superuser account'
+    print '===================================================='
+
+    os.system('python %s createsuperuser' % django_manage_path)
 
 if __name__ == '__main__':
     setup()
