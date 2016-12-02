@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '@lsx7g)yj3+h2sn+_ag-no6pv3r2vd-$r=#5o*k=vieslll$h_'
+SECRET_KEY = '{SECRET_KEY}'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'ui',
+    'worker',
 ]
 
 MIDDLEWARE = [
@@ -81,11 +82,11 @@ WSGI_APPLICATION = 'CPBQueue.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': '',
-        'USER': '',
-        'PASSWORD': '',
-        'HOST': '',
-        'PORT': '',
+        'NAME': '{DB_NAME}',
+        'USER': '{DB_USER}',
+        'PASSWORD': '{DB_PASSWORD}',
+        'HOST': '{DB_HOST}',
+        'PORT': '{DB_PORT}',
     },
     'direct': {
         'ENGINE': 'django.db.backends.sqlite3',

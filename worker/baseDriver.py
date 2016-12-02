@@ -13,6 +13,14 @@ def get_config(section, key):
     return config.get(section, key)
 
 
+def set_config(section, key, value):
+    config = ConfigParser.ConfigParser()
+    path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
+    config.read(path)
+    config.set(section, key, value)
+    config.write(open(os.path.split(os.path.realpath(__file__))[0] + '/config.conf', "w"))
+
+
 def rand_sig():
     import datetime
     import hashlib
@@ -271,3 +279,9 @@ def build_upload_file_path(user_folder, file_name):
         return file_path
     else:
         return 0
+
+
+def get_user_folder_size(user):
+    kb_to_mb = 1073741824
+    user_path = os.path.join(get_config('env', 'workspace'), str(user))
+    return round(get_folder_size(user_path)/kb_to_mb)
