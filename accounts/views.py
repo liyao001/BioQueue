@@ -1,7 +1,6 @@
 from django.shortcuts import render
 from .forms import LoginForm, PasswordChangeForm, UserRegisterForm
 from django.contrib.auth import authenticate, login, update_session_auth_hash
-from django.http import HttpResponse
 from ui.tools import success, error
 from django.contrib.auth.decorators import login_required
 

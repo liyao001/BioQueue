@@ -1,28 +1,22 @@
 #!/usr/bin/env python
 from pyftpdlib.authorizers import DummyAuthorizer, AuthenticationFailed
+from django.utils.crypto import pbkdf2
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 from databaseDriver import con_mysql
-from hashlib import md5
 from baseDriver import get_config
 import os
-import sys
+import base64
 
 
 class DummyMD5Authorizer(DummyAuthorizer):
 
     def validate_authentication(self, username, password, handler):
         try:
-            # password{CPBSPLIT}salt
-            stored_password_combine = self.user_table[username]['pwd']
-            pw, salt = stored_password_combine.split('{CPBQSPLIT}')
-            password = password+salt
-            if sys.version_info >= (3, 0):
-                for i in range(5):
-                    password = md5(password.encode('latin1'))
-            for i in range(5):
-                password = md5(password).hexdigest()                
-            if pw != password:
+            password_info = self.user_table[username]['pwd'].split('$')
+            user_password = base64.b64encode(pbkdf2(password, password_info[2], int(password_info[1])))
+
+            if user_password != password_info[3]:
                 raise KeyError
         except KeyError:
             raise AuthenticationFailed
@@ -31,26 +25,26 @@ class DummyMD5Authorizer(DummyAuthorizer):
 def load_user_table():
     try:
         con, cur = con_mysql()
-        sql = '''SELECT `id`, `user`, `passwd`, `salt` FROM `user` WHERE `status` > 0;'''
+        sql = '''SELECT `id`, `username`, `password` FROM `auth_user` WHERE `is_active` > 0;'''
         cur.execute(sql)
-        authorizere = DummyMD5Authorizer()
+        auth = DummyMD5Authorizer()
         ws = get_config('env', 'workspace')
         for u in cur.fetchall():
             user_directory = os.path.join(ws, str(u[0]), 'uploads')
             
             if not os.path.exists(user_directory):
                 os.makedirs(user_directory)
-            authorizere.add_user(u[1], u[2]+'{CPBQSPLIT}'+u[3], user_directory, perm='elradfmw')
-        return authorizere
+                auth.add_user(u[1], u[2], user_directory, perm='elradfmw')
+        return auth
     except Exception, e:
         print e
         return 0
 
 if __name__ == "__main__":
-    authorizere = load_user_table()
-    if authorizere:
+    authentication = load_user_table()
+    if authentication:
         handler = FTPHandler
-        handler.authorizer = authorizere
+        handler.authorizer = authentication
         
         server = FTPServer((get_config('env', 'ftp_addr'), int(get_config('env', 'ftp_port'))), handler)
         server.serve_forever()
