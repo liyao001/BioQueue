@@ -1,0 +1,95 @@
+{% extends 'ui/base.html' %}
+{% block title %}Reference | CPBQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>New Reference</h1>
+    </div>
+    <form class="form-horizontal" method="post" action="#">
+        <fieldset>
+            <div class="control-group">
+                <label class="control-label" for="name">Reference Name</label>
+                <div class="controls">
+                    <input type="text" class="input-xlarge" id="name" name="name" required />
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label" for="name">Reference Value</label>
+                <div class="controls">
+                    <input type="text" class="input-xlarge" id="path" name="path" required />
+                </div>
+            </div>
+            <div class="form-actions">
+                <input type="submit" class="btn btn-success btn-large" value="Add" />
+            </div>
+        </fieldset>
+    </form>
+    <div class="page-header">
+        <h1>Reference List</h1>
+    </div>
+    <table class="table table-bordered" id="rtable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Operation</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for ref in references %}
+            <tr class="pending-user">
+                <td>{{ ref.id }}</td>
+                <td>{{ ref.name }}</td>
+                <td>{{ ref.path }}</td>
+                <td><span class="user-actions"><span onclick="delProtocol(this);" data-rid="{{ ref.id }}" class="label label-important" style="cursor:pointer;">Delete</span></span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block script %}
+    $("#manage-reference").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                addNew(data.info, $("#name").val(), $("#path").val());
+				self[0].reset();
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+    });
+    function addNew(rid, key, value)
+    {
+        var table1 = $('#rtable');
+        var firstTr = table1.find('tbody>tr:first');
+        var row = $("<tr class='pending-user'></tr>");
+        var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td><td><span class='user-actions'><span onclick='delProtocol(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
+        row.append(td);
+        table1.append(row);
+    }
+    function delProtocol(obj){
+	    var self = $(obj);
+        $.get("{% url 'ui:delete_reference' %}", {ref: self.attr("data-rid")}, function(data){
+            if(data.status){
+                self.parent().parent().parent().hide("slow");
+		    };
+	    });
+    }
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "ui/single.html" %}
+{% block title %}Sign In | CPBQueue{% endblock %}
+{% block content %}
+<div class="well">
+    <h1 class="margin-base-vertical text-center" style="text-align:center;">Sign in CPBQueue</h1>
+    <form action="." method="post" class="form-horizontal">
+        <div class="control-group"></div>
+        <div class="Validform_checktip alert" style="display: none;"></div>
+        {{ form.as_p }}
+        <input type="hidden" name="next" value="{{ next }}" />
+        {% csrf_token %}
+        <div class="control-group">
+            <div class="span12">
+              <button class="input-block-level btn btn-primary" type="submit" class="btn">
+              Sign in
+              </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block script %}
+$(document)
+    .ajaxStart(function(){
+        $("button:submit").addClass("log-in").attr("disabled", true);
+    })
+    .ajaxStop(function(){
+        $("button:submit").removeClass("log-in").attr("disabled", false);
+    });
+    $(":text").addClass('input-block-level');
+    $(":password").addClass('input-block-level');
+{% endblock %}

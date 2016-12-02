@@ -22,16 +22,15 @@ def get_protocol(process_id):
     try:
         con, cursor = con_mysql()
         html_parser = HTMLParser.HTMLParser()
-        query = '''SELECT software, parameter, specify_output, hash FROM %s WHERE `parent`=%s ORDER BY id ASC;''' \
+        query = '''SELECT software, parameter, hash FROM %s WHERE `parent`=%s ORDER BY id ASC;''' \
                 % (baseDriver.get_config("datasets", "protocolDb"), process_id)
         cursor.execute(query)
         tmp = cursor.fetchall()
         steps = [html_parser.unescape(str(step[0]).rstrip() + " " + str(step[1])) for step in tmp]
-        outs = [str(step[2]) for step in tmp]
-        hashes = [str(step[3]) for step in tmp]
+        hashes = [str(step[2]) for step in tmp]
         parse_protocol_cst(steps)
         con.close()
-        return steps, outs, hashes
+        return steps, hashes
     except Exception, e:
         print e
         return
@@ -188,6 +187,7 @@ def get_training_items(step_hash):
         return 0
 
 
+'''
 def so_parser(all_output):
     special_dict = {}
     for output in all_output:
@@ -200,6 +200,7 @@ def so_parser(all_output):
                 v.strip()
                 special_dict[k] = v
     return special_dict
+'''
 
 
 def create_user_folder(uf, jf):
@@ -212,16 +213,8 @@ def create_user_folder(uf, jf):
         print e
 
 
-def build_upload_file_path(user_folder, file_name):
-    upload_path = os.path.join(user_folder, 'uploads')
-    file_path = os.path.join(upload_path, file_name)
-    if os.path.exists(file_path):
-        return file_path
-    else:
-        return 0
-
-
 def dynamic_run():
+    import parameterParser
     global trace_id, ini_file, cumulative_output_size
     outputs = []
     new_files = []
@@ -238,20 +231,11 @@ def dynamic_run():
     run_folder = os.path.join(user_folder, result_store)
 
     create_user_folder(user_folder, run_folder)
-    # initSet = {'result': result_store, 'pid':os.getpid()}
-    # baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, initSet)
     baseDriver.update(baseDriver.get_config("datasets", "jobDb"), jid, 'result', result_store)
 
-    steps, special_output, hs = get_protocol(protocol)
-    variable = {'firstFile': '{InitInput}',
-                'lastFile': '{LastOutput}',
-                'allOutput': '{AllOutputBefore}',
-                'jobId': '{job}', }
-    # ip = so_parser(indeed_parameter)
-    special_output.append(indeed_parameter)
-    so = so_parser(special_output)
-    output_replacement = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
-    uploaded_replacement = re.compile("\\{Uploaded:(.*?)}", re.IGNORECASE | re.DOTALL)
+    steps, hs = get_protocol(protocol)
+
+    so = parameterParser.build_special_parameter_dict(indeed_parameter)
 
     for k, v in enumerate(steps):
         # skip finished steps
@@ -261,33 +245,16 @@ def dynamic_run():
         if resume != -1:
             out_dic = baseDriver.load_output_dict(jid)
 
-        for keyword in so.keys():
-            steps[k] = steps[k].replace('{' + keyword + '}', so[keyword])
+        steps[k] = steps[k].replace('{InitInput}', ini_file)
+        steps[k] = steps[k].replace('{job}', str(jid))
+        steps[k] = steps[k].replace('{LastOutput}', last_output_string)
+        steps[k] = steps[k].replace('{AllOutputBefore}', ' '.join(outputs))
+        steps[k] = parameterParser.last_output_map(steps[k], new_files)
+        steps[k] = parameterParser.special_parameter_map(steps[k], so)
+        steps[k] = parameterParser.output_file_map(steps[k], out_dic)
+        steps[k] = parameterParser.upload_file_map(steps[k], user_folder)
 
-        steps[k] = steps[k].replace(variable['firstFile'], ini_file)
-        steps[k] = steps[k].replace(variable['jobId'], str(jid))
-        steps[k] = steps[k].replace(variable['lastFile'], last_output_string)
-        steps[k] = steps[k].replace(variable['allOutput'], ' '.join(outputs))
-
-        for key, value in enumerate(new_files):
-            steps[k] = steps[k].replace('{LastOutput' + str(key) + '}', value)
-
-        for out_item in re.findall(output_replacement, steps[k]):
-            if out_item[0] in out_dic and (int(out_item[1]) - 1) < len(out_dic[int(out_item[0])]):
-                steps[k] = steps[k].replace('{Output' + out_item[0] + '-' + out_item[1] + '}',
-                                            out_dic[int(out_item[0])][int(out_item[1]) - 1])
-
-        for uploaded_item in re.findall(uploaded_replacement, steps[k]):
-            upload_file = build_upload_file_path(user_folder, uploaded_item)
-            if upload_file is not None:
-                steps[k] = steps[k].replace('{Uploaded:' + uploaded_item + '}',
-                                            upload_file)
-
-        par = shlex.shlex(steps[k])
-        par.quotes = '"'
-        par.whitespace_split = True
-        par.commenters = ''
-        parameters = list(par)
+        parameters = parameterParser.parameter_string_to_list(steps[k])
         last_output = os.listdir(run_folder)
 
         if run_folder:
@@ -315,8 +282,6 @@ def dynamic_run():
     update_resource(0, 0, cumulative_output_size - final_size)
     if ret == 0:
         # mark as finished
-        # m = {'status':-1, 'pid':-1}
-        # baseDriver.multi_update(baseDriver.get_config("datasets", "jobDb"), jid, m)
         baseDriver.update(baseDriver.get_config("datasets", "jobDb"), jid, 'status', -1)
         baseDriver.del_output_dict(jid)
     else:

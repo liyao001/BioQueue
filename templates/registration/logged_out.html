@@ -1,0 +1,12 @@
+{% extends "ui/single.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}<ul class="breadcrumb"><li><a href="{% url 'admin:index' %}">{% trans 'Home' %}</a></li></ul>{% endblock %}
+
+{% block content %}
+
+<p>{% trans "Thanks for spending some quality time with the Web site today." %}</p>
+
+<p><a href="{% url 'admin:index' %}">{% trans 'Log in again' %}</a></p>
+
+{% endblock %}

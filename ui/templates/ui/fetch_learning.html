@@ -1,0 +1,38 @@
+<table class="table">
+<tbody>
+	<tr>
+		<td>a</td>
+		<td>b</td>
+		<td>r</td>
+		<td>average</td>
+	</tr>
+    <tr class="pending-user">
+		<td>{{ step.a }}</td>
+		<td>{{ step.b }}</td>
+		<td>{{ step.r }}</td>
+        <td>{{ step.av }}</td>
+	</tr>
+</tbody>
+</table>
+<p style="text-align:center;">
+	<a class="btn btn-large btn-block btn-success" href="#" onclick="importLearning();">Import</a>
+</p>
+<script>
+    function importLearning(){
+        $.get("{% url 'ui:import_learning' %}", function(data){
+            if (data.status){
+                Messenger().post({
+                    message: data.info,
+                    showCloseButton: true
+                });
+                $("#ml").modal("toggle");
+            }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+                });
+            }
+        });
+    }
+</script>

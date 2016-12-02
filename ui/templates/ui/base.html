@@ -1,0 +1,76 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="Li Yao">
+<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+<link href="{% static "ui/css/messenger.css" %}" rel="stylesheet">
+<link href="{% static "ui/css/messenger-theme-future.css" %}" rel="stylesheet">
+{% block stylesheet %}{% endblock %}
+<!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+</head>
+<body>
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container-fluid">
+    	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+    		<span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
+    	</a>
+    	<a class="brand" href="{% url 'ui:index' %}">
+    		<span class='brand-slogan'>CPBQueue</span>
+    	</a>
+    	<div class="btn-group pull-right" style="margin-top:3px;">
+    		{% if user.is_authenticated %}
+                <a class="btn" href="{% url 'accounts:logout' %}"><i class="icon-user"></i> Log out</a>
+            {% endif %}
+		</div>
+	</div>
+  </div>
+</div>
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="span2">
+      <div class="well sidebar-nav">
+        <ul class="nav nav-list">
+          <li class="nav-header"><a href="{% url 'ui:index' %}"><i class="icon-home"></i> Dashboard</a></li>
+          <li class="nav-header"><i class="icon-list"></i> Job</li>
+          <li id="add-job"><a href="{% url 'ui:add_job' %}">New Job</a></li>
+          <li id="query-job"><a href="{% url 'ui:query_job' %}">Job Status</a></li>
+          <li class="nav-header"><i class="icon-pencil"></i> Protocol</li>
+          <li id="add-protocol"><a href="{% url 'ui:create_protocol' %}">New Protocol</a></li>
+          <li id="edit-protocol"><a href="{% url 'ui:query_protocol' %}">Edit Protocol</a></li>
+          <li id="manage-reference" class="nav-header"><a href="{% url 'ui:manage_reference' %}"><i class="icon-book"></i> Reference</a></li>
+          <li class="nav-header"><i class="icon-lock"></i> System</li>
+          <li><a href="{% url 'ui:settings' %}">Settings</a></li>
+          <li><a href="/admin/auth/user">Users</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="span10">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  <hr>
+</div>
+{% include 'ui/foot.html' %}
+<script src="{% static "ui/js/jquery.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
+<script src="{% static "ui/js/messenger.min.js" %}"></script>
+<script src="{% static "ui/js/jquery.cookie.js" %}"></script>
+<script>
+$(document).ajaxStart(function(){
+    $("button:submit").attr("disabled", true);
+}).ajaxStop(function(){
+	$("button:submit").attr("disabled", false);
+});
+{% block script %}{% endblock %}
+</script>
+</body>
+</html>

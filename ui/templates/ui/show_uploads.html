@@ -1,0 +1,5 @@
+{% if user_files %}
+    {% for file_item in user_files %}
+        <label class='checkbox'><input type='checkbox' name='input_file_r' id='input_file_r' value='{{ file_item }}'> {{ file_item }}</label>
+    {% endfor %}
+{% endif %}

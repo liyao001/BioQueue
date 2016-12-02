@@ -1,0 +1,51 @@
+{% extends 'ui/base.html' %}
+{% block title %}System Settings | CPBQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>System Settings</h1>
+    </div>
+    <form class="form-horizontal" method="post" action=".">
+        <fieldset>
+            <div class="control-group">
+                <label class="control-label" for="path">Run folder</label>
+                <div class="controls">
+                    <input type="text" class="input-xlarge" id="path" name="path" value="{{ run_folder }}" required />
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label" for="cpu">Processors</label>
+                <div class="controls">
+                    <input type="number" class="input-xlarge" id="cpu" name="cpu" value="{{ cpu }}" required />
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label" for="mem">Memory(Gb)</label>
+                <div class="controls">
+                    <input type="number" class="input-xlarge" id="mem" name="mem" value="{{ memory }}" required />
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label" for="dquota">User Disk Quota(Gb)</label>
+                <div class="controls">
+                    <input type="number" class="input-xlarge" id="dquota" name="dquota" value="{{ disk_quota }}" min="0" max="{{ max_disk }}" required />
+                    <i id="tooltip" class="icon-info-sign" data-toggle="tooltip" title="Total Disk Space(Gb): {{ max_disk }}<br />Free Disk Space(Gb): {{ free_disk }}"></i>
+                </div>
+            </div>
+            {% csrf_token %}
+        </fieldset>
+        <div class="form-actions">
+            <input type="submit" class="btn btn-success btn-large" value="Update" />
+        </div>
+    </form>
+    <div class="page-header">
+        <h1>System Status</h1>
+    </div>
+    <div>
+        <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+$('#tooltip').tooltip();
+{% endblock %}

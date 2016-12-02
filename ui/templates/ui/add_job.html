@@ -1,0 +1,124 @@
+{% extends "ui/base.html" %}
+{% block title %}Add Job | CPBQueue{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>New Job</h1>
+</div>
+<div class="accordion" id="create-job">
+    <div class="accordion-group">
+        <div class="accordion-heading">
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#single-job"> Single Job </a>
+        </div>
+        <div id="single-job" class="accordion-body collapse in">
+            <div class="accordion-inner">
+                <form class="form-horizontal" method="post" action="." style="margin-top:9px; margin-bottom:0;">
+                    <fieldset>
+                        <div class="control-group">
+                            <label class="control-label" for="protocol">Choose a protocol</label>
+                            <div class="controls">
+                                <select class="form-control input-xlarge" name="protocol" required>
+                                {% for protocol in user_protocols %}
+                                    <option value="{{ protocol.id }}">{{ protocol.name }}</option>
+                                {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label" for="inputFile">Initial input file</label>
+                            <div class="controls">
+                                <div class="btn-group">
+                                    <button type="button" class="btn" id="lf-trigger">Choose FTP file</button>
+                                    <button type="button" class="btn" id="rf-trigger">Fetch Remote file</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="rf-container" class="control-group" style="display: none;">
+                            <label class="control-label" for="inputFile">Remote file (URL):</label>
+                            <div class="controls">
+                                <input type="text" class="input-xlarge" id="input_file_rf" name="input_file_rf" />
+                            </div>
+                        </div>
+                        <div id="lf-container" class="control-group" style="display: none;">
+                            <label class="control-label" for="inputFile">Uploaded files:</label>
+                            <div class="controls" id="lf-list">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label" for="parameter">Special parameter</label>
+                            <div class="controls">
+                                <input type="text" class="input-xlarge" id="parameter" name="parameter" />
+                                <span class="icon-question-sign" data-toggle="popover" title="Special reference" data-content="特殊参数是一种样本常量，一些实验特异的参数可以在此定义，然后在step里引用。书写格式：“key=value;”"></span> </div>
+                        </div>
+                        <div class="control-group" style="margin-bottom: 9px;">
+                            <div class="controls">
+                                <button type="submit" class="btn btn-success btn-large" >Push job into queue</button>
+                            </div>
+                        </div>
+                    {% csrf_token %}
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="accordion-group">
+        <div class="accordion-heading">
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#batch-job"> Batch Job </a>
+        </div>
+        <div id="batch-job" class="accordion-body collapse">
+            <div class="accordion-inner"> Anim pariatur cliche... </div>
+        </div>
+    </div>
+</div>
+<div class="row-fluid"> </div>
+{% endblock %}
+{% block script %}
+    $("#add-job").addClass("active");
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+				Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+				$("#inputFile").val('');
+				$("#inputFile-lf").removeAttr("checked");
+				$("#parameter").val('');
+				$("#run_dir").val('');
+				$("#verify").val('');
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+				$("#verify").val('');
+			}
+		}
+    });
+    $(function () {
+		$('[data-toggle="popover"]').popover();
+	});
+	$("#rf-trigger").click(function(){
+		$("#rf-container").show('slow');
+		$("#lf-container").hide('slow');
+		$("#rf-trigger").attr("disabled", true);
+		$("#lf-trigger").attr("disabled", false);
+		$("#inputFile-lf").removeAttr("checked");
+	});
+	$("#lf-trigger").click(function(){
+		$("#rf-container").hide('slow');
+		$("#rf-trigger").attr("disabled", false);
+		$("#lf-trigger").attr("disabled", true);
+		$("#inputFile-rf").val("");
+		$.get("{% url 'ui:show_upload' %}", function(result){
+		    $('#lf-list').html(result);
+		    $('#lf-container').show();
+		    $("#rf-trigger").attr("disabled", false);
+			$("#lf-trigger").attr("disabled", true);
+		});
+	});
+{% endblock %}
