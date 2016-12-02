@@ -48,6 +48,10 @@ def setup():
     set_config('env', 'log', log_path)
     set_config('env', 'outputs', output_path)
 
+    set_config('env', 'cpu', raw_input('CPU cores: '))
+    set_config('env', 'mem', raw_input('Memory(Gb): '))
+    set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
+
     database_configure = dict()
     database_configure['host'] = raw_input('Database host: ')
     database_configure['user'] = raw_input('Database user: ')
