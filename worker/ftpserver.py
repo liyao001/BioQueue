@@ -34,7 +34,7 @@ def load_user_table():
             
             if not os.path.exists(user_directory):
                 os.makedirs(user_directory)
-                auth.add_user(u[1], u[2], user_directory, perm='elradfmw')
+            auth.add_user(u[1], u[2], user_directory, perm='elradfmw')
         return auth
     except Exception, e:
         print e
