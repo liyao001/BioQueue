@@ -41,7 +41,7 @@ def get_io(pid):
 
 def create_machine_learning_item(step_hash, input_bytes, output_bytes, mem_usage, cpu_usage):
     con, cursor = con_mysql()
-    dyn_sql = """INSERT INTO %s (`step`, `in`, `out`, `mem`, `cpu`) VALUES ('%s', '%s', '%s', '%s', '%s');"""\
+    dyn_sql = """INSERT INTO %s (`step`, `input`, `output`, `mem`, `cpu`) VALUES ('%s', '%s', '%s', '%s', '%s');"""\
               % (get_config("datasets", "trainStore"), str(step_hash), str(input_bytes), str(output_bytes),
                  str(mem_usage), str(cpu_usage))
     try:
@@ -60,7 +60,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "n:p:j:", ["protocolStep=", "pid=", "job_id="])
     except getopt.GetoptError, err:
-        print str(err) 
+        print str(err)
         sys.exit()
         
     if len(opts) == 0:
@@ -71,7 +71,7 @@ def main():
     job_id = 0
     
     for o, a in opts:
-        if o in ("-n","--protocolStep"):
+        if o in ("-n", "--protocolStep"):
             step_hash = a
         elif o in ("-p", "--pid"):
             process_id = int(a)
@@ -105,8 +105,8 @@ def main():
             samples = round(len(cpu_list)*0.1)
             cpu_list.sort(reverse=True)
             cpu_usage = sum(cpu_list[0:samples])/samples
-        elif len(cpu_list) == 1:
-            cpu_usage = cpu_list[0]
+        elif len(cpu_list) > 0:
+            cpu_usage = sum(cpu_list)/len(cpu_list)
         else:
             cpu_usage = -1
         update(get_config('datasets', 'trainStore'), job_id, 'mem', mem_usage)

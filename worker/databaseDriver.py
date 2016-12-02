@@ -54,7 +54,7 @@ def init_resource(cpu, mem, disk):
 
 def get_resource():
     conn, cursor = con_mysql()
-    sql = """SELECT `cpu`, `mem`, `disk` FROM `resource` WHERE `own`='sys' LIMIT 1;"""
+    sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % get_config('datasets', 'resource')
     resource = cursor.execute(sql)
     sys_resource = cursor.fetchone()
     if sys_resource:
@@ -71,8 +71,8 @@ def set_resource(cpu, mem, disk):
     while try_times < 5:
         try:
             conn, cursor = con_mysql()
-            sql = """UPDATE `resource` SET `cpu` = %s, `mem` = %s, `disk` = %s WHERE `own` = 'sys';""" \
-                  % (cpu, mem, int(disk))
+            sql = """UPDATE `%s` SET `cpu` = %s, `mem` = %s, `disk` = %s WHERE `own` = 'sys';""" \
+                  % (get_config('datasets', 'resource'), cpu, mem, int(disk))
             cursor.execute(sql)
             conn.commit()
             conn.close()
@@ -91,7 +91,7 @@ def update_resource_without_check(cpu, mem, disk):
     while try_times < 5:
         try:
             conn, cursor = con_mysql()
-            sql = """UPDATE `resource` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" % (cpu, mem, disk)
+            sql = """UPDATE `%s` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" % (get_config('datasets', 'resource'), cpu, mem, disk)
             cursor.execute(sql)
             conn.commit()
             conn.close()
@@ -108,12 +108,12 @@ def update_resource(cpu, mem, disk, give_back=0):
     try:
         flag = 1
         conn, cursor = con_mysql()
-        sql = """UPDATE `resource` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" \
-              % (cpu, mem, int(disk))
+        sql = """UPDATE `%s` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" \
+              % (get_config('datasets', 'resource'), cpu, mem, int(disk))
         cursor.execute(sql)
         conn.commit()
         if not give_back:
-            sql = """SELECT `cpu`, `mem`, `disk` FROM `resource` WHERE `own`='sys' LIMIT 1;"""
+            sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % get_config('datasets', 'resource')
             cursor.execute(sql)
             sys_resource = cursor.fetchone()
             if sys_resource:
@@ -128,8 +128,8 @@ def update_resource(cpu, mem, disk, give_back=0):
                 disk_max_pool = -1
             if cpu_max_pool < 0 or memory_max_pool < 0 or disk_max_pool < 0:
                 # rollback
-                sql = """UPDATE `resource` SET `cpu` = `cpu` - %s, `mem` = `mem` - %s, `disk` = `disk` - %s WHERE `own` = 'sys';""" \
-                      % (cpu, mem, disk)
+                sql = """UPDATE `%s` SET `cpu` = `cpu` - %s, `mem` = `mem` - %s, `disk` = `disk` - %s WHERE `own` = 'sys';""" \
+                      % (get_config('datasets', 'resource'), cpu, mem, disk)
                 cursor.execute(sql)
                 conn.commit()
                 flag = 0

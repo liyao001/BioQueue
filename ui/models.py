@@ -12,7 +12,6 @@ class Prediction(models.Model):
     a = models.CharField(max_length=50, blank=True, null=True)
     b = models.CharField(max_length=50, blank=True, null=True)
     r = models.CharField(max_length=50, blank=True, null=True)
-    img = models.CharField(max_length=50, blank=True, null=True)
     type = models.SmallIntegerField()
 
     def __str__(self):
@@ -25,7 +24,7 @@ class Protocol(models.Model):
     """
     software = models.CharField(max_length=50)
     parameter = models.TextField()
-    specify_output = models.CharField(max_length=50,blank=True, null=True)
+    specify_output = models.CharField(max_length=50, blank=True, null=True)
     parent = models.CharField(max_length=50, db_index=True)
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
@@ -149,25 +148,11 @@ class Training(models.Model):
     Save training items
     """
     step = models.CharField(max_length=50, db_index=True)
-    input = models.CharField(max_length=50)
-    output = models.CharField(max_length=50)
-    mem = models.CharField(max_length=50)
-    cpu = models.CharField(max_length=50)
-    create_time = models.DateField(auto_now_add=True)
+    input = models.CharField(max_length=50, blank=True, null=True)
+    output = models.CharField(max_length=50, blank=True, null=True)
+    mem = models.CharField(max_length=50, blank=True, null=True)
+    cpu = models.CharField(max_length=50, blank=True, null=True)
+    create_time = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.step
-
-
-class User(models.Model):
-    """User Table
-    Save users
-    """
-    user = models.CharField(db_index=True, max_length=50)
-    password = models.CharField(max_length=50)
-    salt = models.CharField(max_length=50)
-    create_at = models.DateTimeField(auto_now_add=True)
-    status = models.SmallIntegerField()
-
-    def __str__(self):
-        return self.user

@@ -36,11 +36,7 @@
 					message: data.info,
 					showCloseButton: true
 				});
-				$("#inputFile").val('');
-				$("#inputFile-lf").removeAttr("checked");
-				$("#parameter").val('');
-				$("#run_dir").val('');
-				$("#verify").val('');
+				self[0].reset();
 			} else {
 				Messenger().post({
 					message: data.info,

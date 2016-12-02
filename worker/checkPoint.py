@@ -2,15 +2,8 @@
 from numpy import *
 import numpy
 from databaseDriver import con_mysql, get_resource, update_resource
-from baseDriver import get_config, get_disk_free, get_cpu_available, get_memo_usage_available, rand_sig
+from baseDriver import get_config, get_disk_free, get_cpu_available, get_memo_usage_available
 import pandas as pd
-import os
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-
-# con, cursor = con_mysql()
 
 
 def load_train_frame(step_hash):
@@ -50,50 +43,29 @@ def stand_regression(x_array, y_array):
     return ws
 
 
-def export_plot(x_array, y_array, reg_coefficient, x_label, y_label):
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    x_matrix = mat(x_array)
-    y_matrix = mat(y_array)
-    ax.scatter(x_matrix[:, 1].flatten().A[0], y_matrix.T[:, 0].flatten().A[0])
-    x_copy = x_matrix.copy()
-    x_copy.sort(0)
-    y_hat = x_copy*reg_coefficient
-    r = corrcoef(y_hat.T, y_matrix)[0][1]
-    plt.set_xlabel = x_label    
-    # fig.set_ylabel = y_label
-    ax.xaxis.set_label_text(x_label)
-    ax.yaxis.set_label_text(y_label)
-    ax.plot(x_copy[:, 1], y_hat, label=y_label)
-    plt.legend()
-    file_name = rand_sig()+'.png'
-    plt.savefig(os.path.join(get_config('ml', 'imgStore'), file_name), dpi=72)
-    # plt.show()
-    return r, file_name
-
-
-def reg_single_feature(x, y, label, save_img=1):
+def reg_single_feature(x, y):
     rc = stand_regression(x, y)
     if rc is not None:
         rc = rc.getA()
-        if save_img == 1:
-            r, fig_file = export_plot(x, y, rc, 'Input Size', label)
-        else:
-            r = 0
-            fig_file = ''
+        x_matrix = mat(x)
+        y_matrix = mat(y)
+        x_copy = x_matrix.copy()
+        x_copy.sort(0)
+        y_hat = x_copy * rc
+        r = corrcoef(y_hat.T, y_matrix)[0][1]
         b = rc[0][0]
         a = rc[1][0]
-        return a, b, r, fig_file
+        return a, b, r
     else:
-        return 0, 0, 0, 0
+        return 0, 0, 0
 
 
-def record_result(step_hash, a, b, r, img, t):
+def record_result(step_hash, a, b, r, t):
     # global con, cursor
     try:
         conn, cur = con_mysql()
-        sql = """INSERT INTO `%s` (`stephash`, `a`, `b`, `r`, `img`, `type`) VALUES ('%s', %s, %s, %s, '%s', %s);"""\
-              % (get_config('datasets', 'equation'), step_hash, a, b, r, img, t)
+        sql = """INSERT INTO `%s` (`step_hash`, `a`, `b`, `r`, `type`) VALUES ('%s', %s, %s, %s, %s);"""\
+              % (get_config('datasets', 'equation'), step_hash, a, b, r, t)
         cur.execute(sql)
         conn.commit()
         conn.close()
@@ -105,26 +77,15 @@ def record_result(step_hash, a, b, r, img, t):
 
 def regression(step_hash):
     x, out, mem, cpu = load_train_frame(step_hash)
-    ao, bo, ro, io = reg_single_feature(x, out, 'Output Size')
-    record_result(step_hash, ao, bo, ro, io, 1)
-    am, bm, rm, im = reg_single_feature(x, mem, 'Memory Usage')
-    record_result(step_hash, am, bm, rm, im, 2)
-    ac, bc, rc, ic = reg_single_feature(x, cpu, 'CPU Usage')
-    record_result(step_hash, ac, bc, rc, ic, 3)
-    return ao, bo, am, bm, ac, bc
-
-
-def regression_not_save(step_hash):
-    x, out, mem, cpu = load_train_frame(step_hash)
-    ao, bo, ro, io = reg_single_feature(x, out, 'Output Size', 0)
-    if ao == bo and ao == 0:
-        bo = average(out)
-    am, bm, rm, im = reg_single_feature(x, mem, 'Memory Usage', 0)
-    if am == bm and am == 0:
-        bm = average(mem)
-    ac, bc, rc, ic = reg_single_feature(x, cpu, 'CPU Usage', 0)
-    if ac == bc and ac == 0:
-        bc = average(cpu)
+    # Output Size
+    ao, bo, ro, io = reg_single_feature(x, out)
+    record_result(step_hash, ao, bo, ro, 1)
+    # Memory Usage
+    am, bm, rm, im = reg_single_feature(x, mem)
+    record_result(step_hash, am, bm, rm, 2)
+    # CPU Usage
+    ac, bc, rc, ic = reg_single_feature(x, cpu)
+    record_result(step_hash, ac, bc, rc, 3)
     return ao, bo, am, bm, ac, bc
 
 
@@ -145,7 +106,7 @@ def get_training_items(step_hash):
 def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/'):
     try:
         conn, cur = con_mysql()
-        get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `stephash`='%s';""" \
+        get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `step_hash`='%s';""" \
                          % (get_config("datasets", "equation"), str(step))
         cur.execute(get_equation_sql)
         equations = cur.fetchall()
@@ -208,7 +169,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 cpu_max_pool = float(cpu_max_pool)
                 memory_max_pool = float(memory_max_pool)
                 disk_max_pool = float(disk_max_pool)
-                ao, bo, am, bm, ac, bc = regression_not_save(step)
+                ao, bo, am, bm, ac, bc = regression(step)
                 disk_needed = int((ao*in_size+bo)*0.9)
                 memory_needed = int((am*in_size+bm)*0.9)
                 cpu_needed = int((ac*in_size+bc)*0.9)

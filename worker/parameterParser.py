@@ -8,10 +8,14 @@ def build_special_parameter_dict(all_output):
             options = output.split(';')
             options.remove('')
             for option in options:
-                k, v = option.split('=')
-                k.strip()
-                v.strip()
-                special_dict[k] = v
+                tmp = option.split('=')
+                if len(tmp) == 2:
+                    k, v = tmp
+                    k.strip()
+                    v.strip()
+                    special_dict[k] = v
+                else:
+                    continue
     return special_dict
 
 
