@@ -105,11 +105,19 @@ def setup():
 
     django_manage_path = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
 
+    init_data_path = os.path.split(os.path.realpath(__file__))[0] + '/init_resource.json'
+
     print '===================================================='
     print 'Creating tables, please wait...'
     print '===================================================='
 
     os.system('python %s migrate' % django_manage_path)
+
+    print '===================================================='
+    print 'Loading data, please wait...'
+    print '===================================================='
+
+    os.system('python %s loaddata %s' % (django_manage_path, init_data_path))
 
     print '===================================================='
     print 'Now we\'ll create a superuser account'

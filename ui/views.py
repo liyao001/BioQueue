@@ -4,10 +4,10 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
-from tools import error, success, delete_file, check_user_existence
-from worker.baseDriver import get_config, get_user_folder_size, get_disk_free, get_disk_used, set_config
+from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, check_disk_quota_lock
+from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
-    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm
+    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 
@@ -33,19 +33,23 @@ def add_job(request):
                 if cd['parameter'].find(';') == -1:
                     cd['parameter'] += ';'
 
-                job = Queue(
-                    protocol_id=cd['protocol'],
-                    parameter=cd['parameter'],
-                    run_dir=get_config('env', 'workspace'),
-                    user_id=request.user.id,
-                    input_file=init_file,
-                )
+                protocol = ProtocolList.objects.get(id=cd['protocol'])
+                if protocol.check_owner(request.user.id) or request.user.is_superuser:
+                    job = Queue(
+                        protocol_id=cd['protocol'],
+                        parameter=cd['parameter'],
+                        run_dir=get_config('env', 'workspace'),
+                        user_id=request.user.id,
+                        input_file=init_file,
+                    )
 
-                if get_user_folder_size(request.user.id) < int(get_config('env', 'disk_quota')):
-                    job.save()
-                    return success('Successfully added job into queue.')
+                    if check_disk_quota_lock(request.user.id):
+                        job.save()
+                        return success('Successfully added job into queue.')
+                    else:
+                        return error('You have exceed the disk quota limit! Please delete some files!')
                 else:
-                    return error('You have exceed the disk quota limit! Please delete some files!')
+                    return error('You are not owner of the protocol.')
 
             except Exception, e:
                 return error(e)
@@ -89,6 +93,59 @@ def add_step(request):
         return success(template.render(context))
     else:
         return error('Method error')
+
+
+@login_required
+def batch_job(request):
+    if request.method == 'POST':
+        form = BatchJobForm(request.POST, request.FILES)
+        if form.is_valid():
+            file_name = handle_uploaded_file(request.FILES['job_list'])
+            try:
+                protocol_cache = dict()
+                with open(file_name) as f:
+                    jobs = f.readlines()
+                    job_list = []
+                    for job in jobs:
+                        configurations = job.split('\n')[0].split('\t')
+                        if len(configurations) == 3:
+                            if check_disk_quota_lock(request.user.id):
+                                protocol_id = int(configurations[0])
+                                if protocol_id not in protocol_cache:
+                                    try:
+                                        protocol = ProtocolList.objects.get(id=protocol_id)
+                                        protocol_cache[protocol_id] = protocol.user_id
+                                    except Exception, e:
+                                        return render(request, 'ui/error.html', {'error_msg': e})
+                                if protocol_cache[protocol_id] == request.user.id or request.user.is_superuser:
+                                    job_list.append(
+                                        Queue(input_file=configurations[1],
+                                              parameter=configurations[2],
+                                              run_dir=get_config('env', 'workspace'),
+                                              protocol_id=protocol_id,
+                                              user_id=request.user.id))
+                                else:
+                                    return render(request,
+                                                  'ui/error.html',
+                                                  {'error_msg': 'You are not the owner of the protocol(%s)' % protocol_id})
+                            else:
+                                return render(request,
+                                              'ui/error.html',
+                                              {'error_msg': 'You have exceed the disk quota limit! Please delete some files!'})
+                        else:
+                            return render(request,
+                                          'ui/error.html',
+                                          {'error_msg': 'Your job list file must contain three columns.'})
+
+                    Queue.objects.bulk_create(job_list)
+                    return HttpResponseRedirect('/ui/query-job')
+
+            except Exception, e:
+                return render(request, 'ui/error.html', {'error_msg': e})
+        else:
+            return render(request,
+                          'ui/error.html',
+                          {'error_msg': str(form.errors)})
 
 
 @staff_member_required
@@ -419,14 +476,17 @@ def settings(request):
         set_config('env', 'disk_quota', request.POST['dquota'])
         return HttpResponseRedirect('/ui/settings')
     else:
-        configuration = {
-            'run_folder': get_config('env', 'workspace'),
-            'cpu': get_config('env', 'cpu'),
-            'memory': get_config('env', 'memory'),
-            'disk_quota': get_config('env', 'disk_quota'),
-            'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
-            'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
-        }
+        try:
+            configuration = {
+                'run_folder': get_config('env', 'workspace'),
+                'cpu': get_config('env', 'cpu'),
+                'memory': get_config('env', 'memory'),
+                'disk_quota': get_config('env', 'disk_quota'),
+                'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
+                'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
+            }
+        except Exception, e:
+            return render(request, 'ui/error.html', {'error_msg': e})
         return render(request, 'ui/settings.html', configuration)
 
 
@@ -589,8 +649,13 @@ def show_step(request):
 @login_required
 def show_upload_files(request):
     user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads')
-    context = {'user_files': os.listdir(user_path)}
+    if not os.path.exists(user_path):
+        try:
+            os.makedirs(user_path)
+        except Exception, e:
+            return render(request, 'ui/error.html', {'error_msg': e})
 
+    context = {'user_files': os.listdir(user_path)}
     return render(request, 'ui/show_uploads.html', context)
 
 

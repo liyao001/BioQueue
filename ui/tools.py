@@ -1,4 +1,6 @@
 from django.http import JsonResponse
+from worker.baseDriver import get_config, rand_sig, get_user_folder_size
+
 
 
 def success(message, jump_url='.', msg_title="success", status=1, wait_second=1):
@@ -40,3 +42,23 @@ def check_user_existence(username):
         return u.id
     except Exception, e:
         return 0
+
+
+def handle_uploaded_file(f):
+    import os
+    file_name = os.path.join(get_config('env', 'batch_job'), rand_sig()+'.txt')
+    with open(file_name, 'wb+') as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+    return file_name
+
+
+def check_disk_quota_lock(user):
+    disk_limit = get_config('env', 'disk_quota')
+    if disk_limit:
+        if get_user_folder_size(user) < int(disk_limit):
+            return 1
+        else:
+            return 0
+    else:
+        return 1

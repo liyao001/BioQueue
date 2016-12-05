@@ -7,11 +7,11 @@
 <div class="accordion" id="create-job">
     <div class="accordion-group">
         <div class="accordion-heading">
-            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#single-job"> Single Job </a>
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#single-job"><i class="icon-tag"></i> Single Job </a>
         </div>
         <div id="single-job" class="accordion-body collapse in">
             <div class="accordion-inner">
-                <form class="form-horizontal" method="post" action="." style="margin-top:9px; margin-bottom:0;">
+                <form class="form-horizontal" id="single-job-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
                     <fieldset>
                         <div class="control-group">
                             <label class="control-label" for="protocol">Choose a protocol</label>
@@ -62,10 +62,37 @@
     </div>
     <div class="accordion-group">
         <div class="accordion-heading">
-            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#batch-job"> Batch Job </a>
+            <a class="accordion-toggle" data-toggle="collapse" data-parent="#create-job" href="#batch-job"><i class="icon-tags"></i> Batch Job </a>
         </div>
         <div id="batch-job" class="accordion-body collapse">
-            <div class="accordion-inner"> Anim pariatur cliche... </div>
+            <div class="accordion-inner">
+                <form class="form-horizontal" method="post" action="{% url 'ui:batch_job' %}" enctype="multipart/form-data">
+                    <fieldset>
+                        <div class="control-group">
+                            <label class="control-label" for="parameter">Job list</label>
+                            <div class="controls">
+                                <input type="file" id="job_list" name="job_list">
+                            </div>
+                        </div>
+                        {% csrf_token %}
+                        <div class="control-group" style="margin-bottom: 9px;">
+                            <div class="controls">
+                                <button type="submit" class="btn btn-success btn-large" >Upload and create</button>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+                <div class="alert alert-info alert-block">
+                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <p>You can create a batch of jobs by upload a list file. This file should contain below three columns which are separated by <code>Tabs(\t)</code>.
+                    </p>
+                    <ol>
+                        <li>protocol ID</li>
+                        <li>Input files</li>
+                        <li>Special parameter</li>
+                    </ol>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -73,7 +100,7 @@
 {% endblock %}
 {% block script %}
     $("#add-job").addClass("active");
-    $("form").submit(function(){
+    $("#single-job-form").submit(function(){
 		var self = $(this);
 		$.post(self.attr("action"), self.serialize(), success, "json");
 		return false;

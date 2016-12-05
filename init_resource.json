@@ -1,0 +1,1 @@
+[{"model": "ui.resource", "pk": 1, "fields": {"cpu": "0", "mem": "0", "disk": "0", "own": "sys", "lock": 0}}]
