@@ -1,5 +1,7 @@
 from django import forms
-from .models import ProtocolList
+from django.template.defaultfilters import filesizeformat
+from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ValidationError
 
 
 class SingleJobForm(forms.Form):
@@ -123,3 +125,32 @@ class CreateReferenceForm(forms.Form):
     path = forms.CharField(
         required=True,
     )
+
+
+class RestrictedFileField(forms.FileField):
+
+    def __init__(self, *args, **kwargs):
+        self.content_types = kwargs.pop("content_types")
+        self.max_upload_size = kwargs.pop("max_upload_size")
+
+        super(RestrictedFileField, self).__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        file = super(RestrictedFileField, self).clean(data, initial)
+
+        try:
+            content_type = file.content_type
+            if content_type in self.content_types:
+                if file._size > self.max_upload_size:
+                    raise ValidationError(_('Please keep filesize under %s. Current filesize %s') % (
+                        filesizeformat(self.max_upload_size), filesizeformat(file._size)))
+            else:
+                raise ValidationError(_('Filetype not supported.'))
+        except AttributeError:
+            pass
+
+        return data
+
+
+class BatchJobForm(forms.Form):
+    job_list = RestrictedFileField(content_types=['text/plain'], max_upload_size=2621440)

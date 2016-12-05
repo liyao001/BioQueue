@@ -5,6 +5,7 @@ urlpatterns = [
     url(r'^$', views.index, name='index'),
     url(r'^add-job/$', views.add_job, name='add_job'),
     url(r'^add-step/$', views.add_step, name='add_step'),
+    url(r'^batch-job/$', views.batch_job, name='batch_job'),
     url(r'^clean-dead-lock/$', views.clean_dead_lock, name='clean_dead_lock'),
     url(r'^create-protocol/$', views.create_protocol, name='create_protocol'),
     url(r'^delete-job/$', views.delete_job, name='delete_job'),
