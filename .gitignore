@@ -8,3 +8,8 @@ web/config.conf
 *.pyc
 worker/config.conf
 /web/Workspace/*
+/.idea/*
+worker/.idea/*
+worker/cpbqueue.wpr
+worker/cpbqueue.wpu
+worker/1

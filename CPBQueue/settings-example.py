@@ -25,7 +25,7 @@ SECRET_KEY = '{SECRET_KEY}'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*',]
 
 LOGIN_REDIRECT_URL = reverse_lazy('ui:index')
 LOGIN_URL = reverse_lazy('accounts:login')
