@@ -8,9 +8,10 @@ https://docs.djangoproject.com/en/1.10/howto/deployment/wsgi/
 """
 
 import os
-
+import sys
 from django.core.wsgi import get_wsgi_application
 
+sys.path.append(os.path.split(os.path.split(os.path.realpath(__file__))[0])[0])
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CPBQueue.settings")
 
 application = get_wsgi_application()
