@@ -51,7 +51,7 @@ def setup():
         os.mkdir(output_path)
         os.mkdir(train_path)
     except Exception, e:
-        print 'Doesn\'t have the permission to write your workspace!'
+        print 'Doesn\'t have the permission to write your workspace!', e
         sys.exit(1)
 
     set_config('env', 'workspace', workspace_path)
@@ -80,12 +80,19 @@ def setup():
     set_config('db', 'password', database_configure['password'])
     set_config('db', 'port', database_configure['port'])
 
-    setting_file_template = os.path.split(os.path.realpath(__file__))[0] + '/CPBQueue/settings-example.py'
-    setting_file_new = os.path.split(os.path.realpath(__file__))[0] + '/CPBQueue/settings.py'
+    app_root = os.path.split(os.path.realpath(__file__))[0]
+    setting_file_template = app_root + '/CPBQueue/settings-example.py'
+    setting_file_new = app_root + '/CPBQueue/settings.py'
+    apache_file_template = app_root + '/deploy/000-default.conf.tpl'
+    apache_file_new = app_root + '/deploy/000-default.conf'
 
     setting_handler = open(setting_file_template, 'r')
     setting_handler_new = open(setting_file_new, 'w')
+    apache_handler = open(apache_file_template, 'r')
+    apache_handler_new = open(apache_file_new, 'w')
     setting_file = setting_handler.read()
+    apache_file = apache_handler.read()
+
     setting_file = setting_file.replace('{SECRET_KEY}', get_random_secret_key())\
         .replace('{DB_NAME}', database_configure['db_name'])\
         .replace('{DB_USER}', database_configure['user'])\
@@ -94,7 +101,10 @@ def setup():
         .replace('{DB_PORT}', database_configure['port'])
     setting_handler.close()
     setting_handler_new.write(setting_file)
+    apache_handler_new.write(apache_file.replace('{APP_ROOT}', app_root))
     setting_handler_new.close()
+    apache_handler.close()
+    apache_handler_new.close()
 
     print '===================================================='
     print 'Installing dependent python packages, please wait...'

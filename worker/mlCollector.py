@@ -42,7 +42,7 @@ def get_io(pid):
 def create_machine_learning_item(step_hash, input_bytes, output_bytes, mem_usage, cpu_usage):
     con, cursor = con_mysql()
     dyn_sql = """INSERT INTO %s (`step`, `input`, `output`, `mem`, `cpu`) VALUES ('%s', '%s', '%s', '%s', '%s');"""\
-              % (get_config("datasets", "trainStore"), str(step_hash), str(input_bytes), str(output_bytes),
+              % (get_config("datasets", "train_db"), str(step_hash), str(input_bytes), str(output_bytes),
                  str(mem_usage), str(cpu_usage))
     try:
         cursor.execute(dyn_sql)
@@ -109,8 +109,8 @@ def main():
             cpu_usage = sum(cpu_list)/len(cpu_list)
         else:
             cpu_usage = -1
-        update(get_config('datasets', 'trainStore'), job_id, 'mem', mem_usage)
-        update(get_config('datasets', 'trainStore'), job_id, 'cpu', cpu_usage)
+        update(get_config('datasets', 'train_db'), job_id, 'mem', mem_usage)
+        update(get_config('datasets', 'train_db'), job_id, 'cpu', cpu_usage)
     else:
         sys.exit()
 
