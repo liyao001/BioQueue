@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from baseDriver import get_config
+from baseDriver import get_all_config
 import time
+settings = get_all_config()
 
 
 def con_sqlite(db):
@@ -29,7 +30,7 @@ def con_mysql():
     h=host, u=user, p=password, db=database, port=database port, local=local_infile"""
     import MySQLdb
     try:
-        connection = MySQLdb.connect(host=get_config("db", "host"), user=get_config("db", "user"), passwd=get_config("db", "password"), db=get_config("db", "db_name"), port=int(get_config("db", "port")), local_infile=1)
+        connection = MySQLdb.connect(host=settings['db']['host'], user=settings['db']['user'], passwd=settings['db']['password'], db=settings['db']['db_name'], port=int(settings['db']['port']), local_infile=1)
         if buffer == 1:
             # cursor = connection.cursor(buffered=True)
             cursor = connection.cursor(buffered=True)
@@ -43,9 +44,8 @@ def con_mysql():
 
 def mysql_connection():
     """Support for MySQL(load configuration from local file)"""
-    from baseDriver import get_config
-    return con_mysql(h=get_config("db", "host"), u=get_config("db", "user"), p=get_config("db", "password"),
-                     db=get_config("db", "db_name"), port=int(get_config("db", "port")), local=1)
+    return con_mysql(h=settings['db']['host'], u=settings['db']['user'], p=settings['db']['password'],
+                     db=settings['db']['db_name'], port=int(settings['db']['port']), local=1)
 
 
 def init_resource(cpu, mem, disk):
@@ -54,7 +54,7 @@ def init_resource(cpu, mem, disk):
 
 def get_resource():
     conn, cursor = con_mysql()
-    sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % get_config('datasets', 'resource')
+    sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % settings['datasets']['resource']
     resource = cursor.execute(sql)
     sys_resource = cursor.fetchone()
     if sys_resource:
@@ -72,7 +72,7 @@ def set_resource(cpu, mem, disk):
         try:
             conn, cursor = con_mysql()
             sql = """UPDATE `%s` SET `cpu` = %s, `mem` = %s, `disk` = %s WHERE `own` = 'sys';""" \
-                  % (get_config('datasets', 'resource'), cpu, mem, int(disk))
+                  % (settings['datasets']['resource'], cpu, mem, int(disk))
             cursor.execute(sql)
             conn.commit()
             conn.close()
@@ -91,7 +91,7 @@ def update_resource_without_check(cpu, mem, disk):
     while try_times < 5:
         try:
             conn, cursor = con_mysql()
-            sql = """UPDATE `%s` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" % (get_config('datasets', 'resource'), cpu, mem, disk)
+            sql = """UPDATE `%s` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" % (settings['datasets']['resource'], cpu, mem, disk)
             cursor.execute(sql)
             conn.commit()
             conn.close()
@@ -109,11 +109,11 @@ def update_resource(cpu, mem, disk, give_back=0):
         flag = 1
         conn, cursor = con_mysql()
         sql = """UPDATE `%s` SET `cpu` = `cpu` + %s, `mem` = `mem` + %s, `disk` = `disk` + %s WHERE `own` = 'sys';""" \
-              % (get_config('datasets', 'resource'), cpu, mem, int(disk))
+              % (settings['datasets']['resource'], cpu, mem, int(disk))
         cursor.execute(sql)
         conn.commit()
         if not give_back:
-            sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % get_config('datasets', 'resource')
+            sql = """SELECT `cpu`, `mem`, `disk` FROM `%s` WHERE `own`='sys' LIMIT 1;""" % settings['datasets']['resource']
             cursor.execute(sql)
             sys_resource = cursor.fetchone()
             if sys_resource:
@@ -129,7 +129,7 @@ def update_resource(cpu, mem, disk, give_back=0):
             if cpu_max_pool < 0 or memory_max_pool < 0 or disk_max_pool < 0:
                 # rollback
                 sql = """UPDATE `%s` SET `cpu` = `cpu` - %s, `mem` = `mem` - %s, `disk` = `disk` - %s WHERE `own` = 'sys';""" \
-                      % (get_config('datasets', 'resource'), cpu, mem, disk)
+                      % (settings['datasets']['resource'], cpu, mem, disk)
                 cursor.execute(sql)
                 conn.commit()
                 flag = 0

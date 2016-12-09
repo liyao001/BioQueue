@@ -6,6 +6,20 @@ import psutil
 from multiprocessing import cpu_count
 
 
+def get_all_config():
+    config = ConfigParser.ConfigParser()
+    path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
+    config.read(path)
+    configurations = {}
+    for section in config.sections():
+        tmp = config.items(section)
+        opts = dict()
+        for opt in tmp:
+            opts[opt[0]] = opt[1]
+        configurations[section] = opts
+    return configurations
+
+
 def get_config(section, key):
     config = ConfigParser.ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'

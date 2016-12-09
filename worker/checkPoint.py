@@ -2,14 +2,15 @@
 from numpy import *
 import numpy
 from databaseDriver import con_mysql, get_resource, update_resource
-from baseDriver import get_config, get_disk_free, get_cpu_available, get_memo_usage_available
+from baseDriver import get_disk_free, get_cpu_available, get_memo_usage_available, get_all_config
 import pandas as pd
+settings = get_all_config()
 
 
 def load_train_frame(step_hash):
     try:
         conn, cur = con_mysql()
-        sql = """SELECT * FROM `%s` WHERE `step`='%s';"""%(get_config("datasets", "trainStore"), step_hash)
+        sql = """SELECT * FROM `%s` WHERE `step`='%s';"""%(settings['datasets']['train_db'], step_hash)
         train_dataframe = pd.read_sql_query(sql, conn)
         train_dataframe = train_dataframe.replace('-1', numpy.nan)
         train_dataframe['in'] = train_dataframe['in'].astype('float32')
@@ -65,7 +66,7 @@ def record_result(step_hash, a, b, r, t):
     try:
         conn, cur = con_mysql()
         sql = """INSERT INTO `%s` (`step_hash`, `a`, `b`, `r`, `type`) VALUES ('%s', %s, %s, %s, %s);"""\
-              % (get_config('datasets', 'equation'), step_hash, a, b, r, t)
+              % (settings['datasets']['equation'], step_hash, a, b, r, t)
         cur.execute(sql)
         conn.commit()
         conn.close()
@@ -90,7 +91,7 @@ def regression(step_hash):
 
 
 def get_training_items(step_hash):
-    dyn_sql = """SELECT COUNT(*) FROM %s WHERE `step`='%s';""" % (get_config("datasets", "trainStore"), step_hash)
+    dyn_sql = """SELECT COUNT(*) FROM %s WHERE `step`='%s';""" % (settings['datasets']['train_db'], step_hash)
     try:
         conn, cur = con_mysql()
         cur.execute(dyn_sql)
@@ -107,7 +108,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
     try:
         conn, cur = con_mysql()
         get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `step_hash`='%s';""" \
-                         % (get_config("datasets", "equation"), str(step))
+                         % (settings['datasets']['equation'], str(step))
         cur.execute(get_equation_sql)
         equations = cur.fetchall()
         if len(equations) > 0 and in_size != -99999.0:
@@ -153,7 +154,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
             if training_num < 10:
                 # Not ready for machine learning
                 get_running_sql = """SELECT COUNT(*) FROM %s WHERE `status`>0 AND `id` != %s;""" %\
-                                (get_config("datasets", "jobDb"), job_id)
+                                (settings['datasets']['job_db'], job_id)
                 cur.execute(get_running_sql)
                 running = cur.fetchone()
                 conn.close()

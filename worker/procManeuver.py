@@ -11,15 +11,16 @@ pid = None
 
 
 def if_terminate():
+    job_db = baseDriver.get_config('datasets', 'job_db')
     try:
-        terminate_signal = baseDriver.get_field('ter', baseDriver.get_config('datasets', 'jobDb'), 'id', str(jid))
+        terminate_signal = baseDriver.get_field('ter', job_db, 'id', str(jid))
         if terminate_signal:
             if pid in psutil.pids():
                 # Kill watched job
                 process = psutil.Process(pid)
                 process.kill()
                 st_dic = {'status': -1, 'ter': 0}
-                baseDriver.multi_update('queue', jid, st_dic)
+                baseDriver.multi_update(job_db, jid, st_dic)
             exit(0)
     except Exception, e:
         print e

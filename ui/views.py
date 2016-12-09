@@ -4,7 +4,8 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
-from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, check_disk_quota_lock
+from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
+    check_disk_quota_lock
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
@@ -704,12 +705,13 @@ def terminate_job(request):
 @login_required
 def update_parameter(request):
     if request.method == 'GET':
+        from urllib import unquote
         update_parameter_form = StepManipulateForm(request.GET)
         if update_parameter_form.is_valid():
             cd = update_parameter_form.cleaned_data
             step = Protocol.objects.get(id=cd['id'])
             if (step.check_owner(request.user.id) or request.user.is_superuser) and step.check_parent(cd['parent']):
-                step.update_parameter(cd['parameter'])
+                step.update_parameter(unquote(cd['parameter']))
                 step.save()
                 return success('Your step has been updated.')
             else:
