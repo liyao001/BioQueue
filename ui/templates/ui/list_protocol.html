@@ -20,7 +20,7 @@
                 <td>{{ protocol.name }}</td>
                 <td>
                     <span class="user-actions">
-                        <span data-pid="{{ protocol.id }}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-important">Delete</span>
+                        <span data-pid="{{ protocol.id }}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-danger">Delete</span>
                         <span style="display: inline-block; cursor:pointer;" class="label label-warning" onclick="showNewStep({{ protocol.id }});">Add Step</span>
                         <span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({{ protocol.id }});">Check Steps</span>
                         <span data-pid="{$hit.id}" style="cursor:pointer;" onclick="showShare({{ protocol.id }});" class="label label-info">Share</span>
@@ -74,15 +74,15 @@
         <h4 class="modal-title" id="myModalLabel">Share your protocols with others</h4>
       </div>
       <div class="modal-body">
-      	<form method="post" action="{% url 'ui:share_with_peer' %}">
-  			<fieldset>
-	    		<legend>Share with a peer</legend>
-	    		<label>Peer's username</label>
-	    		<input type="text" id="peer" name="peer" placeholder="Enter peer's username here">
-	    		<input type="hidden" id="pro" name="pro">
-	    		<span class="help-block">You can only share your protocol with one peer at a time.</span>
-			    <button type="submit" class="btn">Share with a peer</button>
-			</fieldset>
+      	<form class="form" method="post" action="{% url 'ui:share_with_peer' %}">
+            <legend>Share with a peer</legend>
+            <div class="form-group">
+                <label>Peer's username</label>
+                <input type="text" id="peer" name="peer" class="form-control" placeholder="Enter peer's username here" required>
+            </div>
+            <input type="hidden" id="pro" name="pro">
+            <span class="help-block">You can only share your protocol with one peer at a time.</span>
+            <button type="submit" class="btn btn-default btn-block">Share with a peer</button>
 		</form>
 		<legend>Share with public</legend>
 		<span class="help-block">By clicking button below, you will visit CPBQueue's Online Repository, which stores your protocol and shares them with the public.</span>

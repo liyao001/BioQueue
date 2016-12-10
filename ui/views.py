@@ -300,20 +300,23 @@ def fetch_learning(request):
               + request.GET['type']+'/c/'\
               + str(get_config('env', 'cpu')+'/m/'
               + str(get_config('env', 'memory')))
-    req = urllib2.Request(api_bus)
-    res_data = urllib2.urlopen(req)
-    res = json.loads(res_data.read())
-    session_dict = {'hash': request.GET['hash'],
-                    'type': request.GET['type'],
-                    'a': res['a'],
-                    'b': res['b'],
-                    'r': res['r'],}
-    request.session['learning'] = session_dict
-    template = loader.get_template('ui/fetch_learning.html')
-    context = RequestContext(request, {
-        'step': res,
-    })
-    return success(template.render(context))
+    try:
+        req = urllib2.Request(api_bus)
+        res_data = urllib2.urlopen(req)
+        res = json.loads(res_data.read())
+        session_dict = {'hash': request.GET['hash'],
+                        'type': request.GET['type'],
+                        'a': res['a'],
+                        'b': res['b'],
+                        'r': res['r'],}
+        request.session['learning'] = session_dict
+        template = loader.get_template('ui/fetch_learning.html')
+        context = RequestContext(request, {
+            'step': res,
+        })
+        return success(template.render(context))
+    except Exception, e:
+        return error(e)
 
 
 @login_required

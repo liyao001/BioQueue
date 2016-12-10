@@ -1,26 +1,30 @@
 <form class="form" method="post" action="{% url 'ui:add_step' %}">
-    <fieldset>
-        <div class="control-group">
-            <label class="control-label" for="software">Software*:</label>
-            <div class="controls">
-                <input type="text" class="input-block-level" id="software" name="software" required />
-            </div>
-        </div>
-        <div class="control-group">
-            <label class="control-label" for="parameter">Parameters*:</label>
-            <div class="controls">
-                <input type="text" class="input-block-level" id="parameter" name="parameter" />
-            </div>
-        </div>
-        <hr />
-        <input type="hidden" name="parent" value="{{ parent }}">
-        <input type="hidden" name="csrfmiddlewaretoken" id="csrf">
-        <div class="form-group" style="text-align: center;">
-            <button type="submit" class="btn btn-success btn-large">Add</button>
-        </div>
-    </fieldset>
+    <div class="form-group">
+        <label for="software">Software*:</label>
+        <input type="text" class="form-control" id="software" name="software" required />
+    </div>
+    <div class="form-group">
+        <label for="parameter">Parameters*:</label>
+        <input type="text" class="form-control" id="parameter" name="parameter" />
+    </div>
+    <hr />
+    <input type="hidden" name="parent" value="{{ parent }}">
+    <input type="hidden" name="csrfmiddlewaretoken" id="csrf">
+    <div class="form-group" style="text-align: center;">
+        <button type="submit" class="btn btn-success btn-large">Add</button>
+    </div>
 </form>
-<pre>You can use varibles or references when defining the parameters. Below are some of the system level variable:<ul><li>InitInput: The initial input files which maps to files you provide when you create a job.</li><li>LastOutput: Output files of last step.</li><li>LastOutputN: The n-th output file of last step (in alphabetical order).</li><li>job: job ID.</li><li>ThreadN: The number of CPUs in the running node.</li></ul>All varibles should be surrounded by curly-braces, like {ThreadN}.</pre>
+<div class="bs-callout bs-callout-info">
+    You can use varibles or references when defining the parameters. Below are some of the system level variable:
+    <ul>
+        <li><code>InitInput</code>: The initial input files which maps to files you provide when you create a job.</li>
+        <li><code>LastOutput</code>: Output files of last step.</li>
+        <li><code>LastOutputN</code>: The n-th output file of last step (in alphabetical order).</li>
+        <li><code>job</code>: job ID.</li>
+        <li><code>ThreadN</code>: The number of CPUs in the running node.</li>
+    </ul>
+    All varibles should be surrounded by curly-braces, like {ThreadN}.
+</div>
 <script>
     $("#csrf").val(csrftoken);
     $("form").submit(function(){

@@ -1,26 +1,27 @@
 {% extends "ui/single.html" %}
 {% block title %}Sign In | CPBQueue{% endblock %}
 {% block content %}
-<div class="well">
-    <h1 class="margin-base-vertical text-center" style="text-align:center;">Sign in CPBQueue</h1>
-    <form action="." method="post" class="form-horizontal">
-        <div class="control-group"></div>
-        <div class="Validform_checktip alert" style="display: none;"></div>
-        {{ form.as_p }}
-        <input type="hidden" name="next" value="{{ next }}" />
-        {% csrf_token %}
-        <div class="control-group">
-            <div class="span6">
-              <button class="input-block-level btn btn-primary" type="submit" class="btn">
-              Sign in
-              </button>
-            </div>
-            <div class="span6">
-                <a class="input-block-level btn btn-success" type="submit" href="{% url 'accounts:register' %}">Sign up</a>
+    <div class="container-fluid" style="margin: 50px 0;">
+        <div class="row-fluid text-center">
+            <h1>Login</h1>
+            <div class="login-form">
+                <form id="login-form" class="text-left" novalidate="novalidate">
+                    <div class="Validform_checktip alert" style="display: none;"></div>
+                    <div class="main-login-form">
+                        <div class="login-group">
+                            {{ form.as_p }}
+                        </div>
+                        <input type="hidden" name="next" value="{{ next }}" />
+                        {% csrf_token %}
+                        <button type="submit" class="login-button"><i class="glyphicon glyphicon-chevron-right"></i></button>
+                    </div>
+                    <div class="etc-login-form">
+                        <p>new user? <a href="{% url 'accounts:register' %}">create new account</a></p>
+                    </div>
+                </form>
             </div>
         </div>
-    </form>
-</div>
+    </div>
 {% endblock %}
 {% block script %}
 $(document)

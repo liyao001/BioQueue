@@ -2,74 +2,74 @@
 {% block title %}Job Status | CPBQueue{% endblock %}
 {% block content %}
 <meta http-equiv="refresh" content="30">
-<div class="row-fluid">
-    <div class="page-header">
-        <h1 id="task">Job Status</h1>
+    <div class="row-fluid">
+        <div class="page-header">
+            <h1 id="task">Job Status</h1>
+        </div>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Protocol</th>
+                    <th>Input files</th>
+                    <th>Output folder</th>
+                    <th>Status</th>
+                    <th>Create time</th>
+                    <th>Last update</th>
+                    <th>Operation</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% if job_list %}
+            {% for job in job_list %}
+                <tr class="pending-user">
+                    <td class="no-leak-table">{{ job.id }}</td>
+                    <td class="no-leak-table">{{ job.protocol }}</td>
+                    <td class="no-leak-table limited-table-25em">{{ job.input_file }}</td>
+                    <td class="no-leak-table"><span href="__MODULE__/Job/showFolder/job/{{ job.id }}" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});">{{ job.result }}</span></td>
+                    <td class="no-leak-table status">
+                        {% if job.status == -1 %}
+                            <i class="icon-ok"></i>
+                        {% elif job.status == -2 %}
+                            <i class="icon-pause"></i>Waiting at CP
+                        {% elif job.status == -3 %}
+                            <i class="icon-remove"></i><span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
+                        {% elif job.status == 0 %}
+                            <i class="icon-time"></i>Waiting
+                        {% else %}
+                            <i class="icon-play"></i>Running ({{ job.status }})
+                        {% endif %}
+                    </td>
+                    <td class="no-leak-table">{{ job.create_time }}</td>
+                    <td class="no-leak-table">{{ job.update_time }}</td>
+                    <td class="no-leak-table">
+                        {% if job.status == -1 %}
+                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                        {% elif job.status == 0 %}
+                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                        {% elif job.status == -3 %}
+                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
+                        {% elif job.status > 0 %}
+                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
+                        {% elif job.status == -2 %}
+                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            {% endif %}
+            </tbody>
+        </table>
+        <ul class="pager">
+            {% if job_list.has_previous %}
+                <li><a href="?page={{ job_list.previous_page_number }}">&lt;</a></li>
+            {% endif %}
+            <li><a>Page {{ job_list.number }} of {{ job_list.paginator.num_pages }}</a></li>
+            {% if job_list.has_next %}
+                <li><a href="?page={{ job_list.next_page_number }}">&gt;</a></li>
+            {% endif %}
+        </ul>
     </div>
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Protocol</th>
-                <th>Input files</th>
-                <th>Output folder</th>
-                <th>Status</th>
-                <th>Create time</th>
-                <th>Last update</th>
-                <th>Operation</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% if job_list %}
-        {% for job in job_list %}
-            <tr class="pending-user">
-                <td class="no-leak-table">{{ job.id }}</td>
-                <td class="no-leak-table">{{ job.protocol }}</td>
-                <td class="no-leak-table limited-table-25em">{{ job.input_file }}</td>
-                <td class="no-leak-table"><span href="__MODULE__/Job/showFolder/job/{{ job.id }}" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});">{{ job.result }}</span></td>
-                <td class="no-leak-table status">
-                    {% if job.status == -1 %}
-                        <i class="icon-ok"></i>
-                    {% elif job.status == -2 %}
-                        <i class="icon-pause"></i>Waiting at CP
-                    {% elif job.status == -3 %}
-                        <i class="icon-remove"></i><span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
-                    {% elif job.status == 0 %}
-                        <i class="icon-time"></i>Waiting
-                    {% else %}
-                        <i class="icon-play"></i>Running ({{ job.status }})
-                    {% endif %}
-                </td>
-                <td class="no-leak-table">{{ job.create_time }}</td>
-                <td class="no-leak-table">{{ job.update_time }}</td>
-                <td class="no-leak-table">
-                    {% if job.status == -1 %}
-                        <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                    {% elif job.status == 0 %}
-                        <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                    {% elif job.status == -3 %}
-                        <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-important" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                    {% elif job.status > 0 %}
-                        <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-important" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
-                    {% elif job.status == -2 %}
-                        <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-important" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
-                    {% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        {% endif %}
-        </tbody>
-    </table>
-    <ul class="pager">
-        {% if job_list.has_previous %}
-            <li><a href="?page={{ job_list.previous_page_number }}">&lt;</a></li>
-        {% endif %}
-        <li><a>Page {{ job_list.number }} of {{ job_list.paginator.num_pages }}</a></li>
-        {% if job_list.has_next %}
-            <li><a href="?page={{ job_list.next_page_number }}">&gt;</a></li>
-        {% endif %}
-    </ul>
-</div>
 <div class="modal fade" id="showLog" tabindex="-1" role="dialog" aria-labelledby="showLog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">

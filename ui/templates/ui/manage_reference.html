@@ -5,25 +5,18 @@
     <div class="page-header">
         <h1>New Reference</h1>
     </div>
-    <form class="form-horizontal" method="post" action="#">
-        <fieldset>
-            <div class="control-group">
-                <label class="control-label" for="name">Reference Name</label>
-                <div class="controls">
-                    <input type="text" class="input-xlarge" id="name" name="name" required />
-                </div>
-            </div>
-            <div class="control-group">
-                <label class="control-label" for="name">Reference Value</label>
-                <div class="controls">
-                    <input type="text" class="input-xlarge" id="path" name="path" required />
-                </div>
-            </div>
-            <div class="form-actions">
-                <input type="submit" class="btn btn-success btn-large" value="Add" />
-            </div>
-        </fieldset>
+    <form class="form" method="post" action="#">
+        <div class="form-group">
+            <label class="control-label" for="name">Reference Name</label>
+            <input type="text" class="form-control" id="name" name="name" required />
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="name">Reference Value</label>
+            <input type="text" class="form-control" id="path" name="path" required />
+        </div>
+        <input type="submit" class="btn btn-success btn-large" value="Add" />
     </form>
+    <hr>
     <div class="page-header">
         <h1>Reference List</h1>
     </div>
@@ -42,7 +35,7 @@
                 <td>{{ ref.id }}</td>
                 <td>{{ ref.name }}</td>
                 <td>{{ ref.path }}</td>
-                <td><span class="user-actions"><span onclick="delProtocol(this);" data-rid="{{ ref.id }}" class="label label-important" style="cursor:pointer;">Delete</span></span></td>
+                <td><span class="user-actions"><span onclick="delProtocol(this);" data-rid="{{ ref.id }}" class="label label-danger" style="cursor:pointer;">Delete</span></span></td>
             </tr>
         {% endfor %}
         </tbody>
