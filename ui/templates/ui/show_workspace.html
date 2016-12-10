@@ -14,7 +14,7 @@
             <td>{{ file_item.name }}</td>
             <td>{{ file_item.file_size | filesizeformat }}</td>
             <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-important' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i></span> <a class='label label-success' href='/ui/download-upload-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i></a></td>
+            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i></span> <a class='label label-success' href='/ui/download-upload-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i></a></td>
         </tr>
     {% endfor %}
     </tbody>

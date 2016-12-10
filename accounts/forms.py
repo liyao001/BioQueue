@@ -5,23 +5,23 @@ from django.contrib.auth.models import User
 class LoginForm(forms.Form):
     username = forms.CharField(
         required=True,
-        label=u'Username',
+        label=False,
         error_messages={'required': 'Please type username'},
         widget=forms.TextInput(
             attrs={
                 'placeholder': u'Username',
-                'class': u'input-block-level',
+                'class': u'form-control',
             }
-        )
+        ),
     )
     password = forms.CharField(
         required=True,
-        label=u'Password',
+        label=False,
         error_messages={'required': 'Please type your password'},
         widget=forms.PasswordInput(
             attrs={
                 'placeholder': u'Password',
-                'class': u'input-block-level',
+                'class': u'form-control',
             }
         )
     )
@@ -51,10 +51,10 @@ class PasswordChangeForm(forms.Form):
     new_password_2 = forms.CharField(
         required=True,
         label=r'Confirm Password',
-        error_messages={'required': u'Please confirm new password'},
+        error_messages={'required': 'Please confirm new password'},
         widget=forms.PasswordInput(
             attrs={
-                'placeholder': u'Confirm new password',
+                'placeholder': 'Confirm new password',
             }
         )
     )
@@ -63,19 +63,21 @@ class PasswordChangeForm(forms.Form):
 class UserRegisterForm(forms.ModelForm):
     password = forms.CharField(
         required=True,
-        label='Password',
+        label=False,
         widget=forms.PasswordInput(
             attrs={
-                'class': u'input-block-level',
+                'class': 'form-control',
+                'placeholder': 'Password',
             }
         )
     )
     password_2 = forms.CharField(
         required=True,
-        label='Repeat password',
+        label=False,
         widget=forms.PasswordInput(
             attrs={
-                'class': u'input-block-level',
+                'class': 'form-control',
+                'placeholder': 'Confirm password',
             }
         )
     )
@@ -84,9 +86,17 @@ class UserRegisterForm(forms.ModelForm):
         model = User
         fields = ('username', 'first_name', 'email')
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'input-block-level'}),
-            'first_name': forms.TextInput(attrs={'class': 'input-block-level'}),
-            'email': forms.EmailInput(attrs={'class': 'input-block-level'}),
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First name'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'E-mail'}),
+        }
+        labels = {
+            'username': False,
+            'first_name': False,
+            'email': False,
+        }
+        help_texts = {
+            'username': False,
         }
 
     def clean_password2(self):

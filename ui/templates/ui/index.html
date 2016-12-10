@@ -15,12 +15,12 @@
     	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
     		<span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
     	</a>
-    	<a class="brand" href="__APP__">
+    	<a class="brand" href="{% url 'ui:index' %}">
     		<span class='brand-slogan'>CPBQueue</span>
     	</a>
-    	<div class="btn-group pull-right" style="margin-top:3px;">
+    	<div class="nav navbar-nav navbar-right" style="margin-top:3px;">
     		{% if user.is_authenticated %}
-                <a class="btn" href="{% url 'accounts:logout' %}"><i class="icon-user"></i> Log out</a>
+                <a class="btn btn-default" href="{% url 'accounts:logout' %}"><i class="icon-user"></i> Log out</a>
             {% endif %}
 		</div>
 	</div>
@@ -28,7 +28,7 @@
 </div>
 <div style="margin: 0 auto; width: 90%;">
 	<ul class="breadcrumb">
-	  <li><a href="#">Index</a> <span class="divider">/</span></li>
+	  <li><a href="#">Index</a></li>
 	  <li class="active">Dashboard</li>
 	</ul>
 </div>

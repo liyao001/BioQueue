@@ -5,21 +5,17 @@
     <div class="page-header">
         <h1>Create New Protocol</h1>
     </div>
-    <form class="form-horizontal" method="post" action=".">
-        <fieldset>
-            <div class="control-group">
-                <label class="control-label" for="name">Name</label>
-                <div class="controls">
-                    <input type="text" class="input-xlarge" id="name" name="name" required />
-                </div>
-            </div>
-            {% csrf_token %}
-            <p></p>
-            <div class="controls Validform_checktip text-warning"></div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-success btn-large">Add</button>
-            </div>
-        </fieldset>
+    <form class="form" method="post" action=".">
+        <div class="form-group">
+            <label class="control-label" for="name">Name</label>
+            <input type="text" class="form-control input-xlarge" id="name" name="name" required />
+        </div>
+        {% csrf_token %}
+        <p></p>
+        <div class="controls Validform_checktip text-warning"></div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-success btn-large btn-block">Add</button>
+        </div>
     </form>
 </div>
 {% endblock %}
