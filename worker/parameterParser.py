@@ -3,19 +3,18 @@
 
 def build_special_parameter_dict(all_output):
     special_dict = {}
-    for output in all_output:
-        if output.find(';') != -1:
-            options = output.split(';')
-            options.remove('')
-            for option in options:
-                tmp = option.split('=')
-                if len(tmp) == 2:
-                    k, v = tmp
-                    k.strip()
-                    v.strip()
-                    special_dict[k] = v
-                else:
-                    continue
+    if all_output.find(';') != -1:
+        options = all_output.split(';')
+        options.remove('')
+        for option in options:
+            tmp = option.split('=')
+            if len(tmp) == 2:
+                k, v = tmp
+                k.strip()
+                v.strip()
+                special_dict[k] = v
+            else:
+                continue
     return special_dict
 
 
@@ -44,12 +43,15 @@ def output_file_map(par, output_dict):
 def upload_file_map(par, user_folder):
     import baseDriver
     import re
+    import os
+    filesize = 0
     uploaded_replacement = re.compile("\\{Uploaded:(.*?)}", re.IGNORECASE | re.DOTALL)
     for uploaded_item in re.findall(uploaded_replacement, par):
         upload_file = baseDriver.build_upload_file_path(user_folder, uploaded_item)
         if upload_file is not None:
             par = par.replace('{Uploaded:' + uploaded_item + '}', upload_file)
-    return par
+            filesize += os.path.getsize(upload_file)
+    return par, filesize
 
 
 def parameter_string_to_list(par):

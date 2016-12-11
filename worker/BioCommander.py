@@ -92,7 +92,7 @@ def insert_sql(sql):
     return row_id
 
 
-def call_process(parameter, step, job_id, run_directory='', step_hash=''):
+def call_process(parameter, step, job_id, run_directory='', step_hash='', upload_size = 0):
     global this_input_size, this_output_size, cumulative_output_size, trace_id, ini_file
     iso_file = 0
     learning = 0
@@ -110,6 +110,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash=''):
             else:
                 this_input_size = this_output_size
             folder_size_before = baseDriver.get_folder_size(run_directory)
+            this_input_size += upload_size
 
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
@@ -207,7 +208,7 @@ def dynamic_run():
 
     jid, protocol, ini_file, indeed_parameter, run_folder, user_id, resume = get_job()
 
-    if jid == 0 or protocol == 0 or ini_file == '':
+    if jid == 0 or protocol == 0:
         return 1
 
     result_store = baseDriver.rand_sig() + str(jid)
@@ -236,14 +237,14 @@ def dynamic_run():
         steps[k] = parameterParser.last_output_map(steps[k], new_files)
         steps[k] = parameterParser.special_parameter_map(steps[k], so)
         steps[k] = parameterParser.output_file_map(steps[k], out_dic)
-        steps[k] = parameterParser.upload_file_map(steps[k], user_folder)
-        ini_file = parameterParser.upload_file_map(ini_file, user_folder)
+        steps[k], upload_file_size = parameterParser.upload_file_map(steps[k], user_folder)
+        ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
 
         parameters = parameterParser.parameter_string_to_list(steps[k])
         last_output = os.listdir(run_folder)
 
         if run_folder:
-            ret = call_process(parameters, k, jid, run_directory=run_folder, step_hash=hs[k])
+            ret = call_process(parameters, k, jid, run_directory=run_folder, step_hash=hs[k], upload_size = upload_file_size-upload_in_ini)
         else:
             ret = call_process(parameters, k, jid)
 

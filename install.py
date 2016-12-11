@@ -1,6 +1,7 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 import os
 import sys
+from getpass import getpass
 import ConfigParser
 
 
@@ -40,8 +41,12 @@ def get_random_secret_key():
 def setup():
     workspace_path = raw_input('Path of workspace: ')
     while not os.path.exists(workspace_path):
-        print 'The path you input doesn\'t exist! Please reassign it'
-        workspace_path = raw_input('Path of workspace: ')
+        try:
+            os.makedirs(workspace_path)
+            break
+        except Exception, e:
+            print 'The path you input doesn\'t exist! Please reassign it.', e
+            workspace_path = raw_input('Path of workspace: ')
 
     log_path = os.path.join(workspace_path, 'logs')
     output_path = os.path.join(workspace_path, 'outputs')
@@ -67,7 +72,7 @@ def setup():
     database_configure['host'] = raw_input('Database host: ')
     database_configure['user'] = raw_input('Database user: ')
     database_configure['db_name'] = raw_input('Database name: ')
-    database_configure['password'] = raw_input('Database password: ')
+    database_configure['password'] = getpass('Database password: ')
     database_configure['port'] = raw_input('Database port: ')
 
     print '===================================================='
