@@ -29,7 +29,7 @@ def add_job(request):
                     files = [item.strip() for item in files]
                     init_file = '{Uploaded:'+'};{Uploaded:'.join(files)+'}'
                 else:
-                    return error('Input file error')
+                    init_file = ''
 
                 if cd['parameter'].find(';') == -1:
                     cd['parameter'] += ';'
