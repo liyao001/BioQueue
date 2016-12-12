@@ -99,7 +99,18 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
     folder_size_before = 0
     try:
         training_num = get_training_items(step_hash)
-        if run_directory != '':
+        if settings['cluster']['type']:
+            import clusterSupport
+            baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step + 1)
+            return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(parameter),
+                                              job_id, step, settings['cluster']['cpu'],
+                                              settings['cluster']['queue'], run_directory)
+            return return_code
+        else:
+            if run_directory == '':
+                print 'Please specify your workspace!'
+                return 1
+
             if training_num < 100:
                 learning = 1
             if this_input_size == 0:
@@ -115,43 +126,41 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
 
-            process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'), "-p", str(os.getpid()), "-j",
-                                                 str(job_id)], shell=False, stdout=None, stderr=subprocess.STDOUT)
+            process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
+                                                 "-p", str(os.getpid()), "-j", str(job_id)], shell=False,
+                                                stdout=None, stderr=subprocess.STDOUT)
             status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
-                                                                                       this_input_size, training_num)
+                                                                                       this_input_size,
+                                                                                       training_num)
             while not status:
                 time.sleep(13)
-                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
+                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id,
+                                                                                           step_hash,
                                                                                            this_input_size,
                                                                                            training_num)
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                            cwd=run_directory)
+                                                    cwd=run_directory)
             if learning == 1 and step_hash != '':
-                learn_process = subprocess.Popen(["python", os.path.join(root_path, 'mlCollector.py'), "-p", str(step_process.pid), "-n",
-                                                  str(step_hash), "-j", str(trace_id)], shell=False, stdout=None,
+                learn_process = subprocess.Popen(["python", os.path.join(root_path, 'mlCollector.py'),
+                                                  "-p", str(step_process.pid), "-n", str(step_hash),
+                                                  "-j", str(trace_id)], shell=False, stdout=None,
                                                  stderr=subprocess.STDOUT)
-        else:
-            status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash)
-            while not status:
-                time.sleep(13)
-                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash)
-            step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step + 1)
-        stdout, stderr = step_process.communicate()
-        stdout += stderr
-        baseDriver.record_job(job_id, stdout)
+            baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step + 1)
+            stdout, stderr = step_process.communicate()
+            stdout += stderr
+            baseDriver.record_job(job_id, stdout)
+            if run_directory != '':
+                if iso_file == 1:
+                    this_input_size = 0
+                    iso_file = 0
+                this_output_size = baseDriver.get_folder_size(run_directory) - folder_size_before
+                print '==' + str(job_id) + '==' + str(step) + '== disk_needed', disk_needed, 'outputSize', this_output_size
+                update_resource(float(cpu_needed), float(memory_needed), float(disk_needed) - this_output_size)
+                cumulative_output_size += this_output_size
+                if learning == 1:
+                    baseDriver.update(settings['datasets']['train_db'], trace_id, 'output', this_output_size)
+            return step_process.returncode
 
-        if run_directory != '':
-            if iso_file == 1:
-                this_input_size = 0
-                iso_file = 0
-            this_output_size = baseDriver.get_folder_size(run_directory) - folder_size_before
-            print '==' + str(job_id) + '==' + str(step) + '== disk_needed', disk_needed, 'outputSize', this_output_size
-            update_resource(float(cpu_needed), float(memory_needed), float(disk_needed) - this_output_size)
-            cumulative_output_size += this_output_size
-            if learning == 1:
-                baseDriver.update(settings['datasets']['train_db'], trace_id, 'output', this_output_size)
-        return step_process.returncode
     except Exception, e:
         print 'Error caused by CPBQueue', e
         # baseDriver.update(baseDriver.get_config("datasets", "job_db"), job_id, 'status', -3)
