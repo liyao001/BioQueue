@@ -1,4 +1,4 @@
-<form class="form" method="post" action="{% url 'ui:add_step' %}">
+<form class="form" method="post" id="new-step-form" action="{% url 'ui:add_step' %}">
     <div class="form-group">
         <label for="software">Software*:</label>
         <input type="text" class="form-control" id="software" name="software" required />
@@ -8,7 +8,7 @@
         <input type="text" class="form-control" id="parameter" name="parameter" />
     </div>
     <hr />
-    <input type="hidden" name="parent" value="{{ parent }}">
+    <input type="hidden" name="parent" id="step-parent" value="{{ parent }}">
     <input type="hidden" name="csrfmiddlewaretoken" id="csrf">
     <div class="form-group" style="text-align: center;">
         <button type="submit" class="btn btn-success btn-large">Add</button>
@@ -38,7 +38,8 @@
 					message: data.info,
 					showCloseButton: true
 				});
-				$('#newStep').modal('hide');
+                showSteps($("#step-parent").val());
+                $('#newStep').modal('hide');
 			} else {
 				Messenger().post({
 					message: data.info,

@@ -20,4 +20,5 @@ class ClusterModel:
     def release_job(self):
         raise NotImplementedError
 
+    def submit_job(self, protocol, job_id, job_step, cpu=0, queue='', workspace=''):
         raise NotImplementedError
