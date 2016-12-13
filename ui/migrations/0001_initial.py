@@ -87,12 +87,12 @@ class Migration(migrations.Migration):
             name='Training',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('step', models.CharField(db_index=True, max_length=50)),
-                ('input', models.CharField(max_length=50)),
-                ('output', models.CharField(max_length=50)),
-                ('mem', models.CharField(max_length=50)),
-                ('cpu', models.CharField(max_length=50)),
-                ('create_time', models.DateField(auto_now_add=True)),
+                ('step', models.CharField(db_index=True, max_length=50, blank=True, null=True)),
+                ('input', models.CharField(max_length=50, blank=True, null=True)),
+                ('output', models.CharField(max_length=50, blank=True, null=True)),
+                ('mem', models.CharField(max_length=50, blank=True, null=True)),
+                ('cpu', models.CharField(max_length=50, blank=True, null=True)),
+                ('create_time', models.DateTimeField(auto_now_add=True)),
             ],
         ),
         migrations.CreateModel(

@@ -114,7 +114,7 @@
 					message: data.info,
 					showCloseButton: true
 				});
-				self[0].reset();
+                self[0].reset();
 			} else {
 				Messenger().post({
 					message: data.info,
@@ -135,7 +135,7 @@
     function edit(obj){
         var self = $(obj);
         var txt = $.trim(self.text());
-        var input = $("<input class='input-block-level' type='text'>");
+        var input = $("<input class='form-control' type='text'>");
         input.attr("value", txt);
         self.html(input);
         input.click(function(){return false;});
