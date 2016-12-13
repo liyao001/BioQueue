@@ -33,6 +33,17 @@
         </div>
     </form>
 </div>
+<div class="bs-callout bs-callout-info">
+    You can use varibles or references when defining the parameters. Below are some of the system level variable:
+    <ul>
+        <li><code>InitInput</code>: The initial input files which maps to files you provide when you create a job.</li>
+        <li><code>LastOutput</code>: Output files of last step.</li>
+        <li><code>LastOutputN</code>: The n-th output file of last step (in alphabetical order).</li>
+        <li><code>job</code>: job ID.</li>
+        <li><code>ThreadN</code>: The number of CPUs in the running node.</li>
+    </ul>
+    All varibles should be surrounded by curly-braces, like {ThreadN}.
+</div>
 {% endblock %}
 {% block script %}
     $("#add-protocol").addClass("active");
