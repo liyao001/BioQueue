@@ -160,10 +160,23 @@ def create_protocol(request):
     if request.method == 'POST':
         protocol_form = CreateProtocolForm(request.POST)
         if protocol_form.is_valid():
-            cd = protocol_form.cleaned_data
-            protocol = ProtocolList(name=cd['name'], user_id=request.user.id)
-            protocol.save()
-            return success('Your protocol have been created!')
+            try:
+                cd = protocol_form.cleaned_data
+                protocol = ProtocolList(name=cd['name'], user_id=request.user.id)
+                protocol.save()
+                softwares = request.POST.getlist('software', '')
+                parameters = request.POST.getlist('parameter', '')
+                steps = []
+                for index, software in enumerate(softwares):
+                    if parameters[index]:
+                        steps.append(Protocol(software=software,
+                                              parameter=parameters[index],
+                                              parent=protocol.id,
+                                              user_id=request.user.id))
+                Protocol.objects.bulk_create(steps)
+                return success('Your protocol have been created!')
+            except Exception, e:
+                return error(e)
         else:
             return error(str(protocol_form.errors))
     else:
