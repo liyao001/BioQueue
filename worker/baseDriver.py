@@ -242,13 +242,13 @@ def get_remote_size(head, host_name, path):
 def get_remote_size_factory(url):
     url = url.strip()
     if len(url) <= 4:
-        exit(-1)
+        return 0
     url_arr = url.split(" ")
     total_size = 0
     for url in url_arr:
         head, host_name, path = get_path(url)
         if len(host_name) <= 4 or len(path) < 1:
-            exit(-1)
+            return 0
         total_size += get_remote_size(head, host_name, path)
     return total_size
 

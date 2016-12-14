@@ -110,7 +110,6 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
             if run_directory == '':
                 print 'Please specify your workspace!'
                 return 1
-
             if training_num < 100:
                 learning = 1
             if this_input_size == 0:
@@ -122,10 +121,8 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
                 this_input_size = this_output_size
             folder_size_before = baseDriver.get_folder_size(run_directory)
             this_input_size += upload_size
-
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
-
             process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
                                                  "-p", str(os.getpid()), "-j", str(job_id)], shell=False,
                                                 stdout=None, stderr=subprocess.STDOUT)
@@ -197,6 +194,23 @@ def get_training_items(step_hash):
         return 0
 
 
+def get_user_reference(user):
+    dyn_sql = """SELECT `name`, `path` FROM %s WHERE `user_id`='%s';""" % (settings['datasets']['reference_db'], user)
+    try:
+        con, cursor = con_mysql()
+        cursor.execute(dyn_sql)
+        references = cursor.fetchall()
+        reference = dict()
+        for k, v in references:
+            key, value = k.strip(), v.strip()
+            reference[key] = value
+        con.close()
+        return reference
+    except Exception, e:
+        print e
+        return 0
+
+
 def create_user_folder(uf, jf):
     try:
         if not os.path.exists(uf):
@@ -230,6 +244,8 @@ def dynamic_run():
     steps, hs = get_protocol(protocol)
 
     so = parameterParser.build_special_parameter_dict(indeed_parameter)
+    user_reference = get_user_reference(user_id)
+    so = dict(so, **user_reference)
 
     for k, v in enumerate(steps):
         # skip finished steps

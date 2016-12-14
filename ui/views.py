@@ -157,11 +157,14 @@ def clean_dead_lock(request):
 
 @login_required
 def create_protocol(request):
+    import hashlib
     if request.method == 'POST':
         protocol_form = CreateProtocolForm(request.POST)
         if protocol_form.is_valid():
             try:
                 cd = protocol_form.cleaned_data
+                if ProtocolList.objects.filter(name=cd['name'], user_id=request.user.id).exists():
+                    return error('Duplicate record!')
                 protocol = ProtocolList(name=cd['name'], user_id=request.user.id)
                 protocol.save()
                 softwares = request.POST.getlist('software', '')
@@ -169,9 +172,12 @@ def create_protocol(request):
                 steps = []
                 for index, software in enumerate(softwares):
                     if parameters[index]:
+                        m = hashlib.md5()
+                        m.update(software + ' ' + parameters[index].strip())
                         steps.append(Protocol(software=software,
                                               parameter=parameters[index],
                                               parent=protocol.id,
+                                              hash=m.hexdigest(),
                                               user_id=request.user.id))
                 Protocol.objects.bulk_create(steps)
                 return success('Your protocol have been created!')
@@ -385,6 +391,8 @@ def manage_reference(request):
         reference_form = CreateReferenceForm(request.POST)
         if reference_form.is_valid():
             cd = reference_form.cleaned_data
+            if References.objects.filter(user_id=request.user.id, name=cd['name']).exists():
+                return error('Duplicate record!')
             ref = References(
                 name=cd['name'],
                 path=cd['path'],
@@ -405,9 +413,9 @@ def manage_reference(request):
 @login_required
 def query_job(request):
     if request.user.is_superuser:
-        job_list = Queue.objects.all()
+        job_list = Queue.objects.order_by('-create_time').all()
     else:
-        job_list = Queue.objects.filter(user_id=request.user.id).all()
+        job_list = Queue.objects.filter(user_id=request.user.id).order_by('-create_time').all()
     paginator = Paginator(job_list, 25)
 
     page = request.GET.get('page')
