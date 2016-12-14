@@ -151,7 +151,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 return 0, predict_need['cpu'], predict_need['mem'], predict_need['disk']
         else:
             # training_num = get_training_items(conn, cur, step)
-            if training_num < 10:
+            if training_num < 3:
                 # Not ready for machine learning
                 get_running_sql = """SELECT COUNT(*) FROM %s WHERE `status`>0 AND `id` != %s;""" %\
                                 (settings['datasets']['job_db'], job_id)
@@ -165,7 +165,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                         return 0, 0, 0, 0
                 else:
                     return 1, 0, 0, 0
-            elif training_num < 100:
+            elif training_num < 10:
                 cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
                 cpu_max_pool = float(cpu_max_pool)
                 memory_max_pool = float(memory_max_pool)
