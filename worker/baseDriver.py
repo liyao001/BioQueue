@@ -292,7 +292,7 @@ def build_upload_file_path(user_folder, file_name):
     if os.path.exists(file_path):
         return file_path
     else:
-        return 0
+        return ''
 
 
 def get_user_folder_size(user):

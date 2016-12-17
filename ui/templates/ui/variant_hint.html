@@ -1,0 +1,14 @@
+<div class="bs-callout bs-callout-info">
+    You can use varibles or references when defining the parameters. Below are some of the system level variable:
+    <ul>
+        <li><code>InitInput</code>: The initial input files which maps to files you provide when you create a job.</li>
+        <li><code>LastOutput</code>: Output files of last step.</li>
+        <li><code>LastOutputN</code>: The n-th output file of last step (in alphabetical order).</li>
+        <li><code>OutputN-M</code>: The m-th output file of the n-th step (in alphabetical order).</li>
+        <li><code>AllOutputBefore</code>: All output files before this step.</li>
+        <li><code>Job</code>: job ID.</li>
+        <li><code>Workspace</code>: Local storage path for the job.</li>
+        <li><code>ThreadN</code>: The number of CPUs in the running node.</li>
+    </ul>
+    All varibles should be surrounded by curly-braces, like {ThreadN}.
+</div>

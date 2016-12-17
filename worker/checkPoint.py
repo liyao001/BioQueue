@@ -79,13 +79,13 @@ def record_result(step_hash, a, b, r, t):
 def regression(step_hash):
     x, out, mem, cpu = load_train_frame(step_hash)
     # Output Size
-    ao, bo, ro, io = reg_single_feature(x, out)
+    ao, bo, ro = reg_single_feature(x, out)
     record_result(step_hash, ao, bo, ro, 1)
     # Memory Usage
-    am, bm, rm, im = reg_single_feature(x, mem)
+    am, bm, rm = reg_single_feature(x, mem)
     record_result(step_hash, am, bm, rm, 2)
     # CPU Usage
-    ac, bc, rc, ic = reg_single_feature(x, cpu)
+    ac, bc, rc = reg_single_feature(x, cpu)
     record_result(step_hash, ac, bc, rc, 3)
     return ao, bo, am, bm, ac, bc
 
@@ -122,17 +122,17 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 b = float(equation[1])
                 t = equation[2]
                 needed = (a * in_size + b)*0.95
-                if t == '1':
+                if t == 1:
                     predict_need['disk'] = needed
                     if needed > get_disk_free(run_path) or needed > disk_max_pool:
                         conn.close()
                         return 0, 0, 0, 0
-                elif t == '2':
+                elif t == 2:
                     predict_need['mem'] = needed
                     if needed > get_memo_usage_available() or needed > memory_max_pool:
                         conn.close()
                         return 0, 0, 0, 0
-                elif t == '3':
+                elif t == 3:
                     predict_need['cpu'] = needed
                     if needed > get_cpu_available() or needed > cpu_max_pool:
                         conn.close()

@@ -27,7 +27,7 @@ def add_job(request):
                     files = cd['input_file_r'].replace('u', '').replace("'", '').replace('[', '')\
                         .replace(']', '').split(',')
                     files = [item.strip() for item in files]
-                    init_file = '{Uploaded:'+'};{Uploaded:'.join(files)+'}'
+                    init_file = '{Uploaded:'+'} {Uploaded:'.join(files)+'}'
                 else:
                     init_file = ''
 

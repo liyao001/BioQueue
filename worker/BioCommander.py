@@ -256,9 +256,10 @@ def dynamic_run():
             out_dic = baseDriver.load_output_dict(jid)
 
         steps[k] = steps[k].replace('{InitInput}', ini_file)
-        steps[k] = steps[k].replace('{job}', str(jid))
+        steps[k] = steps[k].replace('{Job}', str(jid))
         steps[k] = steps[k].replace('{LastOutput}', last_output_string)
         steps[k] = steps[k].replace('{AllOutputBefore}', ' '.join(outputs))
+        steps[k] = steps[k].replace('{Workspace}', run_folder)
         steps[k] = parameterParser.last_output_map(steps[k], new_files)
         steps[k] = parameterParser.special_parameter_map(steps[k], so)
         steps[k] = parameterParser.output_file_map(steps[k], out_dic)
@@ -266,10 +267,14 @@ def dynamic_run():
         ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
 
         parameters = parameterParser.parameter_string_to_list(steps[k])
-        last_output = os.listdir(run_folder)
+        #last_output = os.listdir(run_folder)
+        last_output = []
 
         if run_folder:
-            ret = call_process(parameters, k, jid, run_directory=run_folder, step_hash=hs[k], upload_size = upload_file_size-upload_in_ini)
+            ret = call_process(parameters, k, jid,
+                               run_directory=run_folder,
+                               step_hash=hs[k],
+                               upload_size = upload_file_size-upload_in_ini)
         else:
             ret = call_process(parameters, k, jid)
 
@@ -278,7 +283,7 @@ def dynamic_run():
 
         if ret != 0:
             print "Error when executing: " + steps[k]
-            m = {'status': -3, 'ter': -1}
+            m = {'status': -3, 'ter': 0}
             baseDriver.multi_update(settings['datasets']['job_db'], jid, m)
             baseDriver.delete(settings['datasets']['train_db'], trace_id)
             baseDriver.save_output_dict(out_dic, jid)

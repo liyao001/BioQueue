@@ -18,6 +18,9 @@ def build_special_parameter_dict(all_output):
     return special_dict
 
 
+def reference_map():
+    return ''
+
 def special_parameter_map(par, sp_map):
     for keyword in sp_map.keys():
         par = par.replace('{' + keyword + '}', sp_map[keyword])
@@ -48,7 +51,7 @@ def upload_file_map(par, user_folder):
     uploaded_replacement = re.compile("\\{Uploaded:(.*?)}", re.IGNORECASE | re.DOTALL)
     for uploaded_item in re.findall(uploaded_replacement, par):
         upload_file = baseDriver.build_upload_file_path(user_folder, uploaded_item)
-        if upload_file is not None:
+        if upload_file is not None and upload_file != '':
             par = par.replace('{Uploaded:' + uploaded_item + '}', upload_file)
             filesize += os.path.getsize(upload_file)
     return par, filesize
