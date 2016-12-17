@@ -101,6 +101,8 @@ class Queue(models.Model):
 
     def rerun_job(self):
         self.status = 0
+        self.resume = -1
+        self.ter = 0
         self.save()
 
     def resume_job(self):
