@@ -28,14 +28,14 @@
 	# following line enables the CGI configuration for this host only
 	# after it has been globally disabled with "a2disconf".
 	#Include conf-available/serve-cgi-bin.conf
-	<Directory {APP_ROOT}/CPBQueue>
+	<Directory {APP_ROOT}/BioQueue>
 		<Files wsgi.py>
 			Require all granted
 		</Files>
 	</Directory>
-	WSGIDaemonProcess CPBQueue python-path=/usr/bin/python:/usr/lib/python2.7/dist-packages
-	WSGIProcessGroup CPBQueue
-	WSGIScriptAlias / {APP_ROOT}/CPBQueue/wsgi.py
+	WSGIDaemonProcess BioQueue python-path=/usr/bin/python:/usr/lib/python2.7/dist-packages
+	WSGIProcessGroup BioQueue
+	WSGIScriptAlias / {APP_ROOT}/BioQueue/wsgi.py
 </VirtualHost>
 
 # vim: syntax=apache ts=4 sw=4 sts=4 sr noet

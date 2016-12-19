@@ -1,6 +1,6 @@
-## CPBQueue Status Code
+## BioQueue Status Code
 
-This file describes status code used in CPBQueue.
+This file describes status code used in BioQueue.
 
 | status code| code description                    |
 |:----------:|:-----------------------------------:|

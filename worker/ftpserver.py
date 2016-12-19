@@ -49,4 +49,4 @@ if __name__ == "__main__":
         server = FTPServer((get_config('env', 'ftp_addr'), int(get_config('env', 'ftp_port'))), handler)
         server.serve_forever()
     else:
-        print '==Unable to Start CPBQueue FTP Server=='
+        print '==Unable to Start BioQueue FTP Server=='
