@@ -21,6 +21,7 @@ def build_special_parameter_dict(all_output):
 def reference_map():
     return ''
 
+
 def special_parameter_map(par, sp_map):
     for keyword in sp_map.keys():
         par = par.replace('{' + keyword + '}', sp_map[keyword])
@@ -37,7 +38,7 @@ def output_file_map(par, output_dict):
     import re
     output_replacement = re.compile("\\{Output(\\d+)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
     for out_item in re.findall(output_replacement, par):
-        if out_item[0] in output_dict and (int(out_item[1]) - 1) < len(output_dict[int(out_item[0])]):
+        if int(out_item[0]) in output_dict and (int(out_item[1]) - 1) < len(output_dict[int(out_item[0])]):
             par = par.replace('{Output' + out_item[0] + '-' + out_item[1] + '}',
                               output_dict[int(out_item[0])][int(out_item[1]) - 1])
     return par

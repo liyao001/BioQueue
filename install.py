@@ -33,7 +33,7 @@ def get_random_secret_key():
                 ("%s%s%s" % (
                     random.getstate(),
                     time.time(),
-                    'CPBQueue')).encode('utf-8')
+                    'BioQueue')).encode('utf-8')
             ).digest())
     return ''.join(random.choice(chars) for i in range(50))
 
@@ -51,10 +51,12 @@ def setup():
     log_path = os.path.join(workspace_path, 'logs')
     output_path = os.path.join(workspace_path, 'outputs')
     train_path = os.path.join(workspace_path, 'training')
+    upload_path = os.path.join(workspace_path, 'batch_job')
     try:
         os.mkdir(log_path)
         os.mkdir(output_path)
         os.mkdir(train_path)
+        os.mkdir(upload_path)
     except Exception, e:
         print 'Doesn\'t have the permission to write your workspace!', e
         sys.exit(1)
@@ -62,6 +64,7 @@ def setup():
     set_config('env', 'workspace', workspace_path)
     set_config('env', 'log', log_path)
     set_config('env', 'outputs', output_path)
+    set_config('env', 'batch_job', upload_path)
     set_config('ml', 'trainStore', output_path)
 
     set_config('env', 'cpu', raw_input('CPU cores: '))
@@ -86,8 +89,8 @@ def setup():
     set_config('db', 'port', database_configure['port'])
 
     app_root = os.path.split(os.path.realpath(__file__))[0]
-    setting_file_template = app_root + '/CPBQueue/settings-example.py'
-    setting_file_new = app_root + '/CPBQueue/settings.py'
+    setting_file_template = app_root + '/BioQueue/settings-example.py'
+    setting_file_new = app_root + '/BioQueue/settings.py'
     apache_file_template = app_root + '/deploy/000-default.conf.tpl'
     apache_file_new = app_root + '/deploy/000-default.conf'
 

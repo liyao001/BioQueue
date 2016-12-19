@@ -61,22 +61,22 @@ def get_job():
     '''
     try:
         con, cursor = con_mysql()
-        query = """SELECT `id`, `protocol_id`, `input_file`, `parameter`, `run_dir`, `user_id`, `resume` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" \
+        query = """SELECT `id`, `protocol_id`, `input_file`, `parameter`, `run_dir`, `user_id`, `resume`, `result` FROM `%s` WHERE `status` = 0 ORDER BY `id` LIMIT 1;""" \
                 % settings['datasets']['job_db']
         cursor.execute(query)
         res = cursor.fetchone()
 
         if res is not None:
-            job_id, protocol, input_file, parameter, run_directory, user, resume = res
+            job_id, protocol, input_file, parameter, run_directory, user, resume, result = res
             baseDriver.update(settings['datasets']['job_db'], job_id, 'status', -2)
             con.close()
-            return job_id, protocol, input_file, parameter, run_directory, user, int(resume)
+            return job_id, protocol, input_file, parameter, run_directory, user, int(resume), result
         else:
             con.close()
-            return 0, 0, 0, 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0, 0, 0
     except Exception, e:
         print e
-        return 0, 0, 0, 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, 0, 0, 0
 
 
 def insert_sql(sql):
@@ -159,7 +159,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
             return step_process.returncode
 
     except Exception, e:
-        print 'Error caused by CPBQueue', e
+        print 'Error caused by BioQueue', e
         # baseDriver.update(baseDriver.get_config("datasets", "job_db"), job_id, 'status', -3)
         return 1
 
@@ -229,17 +229,21 @@ def dynamic_run():
     out_dic = {}
     last_output_string = ''
 
-    jid, protocol, ini_file, indeed_parameter, run_folder, user_id, resume = get_job()
+    jid, protocol, ini_file, indeed_parameter, run_folder, user_id, resume, result = get_job()
 
     if jid == 0 or protocol == 0:
         return 1
 
-    result_store = baseDriver.rand_sig() + str(jid)
-    user_folder = os.path.join(run_folder, str(user_id))
-    run_folder = os.path.join(user_folder, result_store)
-
-    create_user_folder(user_folder, run_folder)
-    baseDriver.update(settings['datasets']['job_db'], jid, 'result', result_store)
+    if resume == -1:
+        result_store = baseDriver.rand_sig() + str(jid)
+        user_folder = os.path.join(run_folder, str(user_id))
+        run_folder = os.path.join(user_folder, result_store)
+        create_user_folder(user_folder, run_folder)
+        baseDriver.update(settings['datasets']['job_db'], jid, 'result', result_store)
+    else:
+        result_store = result
+        user_folder = os.path.join(run_folder, str(user_id))
+        run_folder = os.path.join(user_folder, result_store)
 
     steps, hs = get_protocol(protocol)
 

@@ -13,13 +13,13 @@ def load_train_frame(step_hash):
         sql = """SELECT * FROM `%s` WHERE `step`='%s';"""%(settings['datasets']['train_db'], step_hash)
         train_dataframe = pd.read_sql_query(sql, conn)
         train_dataframe = train_dataframe.replace('-1', numpy.nan)
-        train_dataframe['in'] = train_dataframe['in'].astype('float32')
-        train_dataframe['out'] = train_dataframe['out'].astype('float32')
+        train_dataframe['input'] = train_dataframe['input'].astype('float32')
+        train_dataframe['output'] = train_dataframe['output'].astype('float32')
         train_dataframe['cpu'] = train_dataframe['cpu'].astype('float32')
         train_dataframe['mem'] = train_dataframe['mem'].astype('float32')
         train_dataframe = train_dataframe.fillna(train_dataframe.mean())
-        tmp_x = list(train_dataframe['in'])
-        tmp_out = list(train_dataframe['out'])
+        tmp_x = list(train_dataframe['input'])
+        tmp_out = list(train_dataframe['output'])
         tmp_mem = list(train_dataframe['mem'])
         tmp_cpu = list(train_dataframe['cpu'])
         all_x = [[1.0, float(feat)] for feat in tmp_x]
@@ -65,7 +65,7 @@ def record_result(step_hash, a, b, r, t):
     # global con, cursor
     try:
         conn, cur = con_mysql()
-        sql = """INSERT INTO `%s` (`step_hash`, `a`, `b`, `r`, `type`) VALUES ('%s', %s, %s, %s, %s);"""\
+        sql = """INSERT INTO `%s` (`step_hash`, `a`, `b`, `r`, `type`) VALUES ('%s', '%s', '%s', '%s', '%s');"""\
               % (settings['datasets']['equation'], step_hash, a, b, r, t)
         cur.execute(sql)
         conn.commit()
@@ -80,13 +80,23 @@ def regression(step_hash):
     x, out, mem, cpu = load_train_frame(step_hash)
     # Output Size
     ao, bo, ro = reg_single_feature(x, out)
+    ao = 0 if numpy.isnan(ao) else ao
+    bo = 0 if numpy.isnan(bo) else bo
+    ro = 0 if numpy.isnan(ro) else ro
     record_result(step_hash, ao, bo, ro, 1)
     # Memory Usage
     am, bm, rm = reg_single_feature(x, mem)
+    am = 0 if numpy.isnan(am) else am
+    bm = 0 if numpy.isnan(bm) else bm
+    rm = 0 if numpy.isnan(rm) else rm
     record_result(step_hash, am, bm, rm, 2)
     # CPU Usage
     ac, bc, rc = reg_single_feature(x, cpu)
+    ac = 0 if numpy.isnan(ac) else ac
+    bc = 0 if numpy.isnan(bc) else bc
+    rc = 0 if numpy.isnan(rc) else rc
     record_result(step_hash, ac, bc, rc, 3)
+    
     return ao, bo, am, bm, ac, bc
 
 
