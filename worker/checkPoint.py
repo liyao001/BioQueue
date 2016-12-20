@@ -131,7 +131,7 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 a = float(equation[0])
                 b = float(equation[1])
                 t = equation[2]
-                needed = (a * in_size + b)*0.95
+                needed = (a * in_size + b)*0.98
                 if t == 1:
                     predict_need['disk'] = needed
                     if needed > get_disk_free(run_path) or needed > disk_max_pool:

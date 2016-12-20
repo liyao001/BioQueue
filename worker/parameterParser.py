@@ -5,7 +5,8 @@ def build_special_parameter_dict(all_output):
     special_dict = {}
     if all_output.find(';') != -1:
         options = all_output.split(';')
-        options.remove('')
+        if '' in options:
+            options.remove('')
         for option in options:
             tmp = option.split('=')
             if len(tmp) == 2:
