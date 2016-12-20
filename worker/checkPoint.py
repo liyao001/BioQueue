@@ -148,15 +148,10 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                         conn.close()
                         return 0, 0, 0, 0
 
-            print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', predict_need['cpu'], 'get_cpu', \
-                get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', predict_need['mem'], 'get_mem', \
-                get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', predict_need['disk'],\
-                'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
             if update_resource(-1*predict_need['cpu'], -1*predict_need['mem'], -1*predict_need['disk']):
                 conn.close()
                 return 1, predict_need['cpu'], predict_need['mem'], predict_need['disk']
             else:
-                print '=='+str(job_id)+'=='+str(step)+'==recheck reject=='
                 conn.close()
                 return 0, predict_need['cpu'], predict_need['mem'], predict_need['disk']
         else:
@@ -184,7 +179,6 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 disk_needed = int((ao*in_size+bo)*0.9)
                 memory_needed = int((am*in_size+bm)*0.9)
                 cpu_needed = int((ac*in_size+bc)*0.9)
-                print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', cpu_needed, 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', memory_needed, 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', disk_needed, 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
                 conn.close()
                 if disk_needed > get_disk_free(run_path) or disk_needed > disk_max_pool:
                     return 0, cpu_needed, memory_needed, disk_needed
@@ -206,7 +200,6 @@ def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/')
                 disk_needed = int((ao*in_size+bo)*0.9)
                 memory_needed = int((am*in_size+bm)*0.9)
                 cpu_needed = int((ac*in_size+bc)*0.9)
-                print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', cpu_needed, 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', memory_needed, 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', disk_needed, 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
                 conn.close()
                 if disk_needed > get_disk_free(run_path) or disk_needed > disk_max_pool:
                     return 0, cpu_needed, memory_needed, disk_needed
