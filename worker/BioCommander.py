@@ -271,8 +271,7 @@ def dynamic_run():
         ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
 
         parameters = parameterParser.parameter_string_to_list(steps[k])
-        #last_output = os.listdir(run_folder)
-        last_output = []
+        last_output = os.listdir(run_folder)
 
         if run_folder:
             ret = call_process(parameters, k, jid,
