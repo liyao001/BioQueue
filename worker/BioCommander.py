@@ -110,7 +110,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
             if run_directory == '':
                 print 'Please specify your workspace!'
                 return 1
-            if training_num < 100:
+            if training_num < 10:
                 learning = 1
             if this_input_size == 0:
                 this_input_size = baseDriver.get_folder_size(run_directory)
