@@ -299,3 +299,10 @@ def get_user_folder_size(user):
     kb_to_mb = 1073741824
     user_path = os.path.join(get_config('env', 'workspace'), str(user))
     return round(get_folder_size(user_path)/kb_to_mb)
+
+
+def get_folder_content(folder_path):
+    import os
+    for root, dirs, files in os.walk(folder_path):
+        for file_name in files:
+            file_full_path = os.path.join(root, file_name)

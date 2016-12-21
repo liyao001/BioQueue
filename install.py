@@ -76,7 +76,7 @@ def setup():
     database_configure['user'] = raw_input('Database user: ')
     database_configure['db_name'] = raw_input('Database name: ')
     database_configure['password'] = getpass('Database password: ')
-    database_configure['port'] = raw_input('Database port: ')
+    database_configure['port'] = raw_input('Database port (By default is 3306): ')
 
     print '===================================================='
     print 'Configuring database, please wait...'
