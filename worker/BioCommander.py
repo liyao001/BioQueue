@@ -271,7 +271,8 @@ def dynamic_run():
         ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
 
         parameters = parameterParser.parameter_string_to_list(steps[k])
-        last_output = os.listdir(run_folder)
+        # last_output = os.listdir(run_folder)
+        last_output = baseDriver.get_folder_content(run_folder)
 
         if run_folder:
             ret = call_process(parameters, k, jid,
@@ -291,9 +292,10 @@ def dynamic_run():
             baseDriver.delete(settings['datasets']['train_db'], trace_id)
             baseDriver.save_output_dict(out_dic, jid)
             return 2
-        this_output = os.listdir(run_folder)
+        # this_output = os.listdir(run_folder)
+        this_output = baseDriver.get_folder_content(run_folder)
         new_files = sorted(list(set(this_output).difference(set(last_output))))
-        #safety
+        # safety
         new_files = [os.path.join(run_folder, file_name) for file_name in new_files]
         outputs.extend(new_files)
         out_dic[k + 1] = new_files
