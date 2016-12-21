@@ -50,5 +50,5 @@ This will start up the server on 0.0.0.0 and port 8000, so BioQueue can be acces
 python worker/ftpserver.py
 ```
 ## Useful informations
-1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the termial from which BioQueue is running.
+1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running.
 2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or nginx is a good idea. 
