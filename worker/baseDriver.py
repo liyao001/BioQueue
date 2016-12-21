@@ -303,6 +303,9 @@ def get_user_folder_size(user):
 
 def get_folder_content(folder_path):
     import os
+    folder_content = []
     for root, dirs, files in os.walk(folder_path):
         for file_name in files:
             file_full_path = os.path.join(root, file_name)
+            folder_content.append(file_full_path)
+    return folder_content
