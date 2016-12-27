@@ -123,12 +123,15 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
             this_input_size += upload_size
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
-            process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
-                                                 "-p", str(os.getpid()), "-j", str(job_id)], shell=False,
-                                                stdout=None, stderr=subprocess.STDOUT)
+
             status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
                                                                                        this_input_size,
                                                                                        training_num)
+
+            process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
+                                                 "-p", str(os.getpid()), "-j", str(job_id), "-c", str(cpu_needed),
+                                                 "-m", str(memory_needed), "-d", str(disk_needed)], shell=False,
+                                                stdout=None, stderr=subprocess.STDOUT)
             while not status:
                 time.sleep(13)
                 status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id,
@@ -136,7 +139,7 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
                                                                                            this_input_size,
                                                                                            training_num)
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                                    cwd=run_directory)
+                                            cwd=run_directory)
             if learning == 1 and step_hash != '':
                 learn_process = subprocess.Popen(["python", os.path.join(root_path, 'mlCollector.py'),
                                                   "-p", str(step_process.pid), "-n", str(step_hash),
@@ -300,6 +303,7 @@ def dynamic_run():
         outputs.extend(new_files)
         out_dic[k + 1] = new_files
         last_output_string = ' '.join(new_files)
+        time.sleep(13)
 
     final_size = baseDriver.get_folder_size(run_folder)
     update_resource(0, 0, cumulative_output_size - final_size)

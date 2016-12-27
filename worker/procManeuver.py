@@ -5,32 +5,41 @@ import psutil
 import schedule
 import sys
 import time
+from databaseDriver import update_resource
 
 jid = None
 pid = None
+cpu = None
+mem = None
+disk = None
 job_db = baseDriver.get_config('datasets', 'job_db')
+
 
 def if_terminate(job):
     terminate_signal = baseDriver.get_field('ter', job_db, 'id', str(job))
     return terminate_signal
 
+
 def terminate_cron():
-    if if_terminate(jid):
-        try:
-            if pid in psutil.pids():
+    if pid in psutil.pids():
+        if if_terminate(jid):
+            try:
                 # Kill watched job
                 process = psutil.Process(pid)
                 process.kill()
                 st_dic = {'status': -1, 'ter': 0}
                 baseDriver.multi_update(job_db, jid, st_dic)
-            exit(0)
-        except Exception, e:
-            print e
+                update_resource(cpu, mem, disk)
+                exit(0)
+            except Exception, e:
+                print e
+    else:
+        exit(0)
 
 if __name__ == "__main__":
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "j:p:", ["jid=", "pid="])
+        opts, args = getopt.getopt(sys.argv[1:], "j:p:c:m:d:", ["jid=", "pid=", "cpu=", "memory=", "disk="])
     except getopt.GetoptError, err:
         print str(err)
         sys.exit()
@@ -41,6 +50,12 @@ if __name__ == "__main__":
                 jid = int(a)
             elif o in ("-p", "--pid"):
                 pid = int(a)
+            elif o in ("-c", "--cpu"):
+                cpu = int(a)
+            elif o in ("-m", "--memory"):
+                mem = int(a)
+            elif o in ("-d", "--disk"):
+                disk = int(a)
     else:
         sys.exit()
     

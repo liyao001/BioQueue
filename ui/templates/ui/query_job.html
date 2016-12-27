@@ -31,7 +31,7 @@
                         {% if job.status == -1 %}
                             <i class="icon-ok"></i>
                         {% elif job.status == -2 %}
-                            <i class="icon-pause"></i>Waiting at CP
+                            <i class="icon-pause"></i>Waiting at CP ({{ job.resume|add:1 }})
                         {% elif job.status == -3 %}
                             <i class="icon-remove"></i><span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
                         {% elif job.status == 0 %}
