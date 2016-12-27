@@ -500,6 +500,8 @@ def settings(request):
         set_config('env', 'cpu', request.POST['cpu'])
         set_config('env', 'memory', request.POST['mem'])
         set_config('env', 'disk_quota', request.POST['dquota'])
+        set_config('ml', 'confidence_weight', request.POST['rconf'])
+        set_config('ml', 'threshold', request.POST['ccthr'])
         return HttpResponseRedirect('/ui/settings')
     else:
         try:
@@ -508,6 +510,8 @@ def settings(request):
                 'cpu': get_config('env', 'cpu'),
                 'memory': get_config('env', 'memory'),
                 'disk_quota': get_config('env', 'disk_quota'),
+                'threshold': get_config('ml', 'threshold'),
+                'confidence_weight': get_config('ml', 'confidence_weight'),
                 'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
                 'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
             }
