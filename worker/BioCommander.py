@@ -92,7 +92,7 @@ def insert_sql(sql):
     return row_id
 
 
-def call_process(parameter, step, job_id, run_directory='', step_hash='', upload_size = 0):
+def call_process(parameter, step, job_id, protocol_family, run_directory='', step_hash='', upload_size=0):
     global this_input_size, this_output_size, cumulative_output_size, trace_id, ini_file
     iso_file = 0
     learning = 0
@@ -125,6 +125,8 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
 
             status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
+                                                                                       protocol_family,
+                                                                                       step,
                                                                                        this_input_size,
                                                                                        training_num)
 
@@ -134,8 +136,9 @@ def call_process(parameter, step, job_id, run_directory='', step_hash='', upload
                                                 stdout=None, stderr=subprocess.STDOUT)
             while not status:
                 time.sleep(13)
-                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id,
-                                                                                           step_hash,
+                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
+                                                                                           protocol_family,
+                                                                                           step,
                                                                                            this_input_size,
                                                                                            training_num)
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -279,9 +282,10 @@ def dynamic_run():
 
         if run_folder:
             ret = call_process(parameters, k, jid,
+                               protocol,
                                run_directory=run_folder,
                                step_hash=hs[k],
-                               upload_size = upload_file_size-upload_in_ini)
+                               upload_size=upload_file_size-upload_in_ini)
         else:
             ret = call_process(parameters, k, jid)
 

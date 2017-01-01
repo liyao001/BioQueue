@@ -44,18 +44,18 @@ if __name__ == "__main__":
         print str(err)
         sys.exit()
     
-    if len(opts) == 2:
+    if len(opts) == 5:
         for o, a in opts:
             if o in ("-j", "--jid"):
                 jid = int(a)
             elif o in ("-p", "--pid"):
                 pid = int(a)
             elif o in ("-c", "--cpu"):
-                cpu = int(a)
+                cpu = float(a)
             elif o in ("-m", "--memory"):
-                mem = int(a)
+                mem = float(a)
             elif o in ("-d", "--disk"):
-                disk = int(a)
+                disk = float(a)
     else:
         sys.exit()
     
