@@ -141,7 +141,25 @@ def get_training_items(step_hash):
         return 0
 
 
-def check_ok_to_go(job_id, step, in_size=-99999.0, training_num=0, run_path='/'):
+def is_fifo(protocol, step_ord, job_id):
+    sql = """SELECT COUNT(*) FROM `%s` WHERE `protocol_id` = %s AND `resume` < %s AND `id` < %s AND `status` != -3 AND `status` != -1;""" \
+            % (settings['datasets']['job_db'], protocol, step_ord+1, job_id)
+    print sql
+    try:
+        con, cursor = con_mysql()
+        cursor.execute(sql)
+        job_left_behind = cursor.fetchone()
+        con.commit()
+        con.close()
+        return job_left_behind[0]
+    except Exception, e:
+        print e
+        return 0
+
+
+def check_ok_to_go(job_id, step, protocol_id, step_ord, in_size=-99999.0, training_num=0, run_path='/'):
+    if is_fifo(protocol_id, step_ord, job_id) > 0:
+        return 0, 0, 0, 0
     try:
         conn, cur = con_mysql()
         get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `step_hash`='%s';""" \
