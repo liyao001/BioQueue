@@ -5,12 +5,12 @@ BioQueue is a lightweight and easy-to-use queue system to accelerate the proceed
 BioQueue stores data on MySQL, for Windows Users, download the MySQL Installer or Zipped binary from [MySQL](http://www.mysql.com/downloads/). For POSIX compatible systems (like Ubuntu) users, running following command should be enough to install MySQL server.
 ```
 sudo apt-get install mysql-server mysql-client
+apt-get install libmysqld-dev
 ```
 Note: The following instructions are for Ubuntu 14.04, but can be used as a guideline for other Linux flavors.
 ```
 apt-get install python-dev
 apt-get install python-pip
-apt-get install libmysqld-dev
 ```
 ## 1. Download and setup the BioQueue project
 First of all, you will need to download the project from github (Or you can click 'Clone or download' button at the project's [github page](https://github.com/yauli/BioQueue) to download the project).
@@ -27,14 +27,14 @@ CREATE USER 'bioqueue'@'localhost' IDENTIFIED BY 'REPLACE WITH YOUR OWN PASSWORD
 GRANT ALL PRIVILEGES ON BioQueue . * TO 'bioqueue'@'localhost';
 ```
 When running install.py, this script will ask you a few questions include:
-1. the path of the workspace(where stores all the data for running BioQueue, like D:/biodata or /mnt/biodata)
-2. Database host: If you install MySQL server on your own machine, enter localhost or 127.0.0.1
-3. Database user: bioqueue by default
-4. Database password
-5. Database port :3306 by default
-6. CPU cores
-7. Memory (Gb)
-8. Disk quota for each user(Gb)
+ 1. Path of the workspace(where stores all the data for running BioQueue, like D:/biodata or /mnt/biodata)
+ 2. Database host: If you install MySQL server on your own machine, enter localhost or 127.0.0.1
+ 3. Database user: bioqueue by default
+ 4. Database password
+ 5. Database port :3306 by default
+ 6. CPU cores
+ 7. Memory (Gb)
+ 8. Disk quota for each user(Gb)
 ## 2. Start the queue
 Run the cron.py script in the BioQueue/worker folder
 ```
@@ -51,4 +51,4 @@ python worker/ftpserver.py
 ```
 ## Useful informations
 1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running.
-2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or nginx is a good idea. 
+2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
