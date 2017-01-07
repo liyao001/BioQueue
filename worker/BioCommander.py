@@ -33,7 +33,7 @@ def get_protocol(process_id):
         return steps, hashes
     except Exception, e:
         print e
-        return
+        return [], []
 
 
 def parse_protocol_cst(steps):
@@ -124,23 +124,25 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
             if learning == 1:
                 trace_id = create_machine_learning_item(step_hash, this_input_size)
 
-            status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
-                                                                                       protocol_family,
-                                                                                       step,
-                                                                                       this_input_size,
-                                                                                       training_num)
+            resource_needed = checkPoint.predict_resource_needed(step_hash, this_input_size, training_num)
 
             process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
-                                                 "-p", str(os.getpid()), "-j", str(job_id), "-c", str(cpu_needed),
-                                                 "-m", str(memory_needed), "-d", str(disk_needed)], shell=False,
+                                                 "-p", str(os.getpid()), "-j", str(job_id),
+                                                 "-c", str(resource_needed['cpu']),
+                                                 "-m", str(resource_needed['mem']),
+                                                 "-d", str(resource_needed['disk'])], shell=False,
                                                 stdout=None, stderr=subprocess.STDOUT)
-            while not status:
-                time.sleep(13)
-                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, step_hash,
-                                                                                           protocol_family,
+
+            while True:
+                status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, protocol_family,
                                                                                            step,
-                                                                                           this_input_size,
-                                                                                           training_num)
+                                                                                           resource_needed,
+                                                                                           run_directory)
+                if status:
+                    break
+                else:
+                    time.sleep(13)
+
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                             cwd=run_directory)
             if learning == 1 and step_hash != '':
@@ -162,6 +164,13 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
                 cumulative_output_size += this_output_size
                 if learning == 1:
                     baseDriver.update(settings['datasets']['train_db'], trace_id, 'output', this_output_size)
+
+            try:
+                # kill the maintenance process
+                process_maintain.kill()
+            except:
+                pass
+
             return step_process.returncode
 
     except Exception, e:
@@ -171,8 +180,12 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
 
 
 def create_machine_learning_item(step_hash, inputSize):
-    dyn_sql = """INSERT INTO %s (`step`, `input`) VALUES ('%s', '%s');""" \
-              % (settings['datasets']['train_db'], step_hash, str(inputSize))
+    import time
+    dyn_sql = """INSERT INTO %s (`step`, `input`, `create_time`) VALUES ('%s', '%s', '%s');""" \
+              % (settings['datasets']['train_db'],
+                 step_hash, str(inputSize),
+                 time.strftime('%Y-%m-%d %H:%M:%S',
+                               time.localtime()))
     try:
         con, cursor = con_mysql()
         cursor.execute(dyn_sql)
