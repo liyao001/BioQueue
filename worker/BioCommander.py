@@ -324,13 +324,24 @@ def dynamic_run():
 
     final_size = baseDriver.get_folder_size(run_folder)
     update_resource(0, 0, cumulative_output_size - final_size)
+
     if ret == 0:
         # mark as finished
         baseDriver.update(settings['datasets']['job_db'], jid, 'status', -1)
         baseDriver.del_output_dict(jid)
+        if settings['mail']['notify'] == 'on':
+            try:
+                from notify import MailNotify
+                mail = MailNotify(user_id, 1, jid, protocol, ini_file, indeed_parameter)
+
     else:
         # save output
         baseDriver.save_output_dict(out_dic, jid)
+        if settings['mail']['notify'] == 'on':
+            try:
+                from notify import MailNotify
+                mail = MailNotify(user_id, 2, jid, protocol, ini_file, indeed_parameter)
+                mail.send_mail(mail.get_user_mail_address(user_id))
 
 
 if __name__ == '__main__':
