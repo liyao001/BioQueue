@@ -333,6 +333,9 @@ def dynamic_run():
             try:
                 from notify import MailNotify
                 mail = MailNotify(user_id, 1, jid, protocol, ini_file, indeed_parameter)
+                mail.send_mail(mail.get_user_mail_address(user_id))
+            except Exception, e:
+                print e
 
     else:
         # save output
@@ -342,6 +345,8 @@ def dynamic_run():
                 from notify import MailNotify
                 mail = MailNotify(user_id, 2, jid, protocol, ini_file, indeed_parameter)
                 mail.send_mail(mail.get_user_mail_address(user_id))
+            except Exception, e:
+                print e
 
 
 if __name__ == '__main__':
