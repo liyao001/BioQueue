@@ -144,7 +144,6 @@ def get_training_items(step_hash):
 def is_fifo(protocol, step_ord, job_id):
     sql = """SELECT COUNT(*) FROM `%s` WHERE `protocol_id` = %s AND `resume` < %s AND `id` < %s AND `status` != -3 AND `status` != -1;""" \
             % (settings['datasets']['job_db'], protocol, step_ord+1, job_id)
-    print sql
     try:
         con, cursor = con_mysql()
         cursor.execute(sql)
@@ -157,90 +156,101 @@ def is_fifo(protocol, step_ord, job_id):
         return 0
 
 
-def check_ok_to_go(job_id, step, protocol_id, step_ord, in_size=-99999.0, training_num=0, run_path='/'):
-    if is_fifo(protocol_id, step_ord, job_id) > 0:
-        return 0, 0, 0, 0
+def predict_resource_needed(step, in_size=-99999.0, training_num=0):
+    """Predict the computing resources needed by a specific step"""
+    predict_need = {}
     try:
         conn, cur = con_mysql()
         get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `step_hash`='%s';""" \
-                         % (settings['datasets']['equation'], str(step))
+                           % (settings['datasets']['equation'], str(step))
         cur.execute(get_equation_sql)
         equations = cur.fetchall()
         if len(equations) > 0 and in_size != -99999.0:
-            predict_need = {}
-            cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
-            cpu_max_pool = float(cpu_max_pool)
-            memory_max_pool = float(memory_max_pool)
-            disk_max_pool = float(disk_max_pool)
             for equation in equations:
                 a = float(equation[0])
                 b = float(equation[1])
                 t = equation[2]
-                needed = (a * in_size + b)*float(settings['ml']['confidence_weight'])
+                needed = (a * in_size + b) * float(settings['ml']['confidence_weight'])
                 if t == 1:
                     predict_need['disk'] = needed
-                    if needed > get_disk_free(run_path) or needed > disk_max_pool:
-                        conn.close()
-                        return 0, 0, 0, 0
                 elif t == 2:
                     predict_need['mem'] = needed
-                    if needed > get_memo_usage_available() or needed > memory_max_pool:
-                        conn.close()
-                        return 0, 0, 0, 0
                 elif t == 3:
                     predict_need['cpu'] = needed
-                    if needed > get_cpu_available() or needed > cpu_max_pool:
-                        conn.close()
-                        return 0, 0, 0, 0
-            print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', predict_need['cpu'], 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', predict_need['mem'], 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', predict_need['disk'], 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool            
-            if update_resource(-1*predict_need['cpu'], -1*predict_need['mem'], -1*predict_need['disk']):
-                conn.close()
-                return 1, predict_need['cpu'], predict_need['mem'], predict_need['disk']
-            else:
-                print '=='+str(job_id)+'=='+str(step)+'==recheck reject=='
-                conn.close()
-                return 0, predict_need['cpu'], predict_need['mem'], predict_need['disk']
         else:
-            # training_num = get_training_items(conn, cur, step)
             if training_num < 3:
-                # Not ready for machine learning
-                get_running_sql = """SELECT COUNT(*) FROM %s WHERE `status`>0 AND `id` != %s;""" %\
-                                (settings['datasets']['job_db'], job_id)
-                cur.execute(get_running_sql)
-                running = cur.fetchone()
-                conn.close()
-                if running:
-                    if running[0] == 0:
-                        return 1, 0, 0, 0
-                    else:
-                        return 0, 0, 0, 0
-                else:
-                    return 1, 0, 0, 0
+                predict_need['cpu'] = None
+                predict_need['mem'] = None
+                predict_need['disk'] = None
             else:
-                cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
-                cpu_max_pool = float(cpu_max_pool)
-                memory_max_pool = float(memory_max_pool)
-                disk_max_pool = float(disk_max_pool)
                 if training_num < 10:
                     ao, bo, am, bm, ac, bc = regression(step, 0)
                 else:
                     ao, bo, am, bm, ac, bc = regression(step)
-                disk_needed = int((ao*in_size+bo)*float(settings['ml']['confidence_weight']))
-                memory_needed = int((am*in_size+bm)*float(settings['ml']['confidence_weight']))
-                cpu_needed = int((ac*in_size+bc)*float(settings['ml']['confidence_weight']))
-                print '=='+str(job_id)+'=='+str(step)+'==', 'cpu: pred', cpu_needed, 'get_cpu', get_cpu_available(), 'cpuPool', cpu_max_pool, 'mem: pred', memory_needed, 'get_mem', get_memo_usage_available(), 'memPool', memory_max_pool, 'disk: pred', disk_needed, 'getDisk', get_disk_free(run_path), 'diskPool', disk_max_pool
-                conn.close()
-                if disk_needed > get_disk_free(run_path) or disk_needed > disk_max_pool:
-                    return 0, cpu_needed, memory_needed, disk_needed
-                if memory_needed > get_memo_usage_available() or memory_needed > memory_max_pool:
-                    return 0, cpu_needed, memory_needed, disk_needed
-                if cpu_needed > get_cpu_available() or cpu_needed > cpu_max_pool:
-                    return 0, cpu_needed, memory_needed, disk_needed
-                
-                if update_resource(-1*cpu_needed, -1*memory_needed, -1*disk_needed):
-                    return 1, cpu_needed, memory_needed, disk_needed
+                predict_need['disk'] = int((ao * in_size + bo) * float(settings['ml']['confidence_weight']))
+                predict_need['mem'] = int((am * in_size + bm) * float(settings['ml']['confidence_weight']))
+                predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight']))
+
+        conn.close()
+    except Exception, e:
+        pass
+    return predict_need
+
+
+def check_ok_to_go(job_id, protocol_id, step_ord, predicted_resources, run_path='/'):
+    """Checkpoint"""
+    if is_fifo(protocol_id, step_ord, job_id) > 0:
+        return 0, 0, 0, 0
+    try:
+        conn, cur = con_mysql()
+        if predicted_resources['cpu'] is None\
+                and predicted_resources['mem'] is None\
+                and predicted_resources['disk'] is None:
+            # not enough data for regression
+            get_running_sql = """SELECT COUNT(*) FROM %s WHERE `status`>0 AND `id` != %s;""" % \
+                              (settings['datasets']['job_db'], job_id)
+            cur.execute(get_running_sql)
+            running = cur.fetchone()
+            conn.close()
+            if running:
+                if running[0] == 0:
+                    return 1, 0, 0, 0
                 else:
-                    return 0, cpu_needed, memory_needed, disk_needed
+                    return 0, 0, 0, 0
+            else:
+                return 1, 0, 0, 0
+        else:
+            cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
+            cpu_max_pool = float(cpu_max_pool)
+            memory_max_pool = float(memory_max_pool)
+            disk_max_pool = float(disk_max_pool)
+
+            # disk checkpoint
+            if predicted_resources['disk'] > get_disk_free(run_path)\
+                    or predicted_resources['disk'] > disk_max_pool:
+                conn.close()
+                return 0, 0, 0, 0
+
+            # memory checkpoint
+            if predicted_resources['mem'] > get_memo_usage_available()\
+                    or predicted_resources['mem'] > memory_max_pool:
+                conn.close()
+                return 0, 0, 0, 0
+
+            # cpu checkpoint
+            if predicted_resources['cpu'] > get_cpu_available() \
+                    or predicted_resources['cpu'] > cpu_max_pool:
+                conn.close()
+                return 0, 0, 0, 0
+
+            # update resource pool
+            if update_resource(-1*predicted_resources['cpu'],
+                               -1*predicted_resources['mem'],
+                               -1*predicted_resources['disk']):
+                conn.close()
+                return 1, predicted_resources['cpu'], predicted_resources['mem'], predicted_resources['disk']
+            else:
+                return 0, predicted_resources['cpu'], predicted_resources['mem'], predicted_resources['disk']
     except Exception, err:
         print err
         return 0, 0, 0, 0

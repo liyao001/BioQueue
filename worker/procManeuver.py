@@ -29,7 +29,8 @@ def terminate_cron():
                 process.kill()
                 st_dic = {'status': -1, 'ter': 0}
                 baseDriver.multi_update(job_db, jid, st_dic)
-                update_resource(cpu, mem, disk)
+                if cpu is not None and mem is not None and disk is not None:
+                    update_resource(cpu, mem, disk)
                 exit(0)
             except Exception, e:
                 print e
@@ -51,11 +52,14 @@ if __name__ == "__main__":
             elif o in ("-p", "--pid"):
                 pid = int(a)
             elif o in ("-c", "--cpu"):
-                cpu = float(a)
+                if a != 'None':
+                    cpu = float(a)
             elif o in ("-m", "--memory"):
-                mem = float(a)
+                if a != 'None':
+                    mem = float(a)
             elif o in ("-d", "--disk"):
-                disk = float(a)
+                if a != 'None':
+                    disk = float(a)
     else:
         sys.exit()
     
