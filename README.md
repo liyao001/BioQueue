@@ -1,5 +1,5 @@
 # BioQueue
-[![document](https://readthedocs.org/projects/bioqueue/badge/?version=latest "title")](https://bioqueue.readthedocs.io/en/latest/?badge=latest)
+[![document](https://readthedocs.org/projects/bioqueue/badge/?version=latest "document")](https://bioqueue.readthedocs.io/en/latest/?badge=latest)
 
 BioQueue is a lightweight and easy-to-use queue system to accelerate the proceeding of bioinformatic workflows. Based on machine learning methods, BioQueue can maximize the efficiency, and at the same time, it also reduced the possibility of errors caused by unsupervised concurrency (like memory leak). BioQueue can both run on POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
 # Installation
