@@ -1,5 +1,6 @@
 # BioQueue
-|docs|
+[![document](https://readthedocs.org/projects/bioqueue/badge/?version=latest "title")](https://bioqueue.readthedocs.io/en/latest/?badge=latest)
+
 BioQueue is a lightweight and easy-to-use queue system to accelerate the proceeding of bioinformatic workflows. Based on machine learning methods, BioQueue can maximize the efficiency, and at the same time, it also reduced the possibility of errors caused by unsupervised concurrency (like memory leak). BioQueue can both run on POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
 # Installation
 ## Prerequisites
@@ -53,8 +54,3 @@ python worker/ftpserver.py
 ## Useful informations
 1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running.
 2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
-
-.. |docs| image:: https://readthedocs.org/projects/bioqueue/badge/?version=latest
-    :alt: Documentation Status
-    :scale: 100%
-    :target: https://bioqueue.readthedocs.io/en/latest/?badge=latest
