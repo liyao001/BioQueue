@@ -19,7 +19,7 @@
                 </div>
                 <div class="form-group">
                     <label class="control-label" for="name">Parameter</label>
-                    <input type="text" class="form-control input-xlarge" id="parameter" name="parameter" required />
+                    <input type="text" class="form-control input-xlarge parameter-ac" id="parameter" name="parameter" required />
                 </div>
                 <hr>
             </div>
@@ -63,10 +63,15 @@
 		}
     });
     function addStep(){
+        var new_id = "parameter"+$(".parameter-ac").length
         new_step = $(".protocol-step:eq(0)").clone();
         new_step.find(":input").each(function(i){
             $(this).val("");
         });
+        new_step.find(".parameter-ac").each(function(i){
+          $(this).attr("id", new_id);
+        });
         new_step.appendTo(".step-container");
+        var oTextbox = new AutoSuggestControl(new_id);
     }
 {% endblock %}

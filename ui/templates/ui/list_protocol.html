@@ -125,9 +125,6 @@
 {% block script %}
     $("#edit-job").addClass("active");
     var csrftoken = $.cookie('csrftoken');
-    $(document).ready(function(){
-        var oTextbox = new AutoSuggestControl("parameter");
-    });
     $.ajaxSetup({
         beforeSend: function(xhr, settings){
             xhr.setRequestHeader("X-CSRFToken", csrftoken);
@@ -167,11 +164,13 @@
         });
 	}
     function edit(obj){
+        var new_id = "parameter" + Math.random();
         var self = $(obj);
         var txt = $.trim(self.text());
-        var input = $("<input class='form-control' type='text'>");
+        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
         input.attr("value", txt);
         self.html(input);
+        var oTextbox = new AutoSuggestControl(new_id);
         input.click(function(){return false;});
         input.trigger("focus");
         input.blur(function(){
@@ -192,6 +191,8 @@
 				        });
                     }
                 });
+            }else{
+              self.html(newTxt);
             }
         });
     };
