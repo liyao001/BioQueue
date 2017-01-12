@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import baseDriver
 
 
 def build_special_parameter_dict(all_output):
@@ -46,7 +47,6 @@ def output_file_map(par, output_dict):
 
 
 def upload_file_map(par, user_folder):
-    import baseDriver
     import re
     import os
     filesize = 0
@@ -57,6 +57,30 @@ def upload_file_map(par, user_folder):
             par = par.replace('{Uploaded:' + uploaded_item + '}', upload_file)
             filesize += os.path.getsize(upload_file)
     return par, filesize
+
+
+def input_file_map(par, ini_dict, user_folder):
+    file_size = 0
+    if par.find('{InitInput}') != -1:
+        init_input = ''
+        for key, value in enumerate(ini_dict):
+            if value.find("{Uploaded:") == -1:
+                file_size += baseDriver.get_remote_size_factory(value)
+                init_input += value+' '
+            else:
+                upload_path, upload_size = upload_file_map(value, user_folder)
+                file_size += upload_size
+                init_input += upload_path+' '
+        par = par.replace('{InitInput}', init_input)
+
+    for key, value in enumerate(ini_dict):
+        if par.find('{InputFile' + str(key) + '}') != -1:
+            par = par.replace('{InputFile' + str(key) + '}', value)
+            if value.find("{Uploaded:") != -1:
+                file_size += baseDriver.get_remote_size_factory(value)
+    par, upload_size = upload_file_map(par, user_folder)
+    file_size += upload_size
+    return par, file_size
 
 
 def parameter_string_to_list(par):

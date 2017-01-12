@@ -115,7 +115,7 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
             if this_input_size == 0:
                 this_input_size = baseDriver.get_folder_size(run_directory)
                 if this_input_size == 0 and step == 0:
-                    this_input_size = baseDriver.get_remote_size_factory(ini_file)
+                    # this_input_size = baseDriver.get_remote_size_factory(ini_file)
                     iso_file = 1
             else:
                 this_input_size = this_output_size
@@ -269,6 +269,7 @@ def dynamic_run():
     so = parameterParser.build_special_parameter_dict(indeed_parameter)
     user_reference = get_user_reference(user_id)
     so = dict(so, **user_reference)
+    init_files = ini_file.split(';')
 
     for k, v in enumerate(steps):
         # skip finished steps
@@ -278,7 +279,7 @@ def dynamic_run():
         if resume != -1:
             out_dic = baseDriver.load_output_dict(jid)
 
-        steps[k] = steps[k].replace('{InitInput}', ini_file)
+        # steps[k] = steps[k].replace('{InitInput}', ini_file)
         steps[k] = steps[k].replace('{Job}', str(jid))
         steps[k] = steps[k].replace('{LastOutput}', last_output_string)
         steps[k] = steps[k].replace('{AllOutputBefore}', ' '.join(outputs))
@@ -286,8 +287,9 @@ def dynamic_run():
         steps[k] = parameterParser.last_output_map(steps[k], new_files)
         steps[k] = parameterParser.special_parameter_map(steps[k], so)
         steps[k] = parameterParser.output_file_map(steps[k], out_dic)
-        steps[k], upload_file_size = parameterParser.upload_file_map(steps[k], user_folder)
-        ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
+        # steps[k], upload_file_size = parameterParser.upload_file_map(steps[k], user_folder)
+        # ini_file, upload_in_ini = parameterParser.upload_file_map(ini_file, user_folder)
+        steps[k], outside_size = parameterParser.input_file_map(steps[k], init_files, user_folder)
 
         parameters = parameterParser.parameter_string_to_list(steps[k])
         # last_output = os.listdir(run_folder)
@@ -298,7 +300,7 @@ def dynamic_run():
                                protocol,
                                run_directory=run_folder,
                                step_hash=hs[k],
-                               upload_size=upload_file_size-upload_in_ini)
+                               upload_size=outside_size)
         else:
             ret = call_process(parameters, k, jid)
 
