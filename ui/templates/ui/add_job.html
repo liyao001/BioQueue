@@ -25,21 +25,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="inputFile">Initial input file</label>
-                            <div class="btn-group btn-group-justified">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button>
-                                </div>
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-default" id="rf-trigger">Fetch Remote file</button>
-                                </div>
-                            </div>
+                            <label for="inputFile">Input files <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button></label>
+                            <input type="text" class="form-control" id="input_files" name="input_files" />
+                            <p class="help-block">Please use semicolons (";") to separate multiple files.</p>
                         </div>
-                        <div id="rf-container" class="form-group" style="display: none;">
-                            <label for="inputFile">Remote file (URL):</label>
-                            <input type="text" class="form-control" id="input_file_rf" name="input_file_rf" />
-                        </div>
-                        <div id="lf-container" class="form-group" style="display: none;">
+                        <div id="lf-container" class="form-group alert alert-info alert-dismissable" role="alert" style="display: none;">
                             <label for="inputFile">Uploaded files:</label>
                             <div class="checkbox" id="lf-list">
                             </div>
@@ -116,26 +106,22 @@
 			}
 		}
     });
+    function ftp_files(obj){
+        var self = $(obj);
+        if (self.prop("checked") == true){
+            $("#input_files").val($("#input_files").val()+"{Uploaded:"+self.val()+"};");
+        }else{
+            $("#input_files").val($("#input_files").val().replace("{Uploaded:"+self.val()+"};", ""));
+        }
+    }
     $(function () {
-		$('[data-toggle="popover"]').popover();
-	});
-	$("#rf-trigger").click(function(){
-		$("#rf-container").show('slow');
-		$("#lf-container").hide('slow');
-		$("#rf-trigger").attr("disabled", true);
-		$("#lf-trigger").attr("disabled", false);
-		$("#inputFile-lf").removeAttr("checked");
-	});
-	$("#lf-trigger").click(function(){
-		$("#rf-container").hide('slow');
-		$("#rf-trigger").attr("disabled", false);
-		$("#lf-trigger").attr("disabled", true);
-		$("#inputFile-rf").val("");
-		$.get("{% url 'ui:show_upload' %}", function(result){
-		    $('#lf-list').html(result);
-		    $('#lf-container').show();
-		    $("#rf-trigger").attr("disabled", false);
-			$("#lf-trigger").attr("disabled", true);
-		});
-	});
+        $('[data-toggle="popover"]').popover();
+    });
+    $("#lf-trigger").click(function(){
+        $("#lf-trigger").attr("disabled", true);
+        $.get("{% url 'ui:show_upload' %}", function(result){
+            $('#lf-list').html(result);
+            $('#lf-container').show();
+        });
+    });
 {% endblock %}
