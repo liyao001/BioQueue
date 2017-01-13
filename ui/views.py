@@ -21,6 +21,7 @@ def add_job(request):
             cd = job_form.cleaned_data
             try:
                 # remote file
+                '''
                 if cd['input_file_rf']:
                     init_file = cd['input_file_rf']
                 elif cd['input_file_r']:
@@ -30,7 +31,7 @@ def add_job(request):
                     init_file = '{Uploaded:'+'} {Uploaded:'.join(files)+'}'
                 else:
                     init_file = ''
-
+                '''
                 if cd['parameter'].find(';') == -1:
                     cd['parameter'] += ';'
 
@@ -41,7 +42,7 @@ def add_job(request):
                         parameter=cd['parameter'],
                         run_dir=get_config('env', 'workspace'),
                         user_id=request.user.id,
-                        input_file=init_file,
+                        input_file=cd['input_files'],
                     )
 
                     if check_disk_quota_lock(request.user.id):
