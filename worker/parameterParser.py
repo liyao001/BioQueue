@@ -32,7 +32,7 @@ def special_parameter_map(par, sp_map):
 
 def last_output_map(par, new_files):
     for key, value in enumerate(new_files):
-        par = par.replace('{LastOutput' + str(key) + '}', value)
+        par = par.replace('{LastOutput' + str(key+1) + '}', value)
     return par
 
 
@@ -61,7 +61,7 @@ def upload_file_map(par, user_folder):
 
 def input_file_map(par, ini_dict, user_folder):
     file_size = 0
-    if par.find('{InitInput}') != -1:
+    if par.find('{InputFile}') != -1:
         init_input = ''
         for key, value in enumerate(ini_dict):
             if value.find("{Uploaded:") == -1:
@@ -74,9 +74,9 @@ def input_file_map(par, ini_dict, user_folder):
         par = par.replace('{InitInput}', init_input)
 
     for key, value in enumerate(ini_dict):
-        if par.find('{InputFile' + str(key) + '}') != -1:
-            par = par.replace('{InputFile' + str(key) + '}', value)
-            if value.find("{Uploaded:") != -1:
+        if par.find('{InputFile' + str(key+1) + '}') != -1:
+            if value.find("{Uploaded:") == -1:
+                par = par.replace('{InputFile' + str(key) + '}', value)
                 file_size += baseDriver.get_remote_size_factory(value)
     par, upload_size = upload_file_map(par, user_folder)
     file_size += upload_size

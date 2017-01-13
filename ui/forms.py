@@ -14,18 +14,9 @@ class SingleJobForm(forms.Form):
         )
     )
 
-    input_file_rf = forms.CharField(
+    input_files = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                'class': u'input-block-level',
-            }
-        )
-    )
-
-    input_file_r = forms.CharField(
-        required=False,
-        widget=forms.CheckboxSelectMultiple(
             attrs={
                 'class': u'input-block-level',
             }
