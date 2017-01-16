@@ -65,7 +65,7 @@ python worker/ftp_daemon.py start
 ```
 
 ## Useful informations
-1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in the background, hit
+1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in background, hit
 ```
 python worker/queue_daemon.py stop
 python worker/ftp_daemon.py stop
