@@ -45,15 +45,29 @@ Run the `cron.py` script in the `BioQueue/worker` folder
 ```
 python worker/cron.py
 ```
-## 3. Start the webserver
+For Linux/Unix users, BioQueue can run in background by run `queue_daemon.py` instead of `cron.py`
+```
+python worker/queue_daemon.py start
+```
+
+## 3. Start webserver
 ```
 python manage.py runserver 0.0.0.0:8000
 ```
 This will start up the server on `0.0.0.0` and port `8000`, so BioQueue can be accessed over the network. If you want access BioQueue only in local environment, remove `0.0.0.0:8000`.
-## 4. Start the ftp server (optional, listen 20001 port by default)
+## 4. Start ftp server (optional, listen 20001 port by default)
 ```
 python worker/ftpserver.py
 ```
+This step is optional, if you run command above, the FTP server will listen **20001** port by default. For Linux/Unix users, BioQueue FTP service can run in background by run `ftp_daemon.py` instead of `ftpserver.py`
+```
+python worker/ftp_daemon.py start
+```
+
 ## Useful informations
-1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running.
+1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in the background, hit
+```
+python worker/queue_daemon.py stop
+python worker/ftp_daemon.py stop
+```
 2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
