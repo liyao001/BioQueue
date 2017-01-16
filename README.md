@@ -39,6 +39,7 @@ When running `install.py`, this script will ask you a few questions include:
  6. CPU cores
  7. Memory (Gb)
  8. Disk quota for each user(Gb)
+
 ## 2. Start the queue
 Run the `cron.py` script in the `BioQueue/worker` folder
 ```
