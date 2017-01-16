@@ -70,4 +70,5 @@ python worker/ftp_daemon.py start
 python worker/queue_daemon.py stop
 python worker/ftp_daemon.py stop
 ```
+
 2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
