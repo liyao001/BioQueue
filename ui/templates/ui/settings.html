@@ -30,6 +30,35 @@
             <label class="control-label" for="dquota">Correlation coefficient threshold: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="If the absolute value of correlation coefficient is less than this threshold, BioQueue will possess mean and sd." data-html="true"></i></label>
             <input id="ccthr" name="ccthr" class="sliderbar" data-slider-id='corcoethr' type="text" data-slider-min="0.1" class="form-control" data-slider-max="1" data-slider-step="0.1" data-slider-value="{{ threshold }}"/>
         </div>
+        <hr/>
+        <div class="page-header">
+            <h1>Notification</h1>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="sender">Sender name</label>
+            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" required />
+            <p class="help-block">Leave it blank to turn off notification.</p>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="mailhost">Mail host</label>
+            <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" required />
+            <p class="help-block">Leave it blank to turn off notification.</p>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="mailport">Mail port</label>
+            <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" required />
+            <p class="help-block">Leave it blank to turn off notification.</p>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="mailuser">Mail user</label>
+            <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" required />
+            <p class="help-block">Leave it blank to turn off notification.</p>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="mailpassword">Mail password</label>
+            <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" required />
+            <p class="help-block">Leave it blank to turn off notification.</p>
+        </div>
         {% csrf_token %}
         <input type="submit" class="btn btn-success btn-large" value="Update" />
     </form>
