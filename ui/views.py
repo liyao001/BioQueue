@@ -503,6 +503,15 @@ def settings(request):
         set_config('env', 'disk_quota', request.POST['dquota'])
         set_config('ml', 'confidence_weight', request.POST['rconf'])
         set_config('ml', 'threshold', request.POST['ccthr'])
+        if request.POST['sender'] != '':
+            set_config('mail', 'notify', 'on')
+            set_config('mail', 'sender', request.POST['sender'])
+            set_config('mail', 'mail_host', request.POST['mailhost'])
+            set_config('mail', 'mail_port', request.POST['mailport'])
+            set_config('mail', 'mail_user', request.POST['mailuser'])
+            set_config('mail', 'mail_password', request.POST['mailpassword'])
+        else:
+            set_config('mail', 'notify', 'off')
         return HttpResponseRedirect('/ui/settings')
     else:
         try:
@@ -515,6 +524,11 @@ def settings(request):
                 'confidence_weight': get_config('ml', 'confidence_weight'),
                 'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
                 'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
+                'sender': get_config('mail', 'sender'),
+                'mail_host': get_config('mail', 'mail_host'),
+                'mail_port': get_config('mail', 'mail_port'),
+                'mail_user': get_config('mail', 'mail_user'),
+                'mail_password': get_config('mail', 'mail_password'),
             }
         except Exception, e:
             return render(request, 'ui/error.html', {'error_msg': e})
