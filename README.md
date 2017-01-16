@@ -8,6 +8,10 @@ BioQueue stores data on MySQL, for Windows Users, download the MySQL Installer o
 ```
 sudo apt-get install mysql-server mysql-client
 apt-get install libmysqld-dev
+mysql -u root -p
+CREATE DATABASE BioQueue;
+CREATE USER 'bioqueue'@'localhost' IDENTIFIED BY 'REPLACE WITH YOUR OWN PASSWORD HERE';
+GRANT ALL PRIVILEGES ON BioQueue . * TO 'bioqueue'@'localhost';
 ```
 Note: The following instructions are for Ubuntu 14.04, but can be used as a guideline for other Linux flavors.
 ```
@@ -15,30 +19,28 @@ apt-get install python-dev
 apt-get install python-pip
 ```
 ## 1. Download and setup the BioQueue project
-First of all, you will need to download the project from github (Or you can click 'Clone or download' button at the project's [github page](https://github.com/yauli/BioQueue) to download the project).
+First of all, you will need to clone the project from github (Or you can download BioQueue by open [this link](https://github.com/yauli/BioQueue/zipball/master).
 ```
 git clone https://github.com/yauli/BioQueue.git
+Or
+wget https://github.com/yauli/BioQueue/zipball/master
 ```
-Then navigate to the project's directory, and run the install.py script (All dependent python packages will be automatically installed):
+Then navigate to the project's directory, and run `install.py` script (All dependent python packages will be automatically installed):
 ```
 cd BioQueue
 python install.py
-mysql -u root -p
-CREATE DATABASE BioQueue;
-CREATE USER 'bioqueue'@'localhost' IDENTIFIED BY 'REPLACE WITH YOUR OWN PASSWORD HERE';
-GRANT ALL PRIVILEGES ON BioQueue . * TO 'bioqueue'@'localhost';
 ```
-When running install.py, this script will ask you a few questions include:
- 1. Path of the workspace(where stores all the data for running BioQueue, like D:/biodata or /mnt/biodata)
- 2. Database host: If you install MySQL server on your own machine, enter localhost or 127.0.0.1
+When running `install.py`, this script will ask you a few questions include:
+ 1. Path of the workspace(where stores all the data for running BioQueue, like `D:/biodata` or `/mnt/biodata`)
+ 2. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`
  3. Database user: bioqueue by default
  4. Database password
- 5. Database port :3306 by default
+ 5. Database port: `3306` by default
  6. CPU cores
  7. Memory (Gb)
  8. Disk quota for each user(Gb)
 ## 2. Start the queue
-Run the cron.py script in the BioQueue/worker folder
+Run the `cron.py` script in the `BioQueue/worker` folder
 ```
 python worker/cron.py
 ```
@@ -46,7 +48,7 @@ python worker/cron.py
 ```
 python manage.py runserver 0.0.0.0:8000
 ```
-This will start up the server on 0.0.0.0 and port 8000, so BioQueue can be accessed over the network. If you want access BioQueue only in local environment, remove '0.0.0.0:8000'.
+This will start up the server on `0.0.0.0` and port `8000`, so BioQueue can be accessed over the network. If you want access BioQueue only in local environment, remove `0.0.0.0:8000`.
 ## 4. Start the ftp server (optional, listen 20001 port by default)
 ```
 python worker/ftpserver.py
