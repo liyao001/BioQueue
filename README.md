@@ -65,10 +65,10 @@ python worker/ftp_daemon.py start
 ```
 
 ## Useful informations
-1. To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in background, hit
+* To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in background, hit
 ```
 python worker/queue_daemon.py stop
 python worker/ftp_daemon.py stop
 ```
 
-2. To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
+* To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
