@@ -27,7 +27,7 @@ def terminate_cron():
                 # Kill watched job
                 process = psutil.Process(pid)
                 process.kill()
-                st_dic = {'status': -1, 'ter': 0}
+                st_dic = {'status': -3, 'ter': 0}
                 baseDriver.multi_update(job_db, jid, st_dic)
                 if cpu is not None and mem is not None and disk is not None:
                     update_resource(cpu, mem, disk)

@@ -132,6 +132,16 @@ def setup():
     os.system('python %s migrate' % django_manage_path)
 
     print '===================================================='
+    print 'Checking tables, please wait...'
+    print '===================================================='
+
+    from worker.databaseDriver import con_mysql
+    con, cur = con_mysql()
+    cur.execute("ALTER TABLE `ui_queue` CHANGE COLUMN `update_time` `update_time` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) AFTER `status`;")
+    con.commit()
+    con.close()
+
+    print '===================================================='
     print 'Loading data, please wait...'
     print '===================================================='
 

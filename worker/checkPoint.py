@@ -10,7 +10,7 @@ settings = get_all_config()
 def load_train_frame(step_hash):
     try:
         conn, cur = con_mysql()
-        sql = """SELECT * FROM `%s` WHERE `step`='%s';"""%(settings['datasets']['train_db'], step_hash)
+        sql = """SELECT * FROM `%s` WHERE `step`='%s' AND `lock`=0;"""%(settings['datasets']['train_db'], step_hash)
         train_dataframe = pd.read_sql_query(sql, conn)
         train_dataframe = train_dataframe.replace('-1', numpy.nan)
         train_dataframe['input'] = train_dataframe['input'].astype('float32')
@@ -57,15 +57,25 @@ def reg_single_feature(x, y):
         a = rc[1][0]
         if abs(r) < float(settings['ml']['threshold']):
             a = 0
-            b = numpy.mean(y)
-            r = numpy.std(y)
+            try:
+                b = numpy.mean(y)
+                r = numpy.std(y)
+            except:
+                b = 0
+                r = 0
             
         if numpy.isnan(a):
             a = numpy.float(0)
         if numpy.isnan(b):
-            b = numpy.mean(y)
+            try:
+                b = numpy.mean(y)
+            except:
+                b = 0
         if numpy.isnan(r):
-            r = numpy.std(y)
+            try:
+                r = numpy.std(y)
+            except:
+                r = 0
         try:
             a = a.item()
         except Exception, e:
@@ -80,8 +90,12 @@ def reg_single_feature(x, y):
             pass
     else:
         a = 0
-        b = numpy.mean(y)
-        r = numpy.std(y)
+        try:
+            b = numpy.mean(y)
+            r = numpy.std(y)
+        except:
+            b = 0
+            r = 0
     return a, b, r
 
 
@@ -142,7 +156,7 @@ def get_training_items(step_hash):
 
 
 def is_fifo(protocol, step_ord, job_id):
-    sql = """SELECT COUNT(*) FROM `%s` WHERE `protocol_id` = %s AND `resume` < %s AND `id` < %s AND `status` != -3 AND `status` != -1;""" \
+    sql = """SELECT COUNT(*) FROM `%s` WHERE `protocol_id` = %s AND `resume` < %s AND `status` != -3 AND `status` != -1;""" \
             % (settings['datasets']['job_db'], protocol, step_ord+1, job_id)
     try:
         con, cursor = con_mysql()
@@ -170,13 +184,12 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                 a = float(equation[0])
                 b = float(equation[1])
                 t = equation[2]
-                needed = (a * in_size + b) * float(settings['ml']['confidence_weight'])
                 if t == 1:
-                    predict_need['disk'] = needed
+                    predict_need['disk'] = (a * in_size + b) * float(settings['ml']['confidence_weight_disk'])
                 elif t == 2:
-                    predict_need['mem'] = needed
+                    predict_need['mem'] = (a * in_size + b) * float(settings['ml']['confidence_weight_mem'])
                 elif t == 3:
-                    predict_need['cpu'] = needed
+                    predict_need['cpu'] = (a * in_size + b) * float(settings['ml']['confidence_weight_cpu'])
         else:
             if training_num < 3:
                 predict_need['cpu'] = None
@@ -187,9 +200,9 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                     ao, bo, am, bm, ac, bc = regression(step, 0)
                 else:
                     ao, bo, am, bm, ac, bc = regression(step)
-                predict_need['disk'] = int((ao * in_size + bo) * float(settings['ml']['confidence_weight']))
-                predict_need['mem'] = int((am * in_size + bm) * float(settings['ml']['confidence_weight']))
-                predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight']))
+                predict_need['disk'] = int((ao * in_size + bo) * float(settings['ml']['confidence_weight_disk']))
+                predict_need['mem'] = int((am * in_size + bm) * float(settings['ml']['confidence_weight_mem']))
+                predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight_cpu']))
 
         conn.close()
     except Exception, e:
@@ -199,8 +212,14 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
 
 def check_ok_to_go(job_id, protocol_id, step_ord, predicted_resources, run_path='/'):
     """Checkpoint"""
-    if is_fifo(protocol_id, step_ord, job_id) > 0:
-        return 0, 0, 0, 0
+    # if is_fifo(protocol_id, step_ord, job_id) > 0:
+    #     return 0, 0, 0, 0
+    # ok 1 --> ok --> 0
+    # disk --> 1
+    # memory --> 2
+    # cpu --> 3
+    # new_stand_by --> 4
+    # conflict --> 5
     try:
         conn, cur = con_mysql()
         if predicted_resources['cpu'] is None\
@@ -214,43 +233,42 @@ def check_ok_to_go(job_id, protocol_id, step_ord, predicted_resources, run_path=
             conn.close()
             if running:
                 if running[0] == 0:
-                    return 1, 0, 0, 0
-                else:
                     return 0, 0, 0, 0
+                else:
+                    return 4, 0, 0, 0
             else:
-                return 1, 0, 0, 0
+                return 0, 0, 0, 0
         else:
             cpu_max_pool, memory_max_pool, disk_max_pool = get_resource()
             cpu_max_pool = float(cpu_max_pool)
             memory_max_pool = float(memory_max_pool)
             disk_max_pool = float(disk_max_pool)
-
             # disk checkpoint
             if predicted_resources['disk'] > get_disk_free(run_path)\
                     or predicted_resources['disk'] > disk_max_pool:
                 conn.close()
-                return 0, 0, 0, 0
+                return 1, 0, 0, 0
 
             # memory checkpoint
             if predicted_resources['mem'] > get_memo_usage_available()\
                     or predicted_resources['mem'] > memory_max_pool:
                 conn.close()
-                return 0, 0, 0, 0
+                return 2, 0, 0, 0
 
             # cpu checkpoint
             if predicted_resources['cpu'] > get_cpu_available() \
                     or predicted_resources['cpu'] > cpu_max_pool:
                 conn.close()
-                return 0, 0, 0, 0
+                return 3, 0, 0, 0
 
             # update resource pool
             if update_resource(-1*predicted_resources['cpu'],
                                -1*predicted_resources['mem'],
                                -1*predicted_resources['disk']):
                 conn.close()
-                return 1, predicted_resources['cpu'], predicted_resources['mem'], predicted_resources['disk']
-            else:
                 return 0, predicted_resources['cpu'], predicted_resources['mem'], predicted_resources['disk']
+            else:
+                return 5, predicted_resources['cpu'], predicted_resources['mem'], predicted_resources['disk']
     except Exception, err:
         print err
         return 0, 0, 0, 0

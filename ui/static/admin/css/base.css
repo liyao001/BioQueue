@@ -776,10 +776,10 @@ table#change-history tbody th {
 }
 
 #content-related {
-    float: right;
+    /*float: right;
     width: 260px;
     position: relative;
-    margin-right: -300px;
+    margin-right: -300px;*/
 }
 
 #footer {
@@ -942,7 +942,7 @@ table#change-history tbody th {
 .delete-confirmation form .cancel-link {
     display: inline-block;
     vertical-align: middle;
-    height: 15px;
+    height: 40px;
     line-height: 15px;
     background: #ddd;
     border-radius: 4px;

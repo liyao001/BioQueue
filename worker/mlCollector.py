@@ -108,7 +108,7 @@ def main():
         else:
             mem_usage = -1
         if len(cpu_list) > 2:
-            samples = int(round(len(cpu_list)*0.1))
+            samples = int(round(len(cpu_list)*0.5))
             cpu_list.sort(reverse=True)
             cpu_usage = sum(cpu_list[0:samples])/samples
         elif len(cpu_list) > 0:

@@ -3,6 +3,22 @@ from django.http import HttpResponse
 from django.db import models
 
 
+PREDICTION_CHOICES = (
+    (1, 'Disk'),
+    (2, 'Memory'),
+    (3, 'CPU'),
+)
+
+CHECKPOINT_CHOICES = (
+    (0, 'Ok'),
+    (1, 'Disk'),
+    (2, 'Memory'),
+    (3, 'CPU'),
+    (4, 'Former'),
+    (5, 'Peer'),
+)
+
+
 class Prediction(models.Model):
     """Prediction Table
     Save linear model for memory, output size
@@ -12,10 +28,16 @@ class Prediction(models.Model):
     a = models.CharField(max_length=50, blank=True, null=True)
     b = models.CharField(max_length=50, blank=True, null=True)
     r = models.CharField(max_length=50, blank=True, null=True)
-    type = models.SmallIntegerField()
+    type = models.SmallIntegerField(choices=PREDICTION_CHOICES)
 
     def __str__(self):
         return self.step_hash
+
+    def step_name(self):
+        step = Protocol.objects.get(hash=self.step_hash)
+        return step.software+' '+step.parameter
+
+    step_name.admin_order_field = 'step_hash'
 
 
 class Protocol(models.Model):
@@ -30,7 +52,7 @@ class Protocol(models.Model):
     hash = models.CharField(max_length=50)
 
     def __str__(self):
-        return self.hash
+        return self.software+' '+self.parameter
 
     def check_owner(self, user):
         if int(self.user_id) == user:
@@ -85,6 +107,7 @@ class Queue(models.Model):
     user_id = models.CharField(max_length=50)
     resume = models.SmallIntegerField(default=-1)
     ter = models.SmallIntegerField(default=0)
+    wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
 
     def __str__(self):
         return str(self.id)
@@ -155,6 +178,13 @@ class Training(models.Model):
     mem = models.CharField(max_length=50, blank=True, null=True)
     cpu = models.CharField(max_length=50, blank=True, null=True)
     create_time = models.DateTimeField(auto_now_add=True)
+    lock = models.SmallIntegerField(default=1)
 
     def __str__(self):
         return self.step
+
+    def step_name(self):
+        step_key = Protocol.objects.get(hash=self.step)
+        return step_key.software+' '+step_key.parameter
+
+    step_name.admin_order_field = 'step'
