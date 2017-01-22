@@ -104,12 +104,12 @@ class TorquePBS(ClusterModel):
             print e
             return 0
 
-    def submit_job(self, protocol, job_id, job_step, cpu=0, queue='', workspace=''):
+    def submit_job(self, protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''):
         import subprocess
         self.step_id = job_step
         template = self.load_template()
         job_name = str(job_id)+'-'+str(job_step)+'.pbs'
-        pbs_script_content = template.replace('{PROTOCOL}', protocol).replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu)).replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
+        pbs_script_content = template.replace('{PROTOCOL}', protocol).replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu)).replace('{MEM}', mem+',').replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
         try:
             with open(job_name, 'w') as pbs_handler:
                 pbs_handler.write(pbs_script_content)

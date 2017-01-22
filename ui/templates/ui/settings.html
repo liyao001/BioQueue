@@ -23,8 +23,16 @@
             <input id="dquota" name="dquota" class="sliderbar" data-slider-id='diskquota' type="text" data-slider-min="0" class="form-control" data-slider-max="{{ max_disk }}" data-slider-step="1" data-slider-value="{{ disk_quota }}"/>
         </div>
         <div class="form-group">
-            <label class="control-label" for="rconf">Regression confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
-            <input id="dquota" name="rconf" class="sliderbar" data-slider-id='regconfi' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ confidence_weight }}"/>
+            <label class="control-label" for="dcw">Disk confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+            <input id="dcw" name="dcw" class="sliderbar" data-slider-id='dcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ disk_confidence_weight }}"/>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="mcw">Memory confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+            <input id="mcw" name="mcw" class="sliderbar" data-slider-id='mcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ mem_confidence_weight }}"/>
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="ccw">CPU confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+            <input id="ccw" name="ccw" class="sliderbar" data-slider-id='ccw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ cpu_confidence_weight }}"/>
         </div>
         <div class="form-group">
             <label class="control-label" for="dquota">Correlation coefficient threshold: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="If the absolute value of correlation coefficient is less than this threshold, BioQueue will possess mean and sd." data-html="true"></i></label>

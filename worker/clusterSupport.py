@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from procManeuver import if_terminate
 import time
+import os
 from baseDriver import update
 
 
@@ -13,10 +14,21 @@ def dispatch(cluster_type):
     return cluster_model
 
 
-def main(cluster_type, parameter, job_id, step_id, cpu, queue, workspace):
+def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, learning=0, trace_id=0):
     cluster_model = dispatch(cluster_type)
     if cluster_model:
-        cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, queue, workspace)
+        if learning == 0:
+            cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, queue, workspace)
+        else:
+            tmp_filename = str(job_id)+'_'+str(step_id)+'.tmp'
+            tmp_file = open(tmp_filename, mode='w')
+            tmp_file.write(parameter)
+            tmp_file.close()
+            ml_parameter = ("python", os.path.join(os.path.split(os.path.realpath(__file__))[0], "mlContainer.py"),
+                            "-j", os.path.join(os.path.split(os.path.realpath(__file__))[0], tmp_filename),
+                            "-w", workspace, "-t", str(trace_id))
+            cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue, workspace)
+
         while True:
             status_code = cluster_model.query_job_status()
             if status_code == step_id or status_code == 0:

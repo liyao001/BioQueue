@@ -3,6 +3,8 @@ import time
 from daemon import runner
 import subprocess
 import os
+import baseDriver
+import databaseDriver
 root_path = os.path.split(os.path.realpath(__file__))[0]
 
 
@@ -15,6 +17,8 @@ class App:
         self.pidfile_timeout = 5
 
     def run(self):
+        cpu, mem, disk = baseDriver.get_init_resource()
+        databaseDriver.init_resource(cpu, mem, disk)
         while True:
             try:
                 subprocess.Popen(['python', os.path.join(root_path, 'BioCommander.py')], stdin=None, stdout=None, stderr=None)

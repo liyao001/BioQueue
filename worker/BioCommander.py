@@ -99,33 +99,54 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
     folder_size_before = 0
     try:
         training_num = get_training_items(step_hash)
+        if run_directory == '':
+            print 'Please specify your workspace!'
+            return 1
+        if training_num < 10:
+            learning = 1
+        if this_input_size == 0:
+            this_input_size = baseDriver.get_folder_size(run_directory)
+            if this_input_size == 0 and step == 0:
+                # this_input_size = baseDriver.get_remote_size_factory(ini_file)
+                iso_file = 1
+        else:
+            this_input_size = this_output_size
+        folder_size_before = baseDriver.get_folder_size(run_directory)
+        this_input_size += upload_size
+        resource_needed = checkPoint.predict_resource_needed(step_hash, this_input_size, training_num)
+
+        if learning == 1:
+            trace_id = create_machine_learning_item(step_hash, this_input_size)
+
         if settings['cluster']['type']:
             import clusterSupport
+            predict_cpu = int(round(resource_needed['cpu'])/100)
+            if predict_cpu > settings['cluster']['cpu'] or predict_cpu == 0:
+                allocate_cpu = settings['cluster']['cpu']
+            else:
+                allocate_cpu = predict_cpu
+            if resource_needed['mem'] > 1073741824:
+                allocate_mem = str(int(round(resource_needed['mem']/1073741824)+1))+'Gb'
+            elif resource_needed['mem']:
+                allocate_mem = ''
+            else:
+                allocate_mem = str(int(round(resource_needed['mem'] / 1048576) + 1))+'Mb'
+
             baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step + 1)
             return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(parameter),
-                                              job_id, step, settings['cluster']['cpu'],
+                                              job_id, step, allocate_cpu, allocate_mem,
                                               settings['cluster']['queue'], run_directory)
+            if run_directory != '':
+                if iso_file == 1:
+                    this_input_size = 0
+                    iso_file = 0
+                this_output_size = baseDriver.get_folder_size(run_directory) - folder_size_before
+                cumulative_output_size += this_output_size
+                if learning == 1:
+                    learning_result = {'output': this_output_size, 'lock': 0}
+                    baseDriver.multi_update(settings['datasets']['train_db'], trace_id, learning_result)
             return return_code
         else:
-            if run_directory == '':
-                print 'Please specify your workspace!'
-                return 1
-            if training_num < 10:
-                learning = 1
-            if this_input_size == 0:
-                this_input_size = baseDriver.get_folder_size(run_directory)
-                if this_input_size == 0 and step == 0:
-                    # this_input_size = baseDriver.get_remote_size_factory(ini_file)
-                    iso_file = 1
-            else:
-                this_input_size = this_output_size
-            folder_size_before = baseDriver.get_folder_size(run_directory)
-            this_input_size += upload_size
-            if learning == 1:
-                trace_id = create_machine_learning_item(step_hash, this_input_size)
-
-            resource_needed = checkPoint.predict_resource_needed(step_hash, this_input_size, training_num)
-
             process_maintain = subprocess.Popen(["python", os.path.join(root_path, 'procManeuver.py'),
                                                  "-p", str(os.getpid()), "-j", str(job_id),
                                                  "-c", str(resource_needed['cpu']),
@@ -133,14 +154,19 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
                                                  "-d", str(resource_needed['disk'])], shell=False,
                                                 stdout=None, stderr=subprocess.STDOUT)
 
+            before_status = 0
+
             while True:
                 status, cpu_needed, memory_needed, disk_needed = checkPoint.check_ok_to_go(job_id, protocol_family,
                                                                                            step,
                                                                                            resource_needed,
                                                                                            run_directory)
-                if status:
+                if status == 0:
                     break
                 else:
+                    if status != before_status:
+                        before_status == status
+                        baseDriver.update(settings['datasets']['job_db'], job_id, 'wait_for', status)
                     time.sleep(13)
 
             step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -163,7 +189,8 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
                 update_resource(float(cpu_needed), float(memory_needed), float(disk_needed) - this_output_size)
                 cumulative_output_size += this_output_size
                 if learning == 1:
-                    baseDriver.update(settings['datasets']['train_db'], trace_id, 'output', this_output_size)
+                    learning_result = {'output': this_output_size, 'lock': 0}
+                    baseDriver.multi_update(settings['datasets']['train_db'], trace_id, learning_result)
 
             try:
                 # kill the maintenance process
@@ -179,11 +206,11 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
         return 1
 
 
-def create_machine_learning_item(step_hash, inputSize):
+def create_machine_learning_item(step_hash, input_size):
     import time
-    dyn_sql = """INSERT INTO %s (`step`, `input`, `create_time`) VALUES ('%s', '%s', '%s');""" \
+    dyn_sql = """INSERT INTO %s (`step`, `input`, `create_time`, `lock`) VALUES ('%s', '%s', '%s', '1');""" \
               % (settings['datasets']['train_db'],
-                 step_hash, str(inputSize),
+                 step_hash, str(input_size),
                  time.strftime('%Y-%m-%d %H:%M:%S',
                                time.localtime()))
     try:
