@@ -6,9 +6,22 @@
         <div class="page-header">
             <h1 id="task">Job Status</h1>
         </div>
+        <form class="form-inline" style="margin-bottom: 10px;">
+            <div class="form-group">
+                <label for="act">Action:</label>
+                <select class="form-control" id="batch-action" name="batch-action">
+                    <option>---------</option>
+                    <option value="d">Delete</option>
+                    <option value="t">Terminate</option>
+                    <option value="r">Rerun</option>
+                </select>
+            </div>
+            <button type="button" class="btn btn-default" onclick="batchOperation()">Go</button>
+        </form>
         <table class="table table-bordered">
             <thead>
                 <tr>
+                    <th><input type="checkbox" id="click-all"></th>
                     <th>ID</th>
                     <th>Protocol</th>
                     <th>Input files</th>
@@ -23,6 +36,7 @@
             {% if job_list %}
             {% for job in job_list %}
                 <tr class="pending-user">
+                    <td class="no-leak-table"><input type="checkbox" class="batch_operation" name="batch_operation" value="{{ job.id }}"></td>
                     <td class="no-leak-table">{{ job.id }}</td>
                     <td class="no-leak-table">{{ job.protocol }}</td>
                     <td class="no-leak-table limited-table-25em">{{ job.input_file }}</td>
@@ -209,4 +223,35 @@
             };
         });
     };
+    $("#click-all").click(function(){
+        if(this.checked){
+            $(".batch_operation").prop("checked", true);
+        }else{
+	        $(".batch_operation").prop("checked", false);
+        }
+    });
+    function batchOperation(){
+        var valArr = new Array;
+        $("tbody :checkbox").each(function(i){
+            if($(this).prop("checked")){
+                valArr[i] = $(this).val();
+            }
+        });
+		var values = valArr.join(',');
+      	if (values){
+            $.post("{% url 'ui:batch_operation' %}", {operation: $("#batch-action").val(), jobs: values}, function(data){
+                if(data.status){
+                    //location.reload();
+		        }else{
+                    Messenger().post({
+					    message: data.info,
+					    type: 'error',
+					    showCloseButton: true
+                });
+            };
+        });
+        }else{
+            alert("Please check items!");
+        }
+    }
 {% endblock %}

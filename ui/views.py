@@ -149,6 +149,41 @@ def batch_job(request):
                           {'error_msg': str(form.errors)})
 
 
+@login_required
+def batch_operation(request):
+    if request.method == 'POST':
+        job_list = request.POST['jobs'].split(',')
+        if request.POST['operation'] == 'd':
+            for job_id in job_list:
+                job = Queue.objects.get(id=job_id)
+
+                if job.check_owner(request.user.id) or request.user.is_superuser:
+                    job.delete()
+                else:
+                    return error('Your are not the owner of the job.')
+                return success('Ok')
+        elif request.POST['operation'] == 't':
+            for job_id in job_list:
+                job = Queue.objects.get(id=job_id)
+                if job.check_owner(request.user.id) or request.user.is_superuser:
+                    job.terminate_job()
+                else:
+                    return error('Your are not the owner of the job.')
+                return success('Ok')
+        elif request.POST['operation'] == 'r':
+            for job_id in job_list:
+                job = Queue.objects.get(id=job_id)
+                if job.check_owner(request.user.id) or request.user.is_superuser:
+                    job.rerun_job()
+                else:
+                    return error('Your are not the owner of the job.')
+                return success('Ok')
+        else:
+            return error('Please choose an operation.')
+    else:
+        return success('abc')
+
+
 @staff_member_required
 def clean_dead_lock(request):
     Queue.objects.filter(status__gt=0).update(status=-3)
