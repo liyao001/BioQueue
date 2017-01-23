@@ -20,7 +20,6 @@ def add_job(request):
         if job_form.is_valid():
             cd = job_form.cleaned_data
             try:
-                # remote file
                 '''
                 if cd['input_file_rf']:
                     init_file = cd['input_file_rf']
@@ -316,7 +315,7 @@ def download_upload_file(request, f):
 @login_required
 def fetch_learning(request):
     import urllib2, json
-    api_bus = get_config('ml', 'api')+'/h/'\
+    api_bus = get_config('ml', 'api')+'/Index/share/h/'\
               + request.GET['hash']+'/t/'\
               + request.GET['type']+'/c/'\
               + str(get_config('env', 'cpu')+'/m/'
@@ -337,7 +336,7 @@ def fetch_learning(request):
         })
         return success(template.render(context))
     except Exception, e:
-        return error(e)
+        return error(api_bus)
 
 
 @login_required
@@ -361,7 +360,7 @@ def get_learning_result(request):
         return error('Error Method.')
 
 
-@login_required
+@staff_member_required
 def import_learning(request):
     if request.session['learning']:
         learn = Prediction(step_hash=request.session['learning']['hash'],
@@ -501,7 +500,9 @@ def settings(request):
         set_config('env', 'cpu', request.POST['cpu'])
         set_config('env', 'memory', request.POST['mem'])
         set_config('env', 'disk_quota', request.POST['dquota'])
-        set_config('ml', 'confidence_weight', request.POST['rconf'])
+        set_config('ml', 'confidence_weight_disk', request.POST['dcw'])
+        set_config('ml', 'confidence_weight_mem', request.POST['mcw'])
+        set_config('ml', 'confidence_weight_cpu', request.POST['ccw'])
         set_config('ml', 'threshold', request.POST['ccthr'])
         if request.POST['sender'] != '':
             set_config('mail', 'notify', 'on')
@@ -521,7 +522,9 @@ def settings(request):
                 'memory': get_config('env', 'memory'),
                 'disk_quota': get_config('env', 'disk_quota'),
                 'threshold': get_config('ml', 'threshold'),
-                'confidence_weight': get_config('ml', 'confidence_weight'),
+                'disk_confidence_weight': get_config('ml', 'confidence_weight_disk'),
+                'mem_confidence_weight': get_config('ml', 'confidence_weight_mem'),
+                'cpu_confidence_weight': get_config('ml', 'confidence_weight_cpu'),
                 'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
                 'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
                 'sender': get_config('mail', 'sender'),
