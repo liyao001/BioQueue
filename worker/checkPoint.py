@@ -206,7 +206,7 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
 
         conn.close()
     except Exception, e:
-        pass
+        return {'cpu': None, 'mem': None, 'disk': None}
     return predict_need
 
 

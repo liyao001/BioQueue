@@ -165,7 +165,7 @@ def call_process(parameter, step, job_id, protocol_family, run_directory='', ste
                     break
                 else:
                     if status != before_status:
-                        before_status == status
+                        before_status = status
                         baseDriver.update(settings['datasets']['job_db'], job_id, 'wait_for', status)
                     time.sleep(13)
 

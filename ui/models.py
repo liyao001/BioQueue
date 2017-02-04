@@ -34,8 +34,12 @@ class Prediction(models.Model):
         return self.step_hash
 
     def step_name(self):
+        """
+        step = Protocol.objects.filter(hash=self.step_hash)
+        return step[0].software+' '+step[0].parameter
+        """
         step = Protocol.objects.get(hash=self.step_hash)
-        return step.software+' '+step.parameter
+        return step.software + ' ' + step.parameter
 
     step_name.admin_order_field = 'step_hash'
 
@@ -134,6 +138,10 @@ class Queue(models.Model):
 
     def get_result(self):
         return self.result
+
+    def update_status(self, status):
+        self.status = status
+        self.save()
 
 
 class References(models.Model):

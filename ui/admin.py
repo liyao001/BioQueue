@@ -18,7 +18,7 @@ class TrainingAdmin(admin.ModelAdmin):
 
 
 class PredictionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'step_name', 'a', 'b', 'r', 'type')
+    list_display = ('id', 'step_name', 'step_hash', 'a', 'b', 'r', 'type')
 
 
 class ResourceAdmin(admin.ModelAdmin):
