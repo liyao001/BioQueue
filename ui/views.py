@@ -153,6 +153,8 @@ def batch_job(request):
 def batch_operation(request):
     if request.method == 'POST':
         job_list = request.POST['jobs'].split(',')
+        while '' in job_list:
+            job_list.remove('')
         if request.POST['operation'] == 'd':
             for job_id in job_list:
                 job = Queue.objects.get(id=job_id)

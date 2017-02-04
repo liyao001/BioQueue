@@ -12,3 +12,7 @@ worker/.idea/*
 worker/cpbqueue.wpr
 worker/cpbqueue.wpu
 worker/1
+BioQueue/settings.py
+deploy/000-default.conf
+worker/config.conf
+worker/config.conf
