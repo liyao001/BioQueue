@@ -270,7 +270,8 @@ def run_prepare(job_id, job):
         step = parameterParser.output_file_map(step, OUTPUT_DICT[job_id])
     if job_id in JOB_INPUT_FILES.keys():
         step, outside_size = parameterParser.input_file_map(step, JOB_INPUT_FILES[job_id], job['user_folder'])
-
+    step, outside_size_upload = parameterParser.upload_file_map(step, job['user_folder'])
+    outside_size += outside_size_upload
     step = step.replace('{Workspace}', job['job_folder'])
     step = step.replace('{ThreadN}', str(cpu_count()))
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
@@ -531,7 +532,7 @@ def main():
                 continue
             if JOB_TABLE[job_id]['status'] > 0:
                 continue
-
+            print RESOURCES
             if RESOURCES[job_desc]['cpu'] is None \
                     and RESOURCES[job_desc]['mem'] is None \
                     and RESOURCES[job_desc]['disk'] is None:
