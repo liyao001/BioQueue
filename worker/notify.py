@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+import django_initial
+from django.contrib.auth.models import User
+
+
 class MailNotify:
     user_id = 0
     mail_type = 1
@@ -15,14 +19,22 @@ class MailNotify:
         self.ini_file = in_file
         self.job_parameter = parameters
 
-    def get_user_mail_address(self, uid):
+    @staticmethod
+    def get_user_mail_address(uid):
+        """
         from databaseDriver import con_mysql
         con, cur = con_mysql()
-        sql = """SELECT `email` FROM `auth_user` WHERE `id` = %d;""" % int(uid)
+        sql = '''SELECT `email` FROM `auth_user` WHERE `id` = %d;''' % int(uid)
         cur.execute(sql)
         uid = cur.fetchone()
         if uid:
             return uid[0]
+        else:
+            return None
+        """
+        user_info = User.objects.get(id=uid)
+        if user_info:
+            return user_info.mail
         else:
             return None
 

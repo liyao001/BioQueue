@@ -351,11 +351,8 @@ def finish_step(job_id, step_order, resources):
     job.resume = step_order
     job.status = -2
     try:
-        print JOB_TABLE[job_id]
         JOB_TABLE[job_id]['status'] = -2
-        print JOB_TABLE[job_id]
         JOB_TABLE[job_id]['resume'] = step_order
-        print JOB_TABLE[job_id]
         this_output = baseDriver.get_folder_content(JOB_TABLE[job_id]['job_folder'])
         NEW_FILES[job_id] = sorted(list(set(this_output).difference(set(LAST_OUTPUT[job_id]))))
         NEW_FILES[job_id] = [os.path.join(JOB_TABLE[job_id]['job_folder'], file_name) for file_name in NEW_FILES[job_id]]

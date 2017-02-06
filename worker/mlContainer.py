@@ -6,15 +6,14 @@ import subprocess
 import psutil
 import sys
 from mlCollector import get_cpu, get_mem
-from baseDriver import update, get_config
+import django_initial
+from ui.models import Training
 
 
 def get_protocol(fn):
     protocol = []
     pf = open(fn)
     tmp = pf.readlines()
-    # protocol = [l.replace('\n,'') for l in tmp]
-    # return protocol
     return tmp
 
 
@@ -55,8 +54,11 @@ def main(pf, wd, trace):
             cpu_usage = sum(cpu_list) / len(cpu_list)
         else:
             cpu_usage = -1
-        update(get_config('datasets', 'train_db'), trace, 'mem', mem_usage)
-        update(get_config('datasets', 'train_db'), trace, 'cpu', cpu_usage)
+
+        training_item = Training.objects.get(id=trace)
+        training_item.mem = mem_usage
+        training_item.cpu = cpu_usage
+        training_item.save()
 
 
 if __name__ == '__main__':

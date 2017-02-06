@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-from procManeuver import if_terminate
 import time
 import os
-from baseDriver import update
+import django_initial
+from ui.models import Queue
+
+
+def if_terminate(job_id):
+    job = Queue.objects.get(job_id)
+    return job.ter
 
 
 def dispatch(cluster_type):

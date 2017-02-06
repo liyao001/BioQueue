@@ -163,7 +163,7 @@ def batch_operation(request):
                     job.delete()
                 else:
                     return error('Your are not the owner of the job.')
-                return success('Ok')
+            return success('Ok')
         elif request.POST['operation'] == 't':
             for job_id in job_list:
                 job = Queue.objects.get(id=job_id)
@@ -171,7 +171,7 @@ def batch_operation(request):
                     job.terminate_job()
                 else:
                     return error('Your are not the owner of the job.')
-                return success('Ok')
+            return success('Ok')
         elif request.POST['operation'] == 'r':
             for job_id in job_list:
                 job = Queue.objects.get(id=job_id)
@@ -179,7 +179,7 @@ def batch_operation(request):
                     job.rerun_job()
                 else:
                     return error('Your are not the owner of the job.')
-                return success('Ok')
+            return success('Ok')
         else:
             return error('Please choose an operation.')
     else:

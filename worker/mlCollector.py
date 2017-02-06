@@ -3,8 +3,8 @@ import psutil
 import time
 import getopt
 import sys
-from baseDriver import get_config, update
-from databaseDriver import con_mysql
+import django_initial
+from ui.models import Training
 
 mem_list = []
 cpu_list = []
@@ -37,22 +37,6 @@ def get_io(pid):
         return io[2], io[3]
     else:
         return 0
-
-
-def create_machine_learning_item(step_hash, input_bytes, output_bytes, mem_usage, cpu_usage):
-    con, cursor = con_mysql()
-    dyn_sql = """INSERT INTO %s (`step`, `input`, `output`, `mem`, `cpu`) VALUES ('%s', '%s', '%s', '%s', '%s');"""\
-              % (get_config("datasets", "train_db"), str(step_hash), str(input_bytes), str(output_bytes),
-                 str(mem_usage), str(cpu_usage))
-    try:
-        cursor.execute(dyn_sql)
-        row_id = con.insert_id()
-        con.commit()
-        con.close()
-    except Exception, e:
-        print e
-        return 0
-    return row_id
 
 
 def main():
@@ -115,8 +99,12 @@ def main():
             cpu_usage = sum(cpu_list)/len(cpu_list)
         else:
             cpu_usage = -1
-        update(get_config('datasets', 'train_db'), job_id, 'mem', mem_usage)
-        update(get_config('datasets', 'train_db'), job_id, 'cpu', cpu_usage)
+
+        training_item = Training.objects.get(id=job_id)
+        training_item.mem = mem_usage
+        training_item.cpu = cpu_usage
+        training_item.save()
+
     else:
         sys.exit()
 

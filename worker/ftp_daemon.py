@@ -4,7 +4,8 @@ from pyftpdlib.authorizers import DummyAuthorizer, AuthenticationFailed
 from django.utils.crypto import pbkdf2
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
-from databaseDriver import con_mysql
+import django_initial
+from django.contrib.auth.models import User
 from baseDriver import get_config
 import os
 import base64
@@ -25,17 +26,28 @@ class DummyMD5Authorizer(DummyAuthorizer):
 
 def load_user_table():
     try:
+        all_user = User.objects.all()
+        """
         con, cur = con_mysql()
         sql = '''SELECT `id`, `username`, `password` FROM `auth_user` WHERE `is_active` > 0;'''
         cur.execute(sql)
+        """
         auth = DummyMD5Authorizer()
         ws = get_config('env', 'workspace')
+        '''
         for u in cur.fetchall():
             user_directory = os.path.join(ws, str(u[0]), 'uploads')
 
             if not os.path.exists(user_directory):
                 os.makedirs(user_directory)
-            auth.add_user(u[1], u[2], user_directory, perm='elradfmw')
+        '''
+        for user in all_user:
+            user_directory = os.path.join(ws, str(user.id), 'uploads')
+
+            if not os.path.exists(user_directory):
+                os.makedirs(user_directory)
+
+            auth.add_user(user.username, user.password, user_directory, perm='elradfmw')
         return auth
     except Exception, e:
         print e
