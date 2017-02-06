@@ -71,6 +71,19 @@ def setup():
     set_config('env', 'mem', raw_input('Memory(Gb): '))
     set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
 
+    print '===================================================='
+    print 'To help us improve BioQueue, fix bugs, and make it  '
+    print 'even easier for everyone to use Bioinformatic tools,'
+    print 'we hope you agree BioQueue to gather anonymized     '
+    print ' usage information (protocol steps, checkpoints).   '
+    print 'Please choose agree (Y) or disagree (N)'
+    print '===================================================='
+    choice = raw_input('Do you agree to share those information (Y/N):')
+    if choice == 'N':
+        set_config('ml', 'open', 'No')
+    else:
+        set_config('ml', 'open', 'Yes')
+
     database_configure = dict()
     database_configure['host'] = raw_input('Database host: ')
     database_configure['user'] = raw_input('Database user: ')
@@ -152,6 +165,7 @@ def setup():
     print '===================================================='
 
     os.system('python %s createsuperuser' % django_manage_path)
+
 
 if __name__ == '__main__':
     setup()
