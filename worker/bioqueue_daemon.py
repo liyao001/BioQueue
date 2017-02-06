@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import databaseDriver
 from multiprocessing import cpu_count
 import baseDriver
 import time
@@ -10,11 +9,10 @@ import checkPoint
 import threading
 import subprocess
 import psutil
-import getopt
-import sys
-import platform
 import django_initial
 from ui.models import Queue, Protocol, References, Training
+
+
 settings = baseDriver.get_all_config()
 CPU_POOL, MEMORY_POOL, DISK_POOL = baseDriver.get_init_resource()
 MAX_JOB = cpu_count()
@@ -292,8 +290,8 @@ def run_prepare(job_id, job):
     FOLDER_SIZE_BEFORE[job_id] = baseDriver.get_folder_size(job['job_folder'])
     INPUT_SIZE[job_id] += outside_size
     resource_needed = checkPoint.predict_resource_needed(job['steps'][job['resume'] + 1]['hash'],
-                                                         INPUT_SIZE[job_id],
-                                                         training_num)
+                                                            INPUT_SIZE[job_id],
+                                                            training_num)
 
     if learning == 1:
         trace_id = create_machine_learning_item(job['steps'][job['resume'] + 1]['hash'], INPUT_SIZE[job_id])
