@@ -71,19 +71,6 @@ def setup():
     set_config('env', 'mem', raw_input('Memory(Gb): '))
     set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
 
-    print '===================================================='
-    print 'To help us improve BioQueue, fix bugs, and make it  '
-    print 'even easier for everyone to use Bioinformatic tools,'
-    print 'we hope you agree BioQueue to gather anonymized     '
-    print ' usage information (protocol steps, checkpoints).   '
-    print 'Please choose agree (Y) or disagree (N)'
-    print '===================================================='
-    choice = raw_input('Do you agree to share those information (Y/N):')
-    if choice == 'N':
-        set_config('ml', 'open', 'No')
-    else:
-        set_config('ml', 'open', 'Yes')
-
     database_configure = dict()
     database_configure['host'] = raw_input('Database host: ')
     database_configure['user'] = raw_input('Database user: ')
@@ -143,16 +130,6 @@ def setup():
     print '===================================================='
 
     os.system('python %s migrate' % django_manage_path)
-
-    print '===================================================='
-    print 'Checking tables, please wait...'
-    print '===================================================='
-
-    from worker.databaseDriver import con_mysql
-    con, cur = con_mysql()
-    cur.execute("ALTER TABLE `ui_queue` CHANGE COLUMN `update_time` `update_time` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6) AFTER `status`;")
-    con.commit()
-    con.close()
 
     print '===================================================='
     print 'Loading data, please wait...'

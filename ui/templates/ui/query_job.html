@@ -241,7 +241,7 @@
       	if (values){
             $.post("{% url 'ui:batch_operation' %}", {operation: $("#batch-action").val(), jobs: values}, function(data){
                 if(data.status){
-                    //location.reload();
+                    location.reload();
 		        }else{
                     Messenger().post({
 					    message: data.info,
