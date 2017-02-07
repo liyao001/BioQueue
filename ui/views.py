@@ -407,13 +407,16 @@ def get_learning_result(request):
 @staff_member_required
 def import_learning(request):
     if request.session['learning']:
-        learn = Prediction(step_hash=request.session['learning']['hash'],
-                           type=request.session['learning']['type'],
-                           a=request.session['learning']['a'],
-                           b=request.session['learning']['b'],
-                           r=request.session['learning']['r'],)
-        learn.save()
-        return success('Imported.')
+        if request.session['learning']['a'] != 'no records':
+            learn = Prediction(step_hash=request.session['learning']['hash'],
+                               type=request.session['learning']['type'],
+                               a=request.session['learning']['a'],
+                               b=request.session['learning']['b'],
+                               r=request.session['learning']['r'],)
+            learn.save()
+            return success('Imported.')
+        else:
+            return error('Can not import records!')
     else:
         return error('Error')
 
