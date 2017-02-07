@@ -34,6 +34,7 @@ CUMULATIVE_OUTPUT_SIZE = dict()
 RESOURCES = dict()
 LATEST_JOB_ID = 0
 LATEST_JOB_STEP = 0
+RUNNING_JOBS = 0
 root_path = os.path.split(os.path.realpath(__file__))[0]
 
 
@@ -156,6 +157,7 @@ def get_job(max_fetch=1):
                 'steps': get_steps(job.protocol_id),
                 'user_folder': user_folder,
                 'job_folder': job_folder,
+                'wait_for': 0,
             }
             OUTPUT_DICT[job.id] = dict()
             LAST_OUTPUT[job.id] = []
@@ -484,9 +486,15 @@ def set_checkpoint_info(job_id, cause):
     :param cause: int, cause for the suspension
     :return: None
     """
-    job = Queue.objects.get(id=job_id)
-    job.wait_for = cause
-    job.save()
+    global JOB_TABLE
+    try:
+        if JOB_TABLE[job_id]['wait_for'] != cause:
+            JOB_TABLE[job_id]['wait_for'] = cause
+            job = Queue.objects.get(id=job_id)
+            job.wait_for = cause
+            job.save()
+    except:
+        pass
 
 
 def main():
@@ -529,13 +537,16 @@ def main():
                 continue
             if JOB_TABLE[job_id]['status'] > 0:
                 continue
-            print RESOURCES
+
             if RESOURCES[job_desc]['cpu'] is None \
                     and RESOURCES[job_desc]['mem'] is None \
                     and RESOURCES[job_desc]['disk'] is None:
-                new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
-                new_thread.setDaemon(True)
-                new_thread.start()
+                if RUNNING_JOBS > 0:
+                    set_checkpoint_info(job_id, 4)
+                else:
+                    new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
+                    new_thread.setDaemon(True)
+                    new_thread.start()
                 break
             else:
                 if RESOURCES[job_desc]['cpu'] > cpu_indeed or RESOURCES[job_desc]['cpu'] > CPU_POOL:
