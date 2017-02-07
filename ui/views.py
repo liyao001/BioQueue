@@ -349,14 +349,21 @@ def download_upload_file(request, f):
         return error(e)
 
 
+def os_to_int():
+    import platform
+    if platform.system() == 'Linux':
+        return 1
+    elif platform.system() == 'Darwin':
+        return 3
+    else:
+        return 2
+
+
 @login_required
 def fetch_learning(request):
     import urllib2, json
-    api_bus = get_config('ml', 'api')+'/Index/share/h/'\
-              + request.GET['hash']+'/t/'\
-              + request.GET['type']+'/c/'\
-              + str(get_config('env', 'cpu')+'/m/'
-              + str(get_config('env', 'memory')))
+    query_string = request.GET['hash']+','+request.GET['type']+','+str(get_config('env', 'cpu'))+','+str(get_config('env', 'memory'))+','+str(os_to_int())
+    api_bus = get_config('ml', 'api')+'/Index/share/q/' + query_string
     try:
         req = urllib2.Request(api_bus)
         res_data = urllib2.urlopen(req)
