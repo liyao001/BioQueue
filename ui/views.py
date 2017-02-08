@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
-    check_disk_quota_lock
+    check_disk_quota_lock, build_json_protocol
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
@@ -349,14 +349,63 @@ def download_upload_file(request, f):
         return error(e)
 
 
-def os_to_int():
-    import platform
-    if platform.system() == 'Linux':
-        return 1
-    elif platform.system() == 'Darwin':
-        return 3
+@login_required
+def export_protocol(request):
+    if request.method == 'GET':
+        if 'id' in request.GET:
+            protocol_data = dict()
+            try:
+                protocol_parent = ProtocolList.objects.get(id=int(request.GET['id']))
+            except ProtocolList.DoesNotExist:
+                from django.http import Http404
+                raise Http404("Protocol does not exist")
+            protocol_data['name'] = protocol_parent.name
+            protocol_data['step'] = []
+            if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
+                steps = Protocol.objects.filter(parent=int(request.GET['id']))
+                for step in steps:
+                    try:
+                        equations = Prediction.objects.filter(step_hash=step.hash)
+                        cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = 0
+                        for equation in equations:
+                            if equation.type == 1:
+                                disk_a = equation.a
+                                disk_b = equation.b
+                                disk_r = equation.r
+                            elif equation.type == 2:
+                                mem_a = equation.a
+                                mem_b = equation.b
+                                mem_r = equation.r
+                            elif equation.type == 3:
+                                cpu_a = equation.a
+                                cpu_b = equation.b
+                                cpu_r = equation.r
+                        tmp = {
+                            'software': step.software,
+                            'parameter': step.parameter,
+                            'cpu_a': cpu_a,
+                            'cpu_b': cpu_b,
+                            'cpu_r': cpu_r,
+                            'mem_a': mem_a,
+                            'mem_b': mem_b,
+                            'mem_r': mem_r,
+                            'disk_a': disk_a,
+                            'disk_b': disk_b,
+                            'disk_r': disk_r,
+                        }
+                    except:
+                        tmp = {
+                            'software': step.software,
+                            'parameter': step.parameter,
+                        }
+                    protocol_data['step'].append(tmp)
+                return build_json_protocol(protocol_data)
+            else:
+                return error('You are not owner of the protocol.')
+        else:
+            return error('Unknown parameter.')
     else:
-        return 2
+        return error('Method error.')
 
 
 @login_required
@@ -422,6 +471,71 @@ def import_learning(request):
 
 
 @login_required
+def import_protocol(request):
+    if request.method == 'POST':
+        form = BatchJobForm(request.POST, request.FILES)
+        if form.is_valid():
+            file_name = handle_uploaded_file(request.FILES['job_list'])
+            try:
+                with open(file_name) as f:
+                    protocol_raw = f.read()
+                    import json, hashlib
+                    protocol_json = json.loads(protocol_raw)
+                    if ProtocolList.objects.filter(name=protocol_json['name'], user_id=request.user.id).exists():
+                        return error('Duplicate record!')
+                    protocol = ProtocolList(name=protocol_json['name'], user_id=request.user.id)
+                    protocol.save()
+                    steps = []
+                    predictions = []
+                    for step in protocol_json['step']:
+                        m = hashlib.md5()
+                        m.update(step['software'] + ' ' + step['parameter'].strip())
+                        steps.append(Protocol(software=step['software'],
+                                              parameter=step['parameter'],
+                                              parent=protocol.id,
+                                              hash=m.hexdigest(),
+                                              user_id=request.user.id))
+                        if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=3).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['cpu_a'],
+                                                              b=step['cpu_b'],
+                                                              r=step['cpu_r'],
+                                                              type=3,
+                                                              step_hash=m.hexdigest()))
+                        if 'mem_a' in step.keys() and 'mem_b' in step.keys() and 'mem_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['cpu_a'],
+                                                              b=step['cpu_b'],
+                                                              r=step['cpu_r'],
+                                                              type=2,
+                                                              step_hash=m.hexdigest()))
+                        if 'disk_a' in step.keys() and 'disk_b' in step.keys() and 'disk_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=1).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['disk_a'],
+                                                              b=step['disk_b'],
+                                                              r=step['disk_r'],
+                                                              type=1,
+                                                              step_hash=m.hexdigest()))
+
+                    Protocol.objects.bulk_create(steps)
+                    if len(predictions):
+                        Prediction.objects.bulk_create(predictions)
+                    return HttpResponseRedirect('/ui/query-protocol')
+            except Exception, e:
+                return render(request, 'ui/error.html', {'error_msg': e})
+        else:
+            return render(request, 'ui/error.html', {'error_msg': str(form.errors)})
+    else:
+        return render(request, 'ui/error.html', {'error_msg': 'Error method'})
+
+
+@login_required
 def index(request):
     if request.user.is_superuser:
         running_job = Queue.objects.filter(status__gt=0).count()
@@ -456,6 +570,16 @@ def manage_reference(request):
         else:
             reference_list = References.objects.filter(user_id=request.user.id).all()
         return render(request, 'ui/manage_reference.html', {'references': reference_list})
+
+
+def os_to_int():
+    import platform
+    if platform.system() == 'Linux':
+        return 1
+    elif platform.system() == 'Darwin':
+        return 3
+    else:
+        return 2
 
 
 @login_required

@@ -57,17 +57,17 @@
             <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
                 <div class="panel-body">
                     <form class="form" method="post" action="{% url 'ui:batch_job' %}" enctype="multipart/form-data">
-                    <fieldset>
-                        <div class="form-group">
-                            <label for="parameter">Job list</label>
-                            <input type="file" id="job_list" name="job_list">
-                        </div>
-                        {% csrf_token %}
-                        <div class="form-group" style="margin-bottom: 9px;">
-                            <button type="submit" class="btn btn-success btn-large btn-block" >Upload and create</button>
-                        </div>
-                    </fieldset>
-                </form>
+                        <fieldset>
+                            <div class="form-group">
+                                <label for="parameter">Job list</label>
+                                <input type="file" id="job_list" name="job_list">
+                            </div>
+                            {% csrf_token %}
+                            <div class="form-group" style="margin-bottom: 9px;">
+                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and create</button>
+                            </div>
+                        </fieldset>
+                    </form>
                 <div class="alert alert-info alert-block">
                     <button type="button" class="close" data-dismiss="alert">&times;</button>
                     <p>You can create a batch of jobs by upload a list file. This file should contain below three columns which are separated by <code>Tabs(\t)</code>.

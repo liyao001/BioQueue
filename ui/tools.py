@@ -1,6 +1,5 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from worker.baseDriver import get_config, rand_sig, get_user_folder_size
-
 
 
 def success(message, jump_url='.', msg_title="success", status=1, wait_second=1):
@@ -21,6 +20,15 @@ def error(message, jump_url='.', msg_title="error", status=0, wait_second=3):
     json_data['status'] = status
     json_data['wait_second'] = wait_second
     return JsonResponse(json_data)
+
+
+def build_json_protocol(protocol):
+    import json
+    response = StreamingHttpResponse(json.dumps(protocol))
+    response['Content-Type'] = 'application/octet-stream'
+    response['Content-Disposition'] = 'attachment;filename="{0}"'.format(protocol['name']+'.txt')
+
+    return response
 
 
 def delete_file(file_path):
