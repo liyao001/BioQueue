@@ -2,45 +2,78 @@
 {% block title %}Create Protocol | CBPQueue{% endblock %}
 {% block content %}
 <div class="row-fluid">
-    <div class="page-header">
-        <h1>Create New Protocol</h1>
-    </div>
-    <form class="form" method="post" action=".">
-        <div class="form-group">
-            <label class="control-label" for="name">Name</label>
-            <input type="text" class="form-control input-xlarge" id="name" name="name" required />
-        </div>
-        <h3>Steps</h3>
-        <div class="step-container">
-            <div class="protocol-step">
-                <div class="form-group">
-                    <label class="control-label" for="name">Software</label>
-                    <input type="text" class="form-control input-xlarge" id="software" name="software" required />
+    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="createHeading">
+                <h4 class="panel-title">
+                    <a role="button" data-toggle="collapse" data-parent="#accordion" href="#createCollapse" aria-expanded="true" aria-controls="createCollapse">Create New Protocol</a>
+                </h4>
+            </div>
+            <div id="createCollapse" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="createHeading">
+                <div class="panel-body">
+                    <form class="form" id="create-protocol-form" method="post" action=".">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Name</label>
+                            <input type="text" class="form-control input-xlarge" id="name" name="name" required />
+                        </div>
+                        <h3>Steps</h3>
+                        <div class="step-container">
+                            <div class="protocol-step">
+                                <div class="form-group">
+                                    <label class="control-label" for="name">Software</label>
+                                    <input type="text" class="form-control input-xlarge" id="software" name="software" required />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label" for="name">Parameter</label>
+                                    <input type="text" class="form-control input-xlarge parameter-ac" id="parameter" name="parameter" required />
+                                </div>
+                                <hr>
+                            </div>
+                        </div>
+                        <a class="btn btn-default" onclick="addStep();"><i class="glyphicon glyphicon-plus"></i>Add step</a>
+                        {% csrf_token %}
+                        <p></p>
+                        <div class="controls Validform_checktip text-warning"></div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success btn-large btn-block">Create Protocol</button>
+                        </div>
+                    </form>
+                    {% include 'ui/variant_hint.html' %}
                 </div>
-                <div class="form-group">
-                    <label class="control-label" for="name">Parameter</label>
-                    <input type="text" class="form-control input-xlarge parameter-ac" id="parameter" name="parameter" required />
-                </div>
-                <hr>
             </div>
         </div>
-        <a class="btn btn-default" onclick="addStep();"><i class="glyphicon glyphicon-plus"></i>Add step</a>
-        {% csrf_token %}
-        <p></p>
-        <div class="controls Validform_checktip text-warning"></div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-success btn-large btn-block">Create Protocol</button>
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="importHeading">
+                <h4 class="panel-title">
+                    <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#importCollapse" aria-expanded="false" aria-controls="importCollapse">Import a Protocol</a>
+                </h4>
+            </div>
+            <div id="importCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="importHeading">
+                <div class="panel-body">
+                    <form class="form" method="post" action="{% url 'ui:import_protocol' %}" enctype="multipart/form-data">
+                        <fieldset>
+                            <div class="form-group">
+                                <label for="parameter">Protocol file</label>
+                                <input type="file" id="protocol_list" name="job_list">
+                            </div>
+                            {% csrf_token %}
+                            <div class="form-group" style="margin-bottom: 9px;">
+                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and import</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
+            </div>
         </div>
-    </form>
+    </div>
 </div>
-{% include 'ui/variant_hint.html' %}
 {% endblock %}
 {% block script %}
     $("#add-protocol").addClass("active");
     $(document).ready(function(){
         var oTextbox = new AutoSuggestControl("parameter");
     });
-    $("form").submit(function(){
+    $("#create-protocol-form").submit(function(){
 		var self = $(this);
 		$.post(self.attr("action"), self.serialize(), success, "json");
 		return false;
