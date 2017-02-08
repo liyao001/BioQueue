@@ -383,6 +383,9 @@ def export_protocol(request):
                         tmp = {
                             'software': step.software,
                             'parameter': step.parameter,
+                            'cpu': get_config('env', 'cpu'),
+                            'mem': get_config('env', 'memory'),
+                            'os': os_to_int(),
                             'cpu_a': cpu_a,
                             'cpu_b': cpu_b,
                             'cpu_r': cpu_r,
