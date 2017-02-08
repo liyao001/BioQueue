@@ -401,7 +401,7 @@ def run_step(job_desc, resources):
     :param resources: dictionary, resources required by the step
     :return: None
     """
-    global LATEST_JOB_ID, LATEST_JOB_STEP, CPU_POOL, MEMORY_POOL, DISK_POOL
+    global LATEST_JOB_ID, LATEST_JOB_STEP, CPU_POOL, MEMORY_POOL, DISK_POOL, RUNNING_JOBS
     items = job_desc.split('_')
     job_id = int(items[0])
     step_order = int(items[1])
@@ -434,6 +434,7 @@ def run_step(job_desc, resources):
         try:
             log_file = os.path.join(settings["env"]["log"], str(job_id))
             log_file_handler = open(log_file, "a")
+            RUNNING_JOBS += 1
             step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
                                             stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
             process_id = step_process.pid
@@ -467,8 +468,10 @@ def run_step(job_desc, resources):
             print "Now job %s finished." % job_desc
             # finish_step(job_id, step_order, resources)
             if step_process.returncode != 0:
+                RUNNING_JOBS -= 1
                 error_job(job_id)
             else:
+                RUNNING_JOBS -= 1
                 finish_step(job_id, step_order, resources)
             JOB_TABLE[job_id]['resume'] = step_order
             if job_id > LATEST_JOB_ID and (step_order + 1) > LATEST_JOB_STEP:
@@ -476,6 +479,7 @@ def run_step(job_desc, resources):
                 LATEST_JOB_STEP = step_order
         except Exception, e:
             print e
+            RUNNING_JOBS -= 1
             error_job(job_id)
 
 
