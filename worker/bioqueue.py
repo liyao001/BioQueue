@@ -375,6 +375,7 @@ def finish_step(job_id, step_order, resources):
     if 'trace' in resources.keys():
         training_item = Training.objects.get(id=resources['trace'])
         training_item.output = OUTPUT_SIZE[job_id]
+        training_item.lock = 0
         training_item.save()
 
     if resources['cpu'] is not None:
@@ -385,7 +386,7 @@ def finish_step(job_id, step_order, resources):
         DISK_POOL += resources['disk']
 
 
-def error_job(job_id):
+def error_job(job_id, resources):
     """
     Error occurs
     :param job_id: int, job id
@@ -397,6 +398,18 @@ def error_job(job_id):
     job.save()
     if job_id in OUTPUT_DICT.keys():
         baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
+
+    if resources['cpu'] is not None:
+        CPU_POOL += resources['cpu']
+    if resources['mem'] is not None:
+        MEMORY_POOL += resources['mem']
+    if resources['disk'] is not None:
+        DISK_POOL += resources['disk']
+
+    if 'trace' in resources.keys():
+        training = Training.objects.get(id=resources['trace'])
+        training.delete()
+
     finish_job(job_id, 1)
 
 
@@ -432,7 +445,7 @@ def run_step(job_desc, resources):
                                           job_id, step_order, allocate_cpu, allocate_mem,
                                           settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'])
         if return_code != 0:
-            error_job(job_id)
+            error_job(job_id, resources)
     else:
         # for local environment or cloud
         print "Now run %s" % job_desc
@@ -460,7 +473,7 @@ def run_step(job_desc, resources):
                             job.ter = 0
                             job.save()
                             proc_info.kill()
-                            error_job(job_id)
+                            error_job(job_id, resources)
                             if resources['cpu'] is not None:
                                 CPU_POOL += resources['cpu']
                             if resources['mem'] is not None:
@@ -475,7 +488,7 @@ def run_step(job_desc, resources):
             # finish_step(job_id, step_order, resources)
             if step_process.returncode != 0:
                 RUNNING_JOBS -= 1
-                error_job(job_id)
+                error_job(job_id, resources)
             else:
                 RUNNING_JOBS -= 1
                 finish_step(job_id, step_order, resources)
@@ -486,7 +499,7 @@ def run_step(job_desc, resources):
         except Exception, e:
             print e
             RUNNING_JOBS -= 1
-            error_job(job_id)
+            error_job(job_id, resources)
 
 
 def set_checkpoint_info(job_id, cause):
