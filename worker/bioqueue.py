@@ -371,6 +371,12 @@ def finish_step(job_id, step_order, resources):
     job.save()
     OUTPUT_SIZE[job_id] = baseDriver.get_folder_size(JOB_TABLE[job_id]['job_folder']) - FOLDER_SIZE_BEFORE[job_id]
     CUMULATIVE_OUTPUT_SIZE[job_id] += OUTPUT_SIZE[job_id]
+
+    if 'trace' in resources.keys():
+        training_item = Training.objects.get(id=resources['trace'])
+        training_item.output = OUTPUT_SIZE[job_id]
+        training_item.save()
+
     if resources['cpu'] is not None:
         CPU_POOL += resources['cpu']
     if resources['mem'] is not None:
