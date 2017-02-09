@@ -100,10 +100,13 @@ def main():
         else:
             cpu_usage = -1
 
-        training_item = Training.objects.get(id=job_id)
-        training_item.mem = mem_usage
-        training_item.cpu = cpu_usage
-        training_item.save()
+        try:
+            training_item = Training.objects.get(id=job_id)
+            training_item.mem = mem_usage
+            training_item.cpu = cpu_usage
+            training_item.save()
+        except:
+            pass
 
     else:
         sys.exit()
