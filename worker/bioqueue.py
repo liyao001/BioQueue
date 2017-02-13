@@ -137,10 +137,12 @@ def get_job(max_fetch=1):
     :param max_fetch: int, the amount of records to fetch
     :return: None
     """
+    job_table = dict()
+    global JOB_TABLE, OUTPUT_DICT, LAST_OUTPUT, CUMULATIVE_OUTPUT_SIZE
     # fetch jobs
     jobs = Queue.objects.filter(status=0)[:max_fetch]
     for job in jobs:
-        if job in JOB_TABLE.keys():
+        if job.id in JOB_TABLE.keys():
             continue
         else:
             user_folder, job_folder = prepare_workspace(job.resume, job.run_dir, job.id, job.user_id, job.result)
@@ -170,7 +172,7 @@ def get_training_items(step_hash):
     :param step_hash: string, step hash
     :return: int, the number of training items
     """
-    trainings = Training.objects.filter(step=step_hash)
+    trainings = Training.objects.filter(step=step_hash, lock=0)
     return len(trainings)
 
 
@@ -238,11 +240,12 @@ def finish_job(job_id, error=0):
             CUMULATIVE_OUTPUT_SIZE.pop(job_id)
 
 
-def run_prepare(job_id, job):
+def run_prepare(job_id, job, no_new_learn = 0):
     """
     Parse step's parameter and predict the resources needed by the step
     :param job_id: int, jod id
     :param job: dict, job dict
+    :param no_new_learn: int, 1 means refusing creating new training item
     :return:
     """
     learning = 0
@@ -282,6 +285,7 @@ def run_prepare(job_id, job):
 
     if training_num < 10:
         learning = 1
+
     if INPUT_SIZE[job_id] == 0:
         INPUT_SIZE[job_id] = baseDriver.get_folder_size(job['job_folder'])
     else:
@@ -291,13 +295,15 @@ def run_prepare(job_id, job):
             INPUT_SIZE[job_id] = 0
     FOLDER_SIZE_BEFORE[job_id] = baseDriver.get_folder_size(job['job_folder'])
     INPUT_SIZE[job_id] += outside_size
+
     resource_needed = checkPoint.predict_resource_needed(job['steps'][job['resume'] + 1]['hash'],
                                                          INPUT_SIZE[job_id],
                                                          training_num)
 
-    if learning == 1:
+    if learning == 1 and no_new_learn == 0:
         trace_id = create_machine_learning_item(job['steps'][job['resume'] + 1]['hash'], INPUT_SIZE[job_id])
         resource_needed['trace'] = trace_id
+
     return resource_needed
 
 
@@ -425,6 +431,7 @@ def run_step(job_desc, resources):
     job_id = int(items[0])
     step_order = int(items[1])
     recheck = forecast_step(job_id, step_order, resources)
+
     if settings['cluster']['type']:
         # for cluster
         import clusterSupport
@@ -530,21 +537,29 @@ def main():
 
         sorted_job_info = sorted(JOB_TABLE.keys())
         for job_id in sorted_job_info:
-            resource = run_prepare(job_id, JOB_TABLE[job_id])
+            previous_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'])
+            now_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'] + 1)
+
+            if previous_step in RESOURCES.keys():
+                RESOURCES.pop(previous_step)
+
+            if now_step in RESOURCES.keys():
+                if RESOURCES[now_step]['cpu'] is None \
+                        and RESOURCES[now_step]['mem'] is None \
+                        and RESOURCES[now_step]['disk'] is None:
+                    resource = run_prepare(job_id, JOB_TABLE[job_id], 1)
+                else:
+                    continue
+            else:
+                resource = run_prepare(job_id, JOB_TABLE[job_id])
+
             if resource is None:
                 finish_job(job_id)
                 continue
             elif resource == 'running':
                 continue
             else:
-                previous_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'])
-                now_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'] + 1)
-                if previous_step in RESOURCES.keys():
-                    RESOURCES.pop(previous_step)
-                if now_step in RESOURCES.keys():
-                    continue
-                else:
-                    RESOURCES[now_step] = resource
+                RESOURCES[now_step] = resource
 
         biggest_cpu = None
         biggest_mem = None
