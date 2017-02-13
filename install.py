@@ -119,7 +119,11 @@ def setup():
     print '===================================================='
 
     pip_import_path = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
-    os.system('pip install -r %s' % pip_import_path)
+    if os.system('pip install -r %s' % pip_import_path):
+        print '====================================================='
+        print '|Fetal error occured when installing python packages|'
+        print '|Installation will be terminated now                |'
+        print '====================================================='
 
     django_manage_path = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
 

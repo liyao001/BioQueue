@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-from multiprocessing import cpu_count
-import baseDriver
-import time
 import os
+import bioqueue
 root_path = os.path.split(os.path.realpath(__file__))[0]
 
 
@@ -16,7 +14,6 @@ class App:
 
     @staticmethod
     def run():
-        import bioqueue
         bioqueue.main()
 
 
