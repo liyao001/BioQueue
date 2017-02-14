@@ -278,11 +278,10 @@ def run_prepare(job_id, job, no_new_learn = 0):
     step, outside_size_upload = parameterParser.upload_file_map(step, job['user_folder'])
     outside_size += outside_size_upload
     step = step.replace('{Workspace}', job['job_folder'])
-    step = step.replace('{ThreadN}', str(cpu_count()))
+    step = step.replace('{ThreadN}', str(settings['env']['cpu']))
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
     LAST_OUTPUT[job_id] = baseDriver.get_folder_content(job['job_folder'])
     training_num = get_training_items(job['steps'][job['resume'] + 1]['hash'])
-
     if training_num < 10:
         learning = 1
 
@@ -398,6 +397,7 @@ def error_job(job_id, resources):
     :param job_id: int, job id
     :return: None
     """
+    global CPU_POOL, MEMORY_POOL, DISK_POOL
     job = Queue.objects.get(id=job_id)
     job.status = -3
     job.ter = 0
@@ -435,17 +435,23 @@ def run_step(job_desc, resources):
     if settings['cluster']['type']:
         # for cluster
         import clusterSupport
-        predict_cpu = int(round(resources['cpu']) / 100)
-        if predict_cpu > settings['cluster']['cpu'] or predict_cpu == 0:
-            allocate_cpu = settings['cluster']['cpu']
+        if resources['cpu'] is None:
+            allocate_cpu = settings['env']['cpu']
         else:
-            allocate_cpu = predict_cpu
-        if resources['mem'] > 1073741824:
-            allocate_mem = str(int(round(resources['mem'] / 1073741824) + 1)) + 'Gb'
-        elif resources['mem']:
+            predict_cpu = int(round(resources['cpu']) / 100)
+            if predict_cpu > settings['cluster']['cpu'] or predict_cpu == 0:
+                allocate_cpu = settings['cluster']['cpu']
+            else:
+                allocate_cpu = predict_cpu
+        if resources['mem'] is None:
             allocate_mem = ''
         else:
-            allocate_mem = str(int(round(resources['mem'] / 1048576) + 1)) + 'Mb'
+            if resources['mem'] > 1073741824:
+                allocate_mem = str(int(round(resources['mem'] / 1073741824) + 1)) + 'Gb'
+            elif resources['mem']:
+                allocate_mem = ''
+            else:
+                allocate_mem = str(int(round(resources['mem'] / 1048576) + 1)) + 'Mb'
 
         baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
         return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
@@ -481,12 +487,8 @@ def run_step(job_desc, resources):
                             job.save()
                             proc_info.kill()
                             error_job(job_id, resources)
-                            if resources['cpu'] is not None:
-                                CPU_POOL += resources['cpu']
-                            if resources['mem'] is not None:
-                                MEMORY_POOL += resources['mem']
-                            if resources['disk'] is not None:
-                                DISK_POOL += resources['disk']
+                            RUNNING_JOBS -= 1
+
                             return None
 
                 time.sleep(30)
@@ -552,7 +554,6 @@ def main():
                     continue
             else:
                 resource = run_prepare(job_id, JOB_TABLE[job_id])
-
             if resource is None:
                 finish_job(job_id)
                 continue
