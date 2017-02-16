@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# @todo
 from multiprocessing import cpu_count
 import baseDriver
 import time
@@ -413,8 +414,11 @@ def error_job(job_id, resources):
         DISK_POOL += resources['disk']
 
     if 'trace' in resources.keys():
-        training = Training.objects.get(id=resources['trace'])
-        training.delete()
+        try:
+            training = Training.objects.get(id=resources['trace'])
+            training.delete()
+        except:
+            pass
 
     finish_job(job_id, 1)
 
@@ -532,85 +536,88 @@ def set_checkpoint_info(job_id, cause):
 def main():
     global LATEST_JOB_ID, LATEST_JOB_STEP, RESOURCES
     while True:
-        cpu_indeed = baseDriver.get_cpu_available()
-        mem_indeed = baseDriver.get_memo_usage_available()
-        disk_indeed = baseDriver.get_disk_free()
-        get_job(MAX_JOB - len(JOB_TABLE))
+        try:
+            cpu_indeed = baseDriver.get_cpu_available()
+            mem_indeed = baseDriver.get_memo_usage_available()
+            disk_indeed = baseDriver.get_disk_free()
+            get_job(MAX_JOB - len(JOB_TABLE))
 
-        sorted_job_info = sorted(JOB_TABLE.keys())
-        for job_id in sorted_job_info:
-            previous_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'])
-            now_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'] + 1)
+            sorted_job_info = sorted(JOB_TABLE.keys())
+            for job_id in sorted_job_info:
+                previous_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'])
+                now_step = str(job_id) + '_' + str(JOB_TABLE[job_id]['resume'] + 1)
 
-            if previous_step in RESOURCES.keys():
-                RESOURCES.pop(previous_step)
+                if previous_step in RESOURCES.keys():
+                    RESOURCES.pop(previous_step)
 
-            if now_step in RESOURCES.keys():
-                if RESOURCES[now_step]['cpu'] is None \
-                        and RESOURCES[now_step]['mem'] is None \
-                        and RESOURCES[now_step]['disk'] is None:
-                    resource = run_prepare(job_id, JOB_TABLE[job_id], 1)
+                if now_step in RESOURCES.keys():
+                    if RESOURCES[now_step]['cpu'] is None \
+                            and RESOURCES[now_step]['mem'] is None \
+                            and RESOURCES[now_step]['disk'] is None:
+                        resource = run_prepare(job_id, JOB_TABLE[job_id], 1)
+                    else:
+                        continue
                 else:
+                    resource = run_prepare(job_id, JOB_TABLE[job_id])
+                if resource is None:
+                    finish_job(job_id)
                     continue
-            else:
-                resource = run_prepare(job_id, JOB_TABLE[job_id])
-            if resource is None:
-                finish_job(job_id)
-                continue
-            elif resource == 'running':
-                continue
-            else:
-                RESOURCES[now_step] = resource
-
-        biggest_cpu = None
-        biggest_mem = None
-        biggest_id = None
-
-        sorted_resources_info = sorted(RESOURCES.keys())
-        for index, job_desc in enumerate(sorted_resources_info):
-            items = job_desc.split('_')
-            job_id = int(items[0])
-            step_order = int(items[1])
-
-            if job_id not in JOB_TABLE.keys():
-                continue
-            if JOB_TABLE[job_id]['status'] > 0:
-                continue
-
-            if RESOURCES[job_desc]['cpu'] is None \
-                    and RESOURCES[job_desc]['mem'] is None \
-                    and RESOURCES[job_desc]['disk'] is None:
-                if RUNNING_JOBS > 0:
-                    set_checkpoint_info(job_id, 4)
+                elif resource == 'running':
+                    continue
                 else:
-                    new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
-                    new_thread.setDaemon(True)
-                    new_thread.start()
-                break
-            else:
-                if RESOURCES[job_desc]['cpu'] > cpu_indeed or RESOURCES[job_desc]['cpu'] > CPU_POOL:
-                    set_checkpoint_info(job_id, 3)
-                elif RESOURCES[job_desc]['mem'] > mem_indeed or RESOURCES[job_desc]['mem'] > MEMORY_POOL:
-                    set_checkpoint_info(job_id, 2)
-                elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
-                    set_checkpoint_info(job_id, 1)
-                else:
-                    if biggest_cpu is None:
-                        biggest_cpu = RESOURCES[job_desc]['cpu']
-                    if biggest_mem is None:
-                        biggest_mem = RESOURCES[job_desc]['mem']
-                    if biggest_id is None:
-                        biggest_id = job_desc
+                    RESOURCES[now_step] = resource
 
-                    if biggest_cpu < RESOURCES[job_desc]['cpu']:
-                        biggest_cpu = RESOURCES[job_desc]['cpu']
-                        biggest_mem = RESOURCES[job_desc]['mem']
-                        biggest_id = job_desc
-        if biggest_id is not None:
-            new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))
-            new_thread.setDaemon(True)
-            new_thread.start()
-        time.sleep(5)
+            biggest_cpu = None
+            biggest_mem = None
+            biggest_id = None
+
+            sorted_resources_info = sorted(RESOURCES.keys())
+            for index, job_desc in enumerate(sorted_resources_info):
+                items = job_desc.split('_')
+                job_id = int(items[0])
+                step_order = int(items[1])
+
+                if job_id not in JOB_TABLE.keys():
+                    continue
+                if JOB_TABLE[job_id]['status'] > 0:
+                    continue
+
+                if RESOURCES[job_desc]['cpu'] is None \
+                        and RESOURCES[job_desc]['mem'] is None \
+                        and RESOURCES[job_desc]['disk'] is None:
+                    if RUNNING_JOBS > 0:
+                        set_checkpoint_info(job_id, 4)
+                    else:
+                        new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
+                        new_thread.setDaemon(True)
+                        new_thread.start()
+                    break
+                else:
+                    if RESOURCES[job_desc]['cpu'] > cpu_indeed or RESOURCES[job_desc]['cpu'] > CPU_POOL:
+                        set_checkpoint_info(job_id, 3)
+                    elif RESOURCES[job_desc]['mem'] > mem_indeed or RESOURCES[job_desc]['mem'] > MEMORY_POOL:
+                        set_checkpoint_info(job_id, 2)
+                    elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
+                        set_checkpoint_info(job_id, 1)
+                    else:
+                        if biggest_cpu is None:
+                            biggest_cpu = RESOURCES[job_desc]['cpu']
+                        if biggest_mem is None:
+                            biggest_mem = RESOURCES[job_desc]['mem']
+                        if biggest_id is None:
+                            biggest_id = job_desc
+
+                        if biggest_cpu < RESOURCES[job_desc]['cpu']:
+                            biggest_cpu = RESOURCES[job_desc]['cpu']
+                            biggest_mem = RESOURCES[job_desc]['mem']
+                            biggest_id = job_desc
+            if biggest_id is not None:
+                new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))
+                new_thread.setDaemon(True)
+                new_thread.start()
+            time.sleep(5)
+        except Exception, e:
+            print e
 
 
 if __name__ == '__main__':
