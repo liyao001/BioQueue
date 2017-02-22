@@ -44,27 +44,27 @@
         </div>
         <div class="form-group">
             <label class="control-label" for="sender">Sender name</label>
-            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" required />
+            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" />
             <p class="help-block">Leave it blank to turn off notification.</p>
         </div>
         <div class="form-group">
             <label class="control-label" for="mailhost">Mail host</label>
-            <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" required />
+            <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" />
             <p class="help-block">Leave it blank to turn off notification.</p>
         </div>
         <div class="form-group">
             <label class="control-label" for="mailport">Mail port</label>
-            <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" required />
+            <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" />
             <p class="help-block">Leave it blank to turn off notification.</p>
         </div>
         <div class="form-group">
             <label class="control-label" for="mailuser">Mail user</label>
-            <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" required />
+            <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" />
             <p class="help-block">Leave it blank to turn off notification.</p>
         </div>
         <div class="form-group">
             <label class="control-label" for="mailpassword">Mail password</label>
-            <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" required />
+            <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" />
             <p class="help-block">Leave it blank to turn off notification.</p>
         </div>
         {% csrf_token %}
