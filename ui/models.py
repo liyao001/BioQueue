@@ -149,7 +149,7 @@ class References(models.Model):
     Save custom references
     """
     name = models.CharField(max_length=50)
-    path = models.CharField(max_length=50)
+    path = models.CharField(max_length=255)
     user_id = models.CharField(max_length=50)
 
     def __str__(self):
