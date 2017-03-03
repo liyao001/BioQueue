@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+from multiprocessing import cpu_count
 from getpass import getpass
 import ConfigParser
 
@@ -39,7 +40,7 @@ def get_random_secret_key():
 
 
 def setup():
-    workspace_path = raw_input('Path of workspace: ')
+    workspace_path = os.path.split(os.path.realpath(__file__))[0] + '/workspace'
     while not os.path.exists(workspace_path):
         try:
             os.makedirs(workspace_path)
@@ -67,7 +68,11 @@ def setup():
     set_config('env', 'batch_job', upload_path)
     set_config('ml', 'trainStore', output_path)
 
-    set_config('env', 'cpu', raw_input('CPU cores: '))
+    cpu_cores = str(cpu_count())
+    user_cpu_cores = raw_input('CPU cores (By default: %s): ' % cpu_cores)
+    if user_cpu_cores:
+        cpu_cores = user_cpu_cores
+    set_config('env', 'cpu', cpu_cores)
     set_config('env', 'memory', raw_input('Memory(Gb): '))
     set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
 
@@ -76,7 +81,21 @@ def setup():
     database_configure['user'] = raw_input('Database user: ')
     database_configure['db_name'] = raw_input('Database name: ')
     database_configure['password'] = getpass('Database password: ')
-    database_configure['port'] = raw_input('Database port (By default is 3306): ')
+    db_port = raw_input('Database port (By default is 3306): ')
+    if not db_port:
+        db_port = '3306'
+    database_configure['port'] = db_port
+
+    print '====================================================================================='
+    print 'Do you agree to provide us diagnostic and usage information to help improve BioQueue?'
+    print 'We collect this information anonymously.'
+    print '====================================================================================='
+    fb = raw_input('y/n (By default: y)')
+
+    if fb == 'n':
+        set_config('program', 'feedback', 'no')
+    else:
+        set_config('program', 'feedback', 'yes')
 
     print '===================================================='
     print 'Configuring database, please wait...'
@@ -100,8 +119,10 @@ def setup():
     apache_handler_new = open(apache_file_new, 'w')
     setting_file = setting_handler.read()
     apache_file = apache_handler.read()
+    secret_key = get_random_secret_key()
+    set_config('program', 'secret_key', secret_key)
 
-    setting_file = setting_file.replace('{SECRET_KEY}', get_random_secret_key())\
+    setting_file = setting_file.replace('{SECRET_KEY}', secret_key)\
         .replace('{DB_NAME}', database_configure['db_name'])\
         .replace('{DB_USER}', database_configure['user'])\
         .replace('{DB_PASSWORD}', database_configure['password'])\

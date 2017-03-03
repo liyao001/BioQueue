@@ -70,3 +70,12 @@ def check_disk_quota_lock(user):
             return 0
     else:
         return 1
+
+def os_to_int():
+    import platform
+    if platform.system() == 'Linux':
+        return 1
+    elif platform.system() == 'Darwin':
+        return 3
+    else:
+        return 2

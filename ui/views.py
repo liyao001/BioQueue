@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
-    check_disk_quota_lock, build_json_protocol
+    check_disk_quota_lock, build_json_protocol, os_to_int
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
@@ -573,16 +573,6 @@ def manage_reference(request):
         else:
             reference_list = References.objects.filter(user_id=request.user.id).all()
         return render(request, 'ui/manage_reference.html', {'references': reference_list})
-
-
-def os_to_int():
-    import platform
-    if platform.system() == 'Linux':
-        return 1
-    elif platform.system() == 'Darwin':
-        return 3
-    else:
-        return 2
 
 
 @login_required
