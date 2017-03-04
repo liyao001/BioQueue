@@ -2,10 +2,12 @@
     You can use varibles or references when defining the parameters. Below are some of the system level variable:
     <ul>
         <li><code>InputFile</code>: The initial input files which maps to files you provide when you create a job.</li>
-        <li><code>InputFileN</code>: The n-th file in input files.</li>
+        <li><code>InputFile:N</code>: The n-th file in input files.</li>
         <li><code>LastOutput</code>: Output files of last step.</li>
-        <li><code>LastOutputN</code>: The n-th output file of last step (in alphabetical order).</li>
-        <li><code>OutputN-M</code>: The m-th output file of the n-th step (in alphabetical order).</li>
+        <li><code>LastOutput:N</code>: The n-th output file of last step (in alphabetical order).</li>
+        <li><code>Output:N-M</code>: The m-th output file of the n-th step (in alphabetical order).</li>
+        <li><code>Suffix:X</code>: Output file(s) with a "X" suffix in last step.</li>
+        <li><code>Suffix:N-X</code>: Output file(s) with a "X" suffix in the n-th step.</li>
         <li><code>AllOutputBefore</code>: All output files before this step.</li>
         <li><code>Job</code>: job ID.</li>
         <li><code>Workspace</code>: Local storage path for the job.</li>

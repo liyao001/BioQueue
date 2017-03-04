@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# @todo
 from multiprocessing import cpu_count
 import baseDriver
 import time
@@ -26,8 +25,10 @@ JOB_INPUT_FILES = dict()
 LAST_OUTPUT_STRING = dict()
 OUTPUTS = dict()
 OUTPUT_DICT = dict()
+OUTPUT_DICT_SUFFIX = dict()
 NEW_FILES = dict()
 LAST_OUTPUT = dict()
+LAST_OUTPUT_SUFFIX = dict()
 INPUT_SIZE = dict()
 OUTPUT_SIZE = dict()
 FOLDER_SIZE_BEFORE = dict()
@@ -139,7 +140,7 @@ def get_job(max_fetch=1):
     :return: None
     """
     job_table = dict()
-    global JOB_TABLE, OUTPUT_DICT, LAST_OUTPUT, CUMULATIVE_OUTPUT_SIZE
+    global JOB_TABLE, OUTPUT_DICT, LAST_OUTPUT, CUMULATIVE_OUTPUT_SIZE, OUTPUT_DICT_SUFFIX, LAST_OUTPUT_SUFFIX
     # fetch jobs
     jobs = Queue.objects.filter(status=0)[:max_fetch]
     for job in jobs:
@@ -163,7 +164,9 @@ def get_job(max_fetch=1):
                 'wait_for': 0,
             }
             OUTPUT_DICT[job.id] = dict()
+            OUTPUT_DICT_SUFFIX[job.id] = dict()
             LAST_OUTPUT[job.id] = []
+            LAST_OUTPUT_SUFFIX[job.id] = dict()
             CUMULATIVE_OUTPUT_SIZE[job.id] = 0
 
 
@@ -189,6 +192,18 @@ def create_machine_learning_item(step_hash, input_size):
     return training.id
 
 
+def update_resource_pool(resource_dict, direction=1):
+    global CPU_POOL, MEMORY_POOL, DISK_POOL
+    if resource_dict['cpu'] is not None:
+        CPU_POOL += direction * resource_dict['cpu']
+    if resource_dict['mem'] is not None:
+        MEMORY_POOL += direction * resource_dict['mem']
+    if resource_dict['disk'] is not None:
+        DISK_POOL += direction * resource_dict['disk']
+
+    return CPU_POOL, MEMORY_POOL, DISK_POOL
+
+
 def finish_job(job_id, error=0):
     """
     Mark a job as finished and release resources it occupied
@@ -197,7 +212,9 @@ def finish_job(job_id, error=0):
     :param error: int, if error occurs, it should be 1
     :return: None
     """
-    global CPU_POOL, MEMORY_POOL, DISK_POOL, JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
+    global DISK_POOL, JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT,\
+        OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE,\
+        LAST_OUTPUT_STRING, LAST_OUTPUT_SUFFIX, OUTPUT_DICT_SUFFIX
     if job_id in JOB_TABLE.keys():
         if error == 1:
             if settings['mail']['notify'] == 'on':
@@ -239,6 +256,11 @@ def finish_job(job_id, error=0):
             LAST_OUTPUT_STRING.pop(job_id)
         if job_id in CUMULATIVE_OUTPUT_SIZE.keys():
             CUMULATIVE_OUTPUT_SIZE.pop(job_id)
+        if job_id in LAST_OUTPUT_SUFFIX.keys():
+            LAST_OUTPUT_SUFFIX.pop(job_id)
+        if job_id in OUTPUT_DICT_SUFFIX.keys():
+            OUTPUT_DICT_SUFFIX.pop(job_id)
+
 
 
 def run_prepare(job_id, job, no_new_learn = 0):
@@ -276,6 +298,8 @@ def run_prepare(job_id, job, no_new_learn = 0):
         step = parameterParser.output_file_map(step, OUTPUT_DICT[job_id])
     if job_id in JOB_INPUT_FILES.keys():
         step, outside_size = parameterParser.input_file_map(step, JOB_INPUT_FILES[job_id], job['user_folder'])
+    if job_id in LAST_OUTPUT_SUFFIX.keys() and job_id in OUTPUT_DICT_SUFFIX.keys():
+        step = parameterParser.suffix_map(step, OUTPUT_DICT_SUFFIX[job_id], LAST_OUTPUT_SUFFIX[job_id])
     step, outside_size_upload = parameterParser.upload_file_map(step, job['user_folder'])
     outside_size += outside_size_upload
     step = step.replace('{Workspace}', job['job_folder'])
@@ -315,20 +339,12 @@ def forecast_step(job_id, step_order, resources):
     :param resources: dictionary, resources required by the step
     :return: If system resources is not enough for the step, it will return False, otherwise, it returns True
     """
-    global CPU_POOL, MEMORY_POOL, DISK_POOL, JOB_TABLE
+    global JOB_TABLE
     rollback = 0
-    if resources['cpu'] is not None:
-        CPU_POOL -= resources['cpu']
-        if CPU_POOL < 0:
-            rollback = 1
-    if resources['mem'] is not None:
-        MEMORY_POOL -= resources['mem']
-        if MEMORY_POOL < 0:
-            rollback = 1
-    if resources['disk'] is not None:
-        DISK_POOL -= resources['disk']
-        if DISK_POOL < 0:
-            rollback = 1
+    new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
+
+    if new_cpu < 0 or new_mem < 0 or new_disk < 0:
+        rollback = 1
 
     if not rollback:
         job = Queue.objects.get(id=job_id)
@@ -337,13 +353,25 @@ def forecast_step(job_id, step_order, resources):
         JOB_TABLE[job_id]['status'] = step_order + 1
         return True
     else:
-        if resources['cpu'] is not None:
-            CPU_POOL += resources['cpu']
-        if resources['mem'] is not None:
-            MEMORY_POOL += resources['mem']
-        if resources['disk'] is not None:
-            DISK_POOL += resources['disk']
+        update_resource_pool(resources)
         return False
+
+
+def build_suffix_dict(output_files):
+    """
+    Build suffix dictionary for output file
+    :param output_files: list, output files
+    :return: dict, suffix dictionary
+    """
+    suffix_dict = dict()
+    for output_file in output_files:
+        _, suffix = os.path.splitext(output_file)
+        suffix = suffix.replace('.', '')
+        if suffix in suffix_dict.keys():
+            suffix_dict[suffix].append(output_file)
+        else:
+            suffix_dict[suffix] = [output_file]
+    return suffix_dict
 
 
 def finish_step(job_id, step_order, resources):
@@ -354,7 +382,7 @@ def finish_step(job_id, step_order, resources):
     :param resources: dictionary, resources required by the step
     :return: None
     """
-    global CPU_POOL, MEMORY_POOL, DISK_POOL, JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
+    global JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
     job = Queue.objects.get(id=job_id)
     job.resume = step_order
     job.status = -2
@@ -372,7 +400,13 @@ def finish_step(job_id, step_order, resources):
     else:
         OUTPUTS[job_id] = NEW_FILES[job_id]
 
+    suffix_dict = build_suffix_dict(NEW_FILES[job_id])
     OUTPUT_DICT[job_id][step_order + 1] = NEW_FILES[job_id]
+    if job_id in OUTPUT_DICT_SUFFIX.keys():
+        OUTPUT_DICT_SUFFIX[job_id][step_order+1] = suffix_dict
+    else:
+        OUTPUT_DICT_SUFFIX[job_id] = {step_order + 1: suffix_dict}
+    LAST_OUTPUT_SUFFIX[job_id] = suffix_dict
     LAST_OUTPUT_STRING[job_id] = ' '.join(NEW_FILES[job_id])
     job.save()
     OUTPUT_SIZE[job_id] = baseDriver.get_folder_size(JOB_TABLE[job_id]['job_folder']) - FOLDER_SIZE_BEFORE[job_id]
@@ -384,12 +418,7 @@ def finish_step(job_id, step_order, resources):
         training_item.lock = 0
         training_item.save()
 
-    if resources['cpu'] is not None:
-        CPU_POOL += resources['cpu']
-    if resources['mem'] is not None:
-        MEMORY_POOL += resources['mem']
-    if resources['disk'] is not None:
-        DISK_POOL += resources['disk']
+    update_resource_pool(resources)
 
 
 def error_job(job_id, resources):
@@ -398,7 +427,6 @@ def error_job(job_id, resources):
     :param job_id: int, job id
     :return: None
     """
-    global CPU_POOL, MEMORY_POOL, DISK_POOL
     job = Queue.objects.get(id=job_id)
     job.status = -3
     job.ter = 0
@@ -406,12 +434,7 @@ def error_job(job_id, resources):
     if job_id in OUTPUT_DICT.keys():
         baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
 
-    if resources['cpu'] is not None:
-        CPU_POOL += resources['cpu']
-    if resources['mem'] is not None:
-        MEMORY_POOL += resources['mem']
-    if resources['disk'] is not None:
-        DISK_POOL += resources['disk']
+    update_resource_pool(resources)
 
     if 'trace' in resources.keys():
         try:
@@ -435,6 +458,18 @@ def run_step(job_desc, resources):
     job_id = int(items[0])
     step_order = int(items[1])
     recheck = forecast_step(job_id, step_order, resources)
+
+    if recheck is not True:
+        return
+
+    if settings['program']['feedback'] == 'yes':
+        try:
+            from feedback import feedback
+            feedback(JOB_COMMAND[job_id][0],
+                     ' '.join(JOB_COMMAND[job_id][1:]),
+                     JOB_TABLE[job_id]['steps'][step_order]['hash'])
+        except:
+            pass
 
     if settings['cluster']['type']:
         # for cluster
@@ -511,6 +546,13 @@ def run_step(job_desc, resources):
                 LATEST_JOB_STEP = step_order
         except Exception, e:
             print e
+            try:
+                from feedback import feedback_error
+                feedback_error(JOB_COMMAND[job_id][0],
+                         ' '.join(JOB_COMMAND[job_id][1:]),
+                         str(e))
+            except:
+                pass
             RUNNING_JOBS -= 1
             error_job(job_id, resources)
 
