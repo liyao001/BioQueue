@@ -58,7 +58,6 @@ def feedback_error(software, parameter, error_message):
         'software': software,
         'parameter': parameter,
         'error': error_message,
-        'parent': 1,
     }
     try:
         fb_url = get_config('ml', 'api') + '/Gate/error_feedback'
@@ -92,7 +91,7 @@ def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, m
     post_data_dict['software'] = software
     post_data_dict['parameter'] = parameter
     post_data_dict['hash'] = hash
-    post_data_dict['parent'] = 0
+    post_data_dict['parent'] = 1
     if abs(float(cpu_r)) > 0.5:
         post_data_dict['cpu_a'] = cpu_a
         post_data_dict['cpu_b'] = cpu_b
