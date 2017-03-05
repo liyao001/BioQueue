@@ -21,9 +21,9 @@ apt-get install python-pip
 ## 1. Download and setup the BioQueue project
 First of all, you will need to clone the project from github (Or you can download BioQueue by open [this link](https://github.com/yauli/BioQueue/zipball/master).
 ```
-git clone https://github.com/yauli/BioQueue.git
+git clone https://li_yao@bitbucket.org/li_yao/bioqueue.git
 Or
-wget https://github.com/yauli/BioQueue/zipball/master
+wget https://bitbucket.org/li_yao/bioqueue/get/834098b92a29.zip
 ```
 Then navigate to the project's directory, and run `install.py` script (All dependent python packages will be automatically installed):
 ```
@@ -31,23 +31,22 @@ cd BioQueue
 python install.py
 ```
 When running `install.py`, this script will ask you a few questions include:
- 1. Path of the workspace(where stores all the data for running BioQueue, like `D:/biodata` or `/mnt/biodata`)
- 2. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`
- 3. Database user: bioqueue by default
- 4. Database password
- 5. Database port: `3306` by default
- 6. CPU cores
- 7. Memory (Gb)
- 8. Disk quota for each user(Gb)
+ 1. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`
+ 2. Database user: bioqueue by default
+ 3. Database password
+ 4. Database port: `3306` by default
+ 5. CPU cores
+ 6. Memory (Gb)
+ 7. Disk quota for each user(Gb)
 
 ## 2. Start the queue
-Run the `cron.py` script in the `BioQueue/worker` folder
+Run the `bioqueue.py` script in the `BioQueue/worker` folder
 ```
-python worker/cron.py
+python worker/bioqueue.py
 ```
-For Linux/Unix users, BioQueue can run in background by run `queue_daemon.py` instead of `cron.py`
+For Linux/Unix users, BioQueue can run in background by run `bioqueue_daemon.py` instead of `bioqueue.py`
 ```
-python worker/queue_daemon.py start
+python worker/bioqueue_daemon.py start
 ```
 
 ## 3. Start webserver
@@ -67,8 +66,8 @@ python worker/ftp_daemon.py start
 ## Useful informations
 * To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in background, hit
 ```
-python worker/queue_daemon.py stop
+python worker/bioqueue_daemon.py stop
 python worker/ftp_daemon.py stop
 ```
 
-* To get a better performance, moving the webserver to [Apache](https://github.com/yauli/BioQueue/wiki/Use-CPBQueue-with-Apache-and-mod_wsgi) or [nginx](https://nginx.org) is a good idea. 
+* To get a better performance, moving the webserver to [Apache](http://bioqueue.readthedocs.io/en/latest/faq.html#use-bioqueue-with-apache-in-production-environment) or [nginx](https://nginx.org) is a good idea.
