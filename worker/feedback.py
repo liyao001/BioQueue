@@ -58,6 +58,7 @@ def feedback_error(software, parameter, error_message):
         'software': software,
         'parameter': parameter,
         'error': error_message,
+        'parent': 1,
     }
     try:
         fb_url = get_config('ml', 'api') + '/Gate/error_feedback'
