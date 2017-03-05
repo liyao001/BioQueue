@@ -219,10 +219,10 @@ def http_size(host_name, path):
         conn = httplib.HTTPConnection(host_name)
         conn.request("GET", path)
         resp = conn.getresponse()
+        return int(resp.getheader("content-length"))
     except Exception, e:
         print e
         return 0
-    return int(resp.getheader("content-length"))
 
 
 def get_remote_size(head, host_name, path):
