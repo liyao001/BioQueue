@@ -19,11 +19,9 @@ apt-get install python-dev
 apt-get install python-pip
 ```
 ## 1. Download and setup the BioQueue project
-First of all, you will need to clone the project from github (Or you can download BioQueue by open [this link](https://github.com/yauli/BioQueue/zipball/master).
+First of all, you will need to clone the project from github (Or you can download BioQueue by open [this link](https://bitbucket.org/li_yao/bioqueue/downloads/)).
 ```
 git clone https://li_yao@bitbucket.org/li_yao/bioqueue.git
-Or
-wget https://bitbucket.org/li_yao/bioqueue/get/834098b92a29.zip
 ```
 Then navigate to the project's directory, and run `install.py` script (All dependent python packages will be automatically installed):
 ```
