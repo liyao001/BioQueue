@@ -6,6 +6,14 @@
         <div class="page-header">
             <h1 id="task">Job Status</h1>
         </div>
+        <div class="disk-quota">
+            Disk Usage ({{ u_disk }} of {{ t_disk }}):
+            <div class="progress">
+                <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" aria-valuenow="{{ disk_per }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ disk_per }}%">
+                    <span class="sr-only">{{ disk_per }}% Used</span>
+                </div>
+            </div>
+        </div>
         <form class="form-inline" style="margin-bottom: 10px;">
             <div class="form-group">
                 <label for="act">Action:</label>
