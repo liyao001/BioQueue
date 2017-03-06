@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
-    check_disk_quota_lock, build_json_protocol, os_to_int
+    check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
@@ -20,17 +20,6 @@ def add_job(request):
         if job_form.is_valid():
             cd = job_form.cleaned_data
             try:
-                '''
-                if cd['input_file_rf']:
-                    init_file = cd['input_file_rf']
-                elif cd['input_file_r']:
-                    files = cd['input_file_r'].replace('u', '').replace("'", '').replace('[', '')\
-                        .replace(']', '').split(',')
-                    files = [item.strip() for item in files]
-                    init_file = '{Uploaded:'+'} {Uploaded:'.join(files)+'}'
-                else:
-                    init_file = ''
-                '''
                 if cd['parameter'].find(';') == -1:
                     cd['parameter'] += ';'
 
@@ -60,7 +49,13 @@ def add_job(request):
             available_protocol = ProtocolList.objects.all()
         else:
             available_protocol = ProtocolList.objects.filter(user_id=request.user.id).all()
-        return render(request, 'ui/add_job.html', {'form': SingleJobForm, 'user_protocols': available_protocol})
+
+        dt, du, dp = get_disk_quota_info(request.user.id)
+        return render(request, 'ui/add_job.html', {'form': SingleJobForm,
+                                                   'user_protocols': available_protocol,
+                                                   't_disk': dt,
+                                                   'u_disk': du,
+                                                   'disk_per': dp})
 
 
 @login_required
@@ -592,7 +587,8 @@ def query_job(request):
     except EmptyPage:
         jobs = paginator.page(paginator.num_pages)
 
-    return render(request, 'ui/query_job.html', {'job_list': jobs})
+    dt, du, dp = get_disk_quota_info(request.user.id)
+    return render(request, 'ui/query_job.html', {'job_list': jobs, 't_disk': dt, 'u_disk': du, 'disk_per': dp})
 
 
 @login_required
