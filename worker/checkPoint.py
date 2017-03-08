@@ -82,7 +82,10 @@ def reg_single_feature(x, y):
         x_copy = x_matrix.copy()
         x_copy.sort(0)
         y_hat = x_copy * rc
-        r = corrcoef(y_hat.T, y_matrix)[0][1]
+        try:
+            r = corrcoef(y_hat.T, y_matrix)[0][1]
+        except:
+            pass
         b = rc[0][0]
         a = rc[1][0]
         if abs(r) < float(settings['ml']['threshold']):
@@ -230,3 +233,6 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
     except:
         return {'cpu': None, 'mem': None, 'disk': None}
     return predict_need
+
+if __name__ == '__main__':
+    predict_resource_needed('3449cd80644bc1f05d0d7f498069a502', 26805351086, 3)
