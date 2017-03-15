@@ -108,7 +108,12 @@ def prepare_workspace(resume, run_folder, job_id, user_id, result=''):
         user_folder = os.path.join(run_folder, str(user_id))
         run_folder = os.path.join(user_folder, result_store)
         create_user_folder(user_folder, run_folder)
-        baseDriver.update(settings['datasets']['job_db'], job_id, 'result', result_store)
+        #baseDriver.update(settings['datasets']['job_db'], job_id, 'result', result_store)
+        try:
+            job_record = Queue.objects.get(id=job_id)
+            job_record.set_result(result_store)
+        except:
+            pass
     else:
         result_store = result
         user_folder = os.path.join(run_folder, str(user_id))
@@ -492,7 +497,12 @@ def run_step(job_desc, resources):
             else:
                 allocate_mem = str(int(round(resources['mem'] / 1048576) + 1)) + 'Mb'
 
-        baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
+        #baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
+        try:
+            job_record = Queue.objects.get(id=job_id)
+            job_record.set_status(step_order+1)
+        except:
+            pass
         return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
                                           job_id, step_order, allocate_cpu, allocate_mem,
                                           settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'])

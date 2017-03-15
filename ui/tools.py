@@ -73,9 +73,12 @@ def check_disk_quota_lock(user):
 
 
 def get_disk_quota_info(user):
-    disk_pool = int(get_config('env', 'disk_quota'))
-    disk_used = get_user_folder_size(user)
-    disk_perc = int(round(disk_used / disk_pool * 100))
+    try:
+        disk_pool = int(get_config('env', 'disk_quota'))
+        disk_used = get_user_folder_size(user)
+        disk_perc = int(round(disk_used / disk_pool * 100))
+    except:
+        disk_pool = disk_used = disk_perc = 0
     return disk_pool, disk_used, disk_perc
 
 

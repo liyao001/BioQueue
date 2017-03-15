@@ -68,45 +68,6 @@ def setup():
     set_config('env', 'batch_job', upload_path)
     set_config('ml', 'trainStore', output_path)
 
-    cpu_cores = str(cpu_count())
-    user_cpu_cores = raw_input('CPU cores (By default: %s): ' % cpu_cores)
-    if user_cpu_cores:
-        cpu_cores = user_cpu_cores
-    set_config('env', 'cpu', cpu_cores)
-    set_config('env', 'memory', raw_input('Memory(Gb): '))
-    set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
-
-    database_configure = dict()
-    database_configure['host'] = raw_input('Database host: ')
-    database_configure['user'] = raw_input('Database user: ')
-    database_configure['db_name'] = raw_input('Database name: ')
-    database_configure['password'] = getpass('Database password: ')
-    db_port = raw_input('Database port (By default is 3306): ')
-    if not db_port:
-        db_port = '3306'
-    database_configure['port'] = db_port
-
-    print '====================================================================================='
-    print 'Do you agree to provide us diagnostic and usage information to help improve BioQueue?'
-    print 'We collect this information anonymously.'
-    print '====================================================================================='
-    fb = raw_input('y/n (By default: y)')
-
-    if fb == 'n':
-        set_config('program', 'feedback', 'no')
-    else:
-        set_config('program', 'feedback', 'yes')
-
-    print '===================================================='
-    print 'Configuring database, please wait...'
-    print '===================================================='
-
-    set_config('db', 'host', database_configure['host'])
-    set_config('db', 'user', database_configure['user'])
-    set_config('db', 'db_name', database_configure['db_name'])
-    set_config('db', 'password', database_configure['password'])
-    set_config('db', 'port', database_configure['port'])
-
     app_root = os.path.split(os.path.realpath(__file__))[0]
     setting_file_template = app_root + '/BioQueue/settings-example.py'
     setting_file_new = app_root + '/BioQueue/settings.py'
@@ -121,13 +82,67 @@ def setup():
     apache_file = apache_handler.read()
     secret_key = get_random_secret_key()
     set_config('program', 'secret_key', secret_key)
+    setting_file = setting_file.replace('{SECRET_KEY}', secret_key)
 
-    setting_file = setting_file.replace('{SECRET_KEY}', secret_key)\
-        .replace('{DB_NAME}', database_configure['db_name'])\
-        .replace('{DB_USER}', database_configure['user'])\
-        .replace('{DB_PASSWORD}', database_configure['password'])\
-        .replace('{DB_HOST}', database_configure['host'])\
-        .replace('{DB_PORT}', database_configure['port'])
+    cpu_cores = str(cpu_count())
+    user_cpu_cores = raw_input('CPU cores (By default: %s): ' % cpu_cores)
+    if user_cpu_cores:
+        cpu_cores = user_cpu_cores
+    set_config('env', 'cpu', cpu_cores)
+    set_config('env', 'memory', raw_input('Memory(Gb): '))
+    set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
+
+    print '====================================================================================='
+    print 'Do you want to use BioQueue with MySQL? '
+    print '====================================================================================='
+    mysql_fb = raw_input('y/n (By default: y)')
+
+    if mysql_fb == 'n':
+        db_file_template = app_root + '/deploy/sqlite.tpl'
+        db_file_handler = open(db_file_template, 'r')
+        db_file = db_file_handler.read()
+    else:
+        db_file_template = app_root + '/deploy/mysql.tpl'
+        db_file_handler = open(db_file_template, 'r')
+        db_file = db_file_handler.read()
+        database_configure = dict()
+        database_configure['host'] = raw_input('Database host: ')
+        database_configure['user'] = raw_input('Database user: ')
+        database_configure['db_name'] = raw_input('Database name: ')
+        database_configure['password'] = getpass('Database password: ')
+        db_port = raw_input('Database port (By default is 3306): ')
+        if not db_port:
+            db_port = '3306'
+        database_configure['port'] = db_port
+
+        print '===================================================='
+        print 'Configuring database, please wait...'
+        print '===================================================='
+
+        set_config('db', 'host', database_configure['host'])
+        set_config('db', 'user', database_configure['user'])
+        set_config('db', 'db_name', database_configure['db_name'])
+        set_config('db', 'password', database_configure['password'])
+        set_config('db', 'port', database_configure['port'])
+        db_file = db_file.replace('{DB_NAME}', database_configure['db_name']) \
+            .replace('{DB_USER}', database_configure['user']) \
+            .replace('{DB_PASSWORD}', database_configure['password']) \
+            .replace('{DB_HOST}', database_configure['host']) \
+            .replace('{DB_PORT}', database_configure['port'])
+
+    setting_file = setting_file.replace('{DATABASE_BACKEND}', db_file)
+
+    print '====================================================================================='
+    print 'Do you agree to provide us diagnostic and usage information to help improve BioQueue?'
+    print 'We collect this information anonymously.'
+    print '====================================================================================='
+    fb = raw_input('y/n (By default: y)')
+
+    if fb == 'n':
+        set_config('program', 'feedback', 'no')
+    else:
+        set_config('program', 'feedback', 'yes')
+
     setting_handler.close()
     setting_handler_new.write(setting_file)
     apache_handler_new.write(apache_file.replace('{APP_ROOT}', app_root))

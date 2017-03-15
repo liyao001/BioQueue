@@ -136,6 +136,14 @@ class Queue(models.Model):
         self.status = 0
         self.save()
 
+    def set_result(self, value):
+        self.result = value
+        self.save()
+
+    def set_status(self, status):
+        self.status = status
+        self.save()
+
     def get_result(self):
         return self.result
 
