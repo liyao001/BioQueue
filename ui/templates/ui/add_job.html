@@ -26,7 +26,8 @@
                     <form class="form" id="single-job-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="protocol">Choose a protocol</label>
-                            <select class="form-control input-xlarge" name="protocol" required>
+                            <select class="form-control input-xlarge" id="protocol-selector" name="protocol" required>
+                                <option value="">Please choose a protocol</option>
                                 {% for protocol in user_protocols %}
                                     <option value="{{ protocol.id }}">{{ protocol.name }}</option>
                                 {% endfor %}
@@ -93,6 +94,16 @@
 {% endblock %}
 {% block script %}
     $("#add-job").addClass("active");
+    $("#protocol-selector").change(function(){
+        var selected=$(this).children('option:selected').val();
+        if (selected){
+            $.get("{% url 'ui:query_job_parameter' %}", {parent: selected}, function(data){
+                if (data.status){
+                    $("#parameter").val(data.info);
+                }
+            });
+        }
+    });
     $("#single-job-form").submit(function(){
 		var self = $(this);
 		$.post(self.attr("action"), self.serialize(), success, "json");

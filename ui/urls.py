@@ -25,6 +25,7 @@ urlpatterns = [
     url(r'^import-protocol/$', views.import_protocol, name='import_protocol'),
     url(r'^manage-reference', views.manage_reference, name='manage_reference'),
     url(r'^query-job/$', views.query_job, name='query_job'),
+    url(r'^query-job-parameter/$', views.query_job_parameter, name='query_job_parameter'),
     url(r'^query-protocol', views.query_protocol, name='query_protocol'),
     url(r'^rerun-job/$', views.rerun_job, name='rerun_job'),
     url(r'^resume-job/$', views.resume_job, name='resume_job'),

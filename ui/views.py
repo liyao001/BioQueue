@@ -592,6 +592,36 @@ def query_job(request):
 
 
 @login_required
+def query_job_parameter(request):
+    import re
+    parent = request.GET.get('parent')
+    user_defined_wildcards = []
+    try:
+        protocol = ProtocolList.objects.get(id=parent)
+        if protocol.check_owner(request.user.id) or request.user.is_superuser:
+            pre_defined_keys = ['InputFile', 'LastOutput',
+                                'Job', 'ThreadN',
+                                'Output', 'LastOutput',
+                                'Uploaded', 'Suffix',
+                                'Workspace']
+            reference_list = References.objects.filter(user_id=request.user.id).all()
+            pre_defined_keys.extend([reference.name for reference in reference_list])
+            steps = Protocol.objects.filter(parent = protocol.id)
+            wildcard_pattern = re.compile("\\{(.*?)\\}", re.IGNORECASE | re.DOTALL)
+            for step in steps:
+                for wildcard in re.findall(wildcard_pattern, step.parameter):
+                    wildcard = wildcard.split(':')[0]
+                    if wildcard not in pre_defined_keys:
+                        user_defined_wildcards.append(wildcard)
+    except:
+        pass
+    if len(user_defined_wildcards) > 0:
+        result = '=;'.join(user_defined_wildcards)
+        result += '=;'
+    return success(result)
+
+
+@login_required
 def query_protocol(request):
     if request.user.is_superuser:
         protocol_list = ProtocolList.objects.all()
