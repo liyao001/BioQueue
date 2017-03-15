@@ -80,18 +80,7 @@ WSGI_APPLICATION = 'BioQueue.wsgi.application'
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': '{DB_NAME}',
-        'USER': '{DB_USER}',
-        'PASSWORD': '{DB_PASSWORD}',
-        'HOST': '{DB_HOST}',
-        'PORT': '{DB_PORT}',
-    },
-    'direct': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
+    {DATABASE_BACKEND}
 }
 
 

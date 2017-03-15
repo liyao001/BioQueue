@@ -5,3 +5,4 @@ psutil>=4.3.1
 pyftpdlib>=1.5.1
 Django>=1.10.1
 python-daemon>=2.1.2
+PyMySQL

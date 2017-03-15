@@ -198,13 +198,7 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
     predict_need = {}
     try:
         equations = Prediction.objects.filter(step_hash=step)
-        '''
-        conn, cur = con_mysql()
-        get_equation_sql = """SELECT `a`, `b`, `type` FROM %s WHERE `step_hash`='%s';""" \
-                           % (settings['datasets']['equation'], str(step))
-        cur.execute(get_equation_sql)
-        equations = cur.fetchall()
-        '''
+
         if len(equations) > 0 and in_size != -99999.0:
             for equation in equations:
                 a = float(equation.a)

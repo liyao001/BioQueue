@@ -877,6 +877,9 @@ def show_workspace(request):
     user_files = []
     user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads')
 
+    if not os.path.exists(user_path):
+        os.makedirs(user_path)
+
     for file_name in os.listdir(user_path):
         file_path = os.path.join(user_path, file_name)
         tmp = dict()
