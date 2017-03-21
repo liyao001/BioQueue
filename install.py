@@ -4,7 +4,8 @@ import sys
 from multiprocessing import cpu_count
 from getpass import getpass
 import ConfigParser
-
+import psutil
+byte_to_gigabyte = 1073741824
 
 def set_config(section, key, value):
     config = ConfigParser.ConfigParser()
@@ -89,8 +90,18 @@ def setup():
     if user_cpu_cores:
         cpu_cores = user_cpu_cores
     set_config('env', 'cpu', cpu_cores)
-    set_config('env', 'memory', raw_input('Memory(Gb): '))
-    set_config('env', 'disk_quota', raw_input('Disk quota for each user(Gb): '))
+
+    memory_gbs = round(psutil.virtual_memory().total / byte_to_gigabyte)
+    user_memory = raw_input('Memory(Gb, by default: %s Gb): ' % memory_gbs)
+    if user_memory:
+        memory_gbs = user_memory
+    set_config('env', 'memory', memory_gbs)
+
+    disk_size = psutil.disk_usage(workspace_path).total / byte_to_gigabyte
+    user_disk_size = raw_input('Disk quota for each user(Gb, by default: %s Gb): ' % disk_size)
+    if user_disk_size:
+        disk_size = user_disk_size
+    set_config('env', 'disk_quota', disk_size)
 
     print '====================================================================================='
     print 'Do you want to use BioQueue with MySQL? '
