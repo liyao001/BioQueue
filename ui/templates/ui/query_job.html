@@ -33,6 +33,7 @@
                     <th>ID</th>
                     <th>Protocol</th>
                     <th>Input files</th>
+                    <th>Job parameters</th>
                     <th>Output folder</th>
                     <th>Status</th>
                     <th>Create time</th>
@@ -48,6 +49,7 @@
                     <td class="no-leak-table">{{ job.id }}</td>
                     <td class="no-leak-table">{{ job.protocol }}</td>
                     <td class="no-leak-table limited-table-25em">{{ job.input_file }}</td>
+                    <td class="no-leak-table limited-table-25em">{{ job.parameter }}</td>
                     <td class="no-leak-table"><span href="__MODULE__/Job/showFolder/job/{{ job.id }}" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});">{{ job.result }}</span></td>
                     <td class="no-leak-table status">
                         {% if job.status == -1 %}
