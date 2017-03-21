@@ -4,7 +4,7 @@
 BioQueue is a web-based queue engine designed preferentially to improve the efficiency and robustness of job execution in bioinformatics research by estimating the system resources required by a certain job. At the same time, BioQueue also aims to promote the accessibility and reproducibility of data analysis in biomedical research. Implemented by Python 2.7, BioQueue can work in both POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
 # Installation
 ## Prerequisites
-BioQueue can store data on SQLite, which means users can run with BioQueue without an extra database software. However, to achieve a higher performance, we suggest users to install MySQL. For Windows users, download the MySQL Installer or Zipped binary from [MySQL](http://www.mysql.com/downloads/). For POSIX compatible systems (like Ubuntu) users, running the following command should be enough to install MySQL server.
+BioQueue can store data on SQLite, which means users can set up BioQueue without an extra database software. However, to achieve a higher performance, we suggest users to install MySQL. For Windows users, download the MySQL Installer or Zipped binary from [MySQL](http://www.mysql.com/downloads/). For POSIX compatible systems (like Ubuntu) users, running the following command should be enough to install MySQL server.
 ```
 sudo apt-get install mysql-server mysql-client
 apt-get install libmysqld-dev
