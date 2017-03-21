@@ -39,7 +39,8 @@ If you decide to run BioQueue with MySQL, the script will ask a few more questio
  1. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`.
  2. Database user: user name of the database.
  3. Database password: password of the database.
- 4. Database port: `3306` by default
+ 4. Database name: Name of the data table.
+ 5. Database port: `3306` by default
 
 ## 2. Start the queue
 Run the `bioqueue.py` script in the `BioQueue/worker` folder
