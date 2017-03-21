@@ -1,27 +1,29 @@
 # BioQueue
 [![document](https://readthedocs.org/projects/bioqueue/badge/?version=latest "document")](https://bioqueue.readthedocs.io/en/latest/?badge=latest)
 
-BioQueue is a lightweight and easy-to-use queue system to accelerate the proceeding of bioinformatic workflows. Based on machine learning methods, BioQueue can maximize the efficiency, and at the same time, it also reduced the possibility of errors caused by unsupervised concurrency (like memory leak). BioQueue can both run on POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
+BioQueue is a web-based queue engine designed preferentially to improve the efficiency and robustness of job execution in bioinformatics research by estimating the system resources required by a certain job. At the same time, BioQueue also aims to promote the accessibility and reproducibility of data analysis in biomedical research. Implemented by Python 2.7, BioQueue can work in both POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
 # Installation
 ## Prerequisites
-BioQueue stores data on MySQL, for Windows Users, download the MySQL Installer or Zipped binary from [MySQL](http://www.mysql.com/downloads/). For POSIX compatible systems (like Ubuntu) users, running following command should be enough to install MySQL server.
+BioQueue can store data on SQLite, which means users can run with BioQueue without an extra database software. However, to achieve a higher performance, we suggest users to install MySQL. For Windows users, download the MySQL Installer or Zipped binary from [MySQL](http://www.mysql.com/downloads/). For POSIX compatible systems (like Ubuntu) users, running the following command should be enough to install MySQL server.
 ```
 sudo apt-get install mysql-server mysql-client
 apt-get install libmysqld-dev
 mysql -u root -p
 CREATE DATABASE BioQueue;
-CREATE USER 'bioqueue'@'localhost' IDENTIFIED BY 'REPLACE WITH YOUR OWN PASSWORD HERE';
+CREATE USER 'bioqueue'@'localhost' IDENTIFIED BY 'YOURPASSWORD';
 GRANT ALL PRIVILEGES ON BioQueue . * TO 'bioqueue'@'localhost';
 ```
-Note: The following instructions are for Ubuntu 14.04, but can be used as a guideline for other Linux flavors.
+Note: The following instructions are for Ubuntu 14.04, but can be used as a guideline for other Linux flavors. **Please replace 'YOURPASSWORD' with your own password for the database!**
 ```
 apt-get install python-dev
 apt-get install python-pip
 ```
 ## 1. Download and setup the BioQueue project
-First of all, you will need to clone the project from Bitbucket (Or you can download BioQueue by open [this link](https://bitbucket.org/li_yao/bioqueue/downloads/)).
+First of all, you will need to clone the project from Github (Or you can download BioQueue by open [this link](https://github.com/liyao001/BioQueue/zipball/master)).
 ```
-git clone https://li_yao@bitbucket.org/li_yao/bioqueue.git
+git clone https://github.com/liyao001/BioQueue.git
+Or
+wget https://github.com/liyao001/BioQueue/zipball/master
 ```
 Then navigate to the project's directory, and run `install.py` script (All dependent python packages will be automatically installed):
 ```
@@ -29,13 +31,15 @@ cd BioQueue
 python install.py
 ```
 When running `install.py`, this script will ask you a few questions include:
- 1. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`
- 2. Database user: bioqueue by default
- 3. Database password
+ 1. CPU cores: The amount of CPU to use. Default value: all cores on that machine.
+ 2. Memory (Gb): The amount of memory to use. Default value: all physical memory on that machine.
+ 3. Disk quota for each user(Gb, default value: all disk space on that machine).
+
+If you decide to run BioQueue with MySQL, the script will ask a few more questions:
+ 1. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`.
+ 2. Database user: user name of the database.
+ 3. Database password: password of the database.
  4. Database port: `3306` by default
- 5. CPU cores
- 6. Memory (Gb)
- 7. Disk quota for each user(Gb)
 
 ## 2. Start the queue
 Run the `bioqueue.py` script in the `BioQueue/worker` folder
