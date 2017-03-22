@@ -88,8 +88,12 @@ def input_file_map(par, ini_dict, user_folder):
     for key, value in enumerate(ini_dict):
         if par.find('{InputFile:' + str(key+1) + '}') != -1:
             if value.find("{Uploaded:") == -1:
-                par = par.replace('{InputFile' + str(key+1) + '}', value)
+                par = par.replace('{InputFile:' + str(key+1) + '}', value)
                 file_size += baseDriver.get_remote_size_factory(value)
+            else:
+                upload_path, upload_size = upload_file_map(value, user_folder)
+                file_size += upload_size
+                par = par.replace('{InputFile:' + str(key+1) + '}', upload_path)
     par, upload_size = upload_file_map(par, user_folder)
     file_size += upload_size
     return par, file_size
