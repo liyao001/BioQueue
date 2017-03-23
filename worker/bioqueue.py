@@ -580,6 +580,7 @@ def set_checkpoint_info(job_id, cause):
             JOB_TABLE[job_id]['wait_for'] = cause
             job = Queue.objects.get(id=job_id)
             job.wait_for = cause
+            job.status = -2
             job.save()
     except:
         pass
@@ -591,7 +592,7 @@ def main():
         try:
             cpu_indeed = baseDriver.get_cpu_available()
             mem_indeed = baseDriver.get_memo_usage_available()
-            disk_indeed = baseDriver.get_disk_free()
+            disk_indeed = baseDriver.get_disk_free(settings['env']['workspace'])
             get_job(MAX_JOB - len(JOB_TABLE))
 
             sorted_job_info = sorted(JOB_TABLE.keys())
