@@ -47,6 +47,15 @@ def suffix_map(par, job_suffix_dict, last_suffix_dict):
                         suf_item[1] in job_suffix_dict[job_step].keys():
             par = par.replace('{Suffix:' + suf_item[0] + '-' + suf_item[1] + '}',
                               ' '.join(job_suffix_dict[job_step][suf_item[1]]))
+    suffix_replacement_single = re.compile("\\{Suffix:(\\d+)-(.*?)-(\\d+)\\}", re.IGNORECASE | re.DOTALL)
+    for suf_item in re.findall(suffix_replacement_single, par):
+        job_step = int(suf_item[0])
+        file_order = int(suf_item[2]) - 1
+        if job_step in job_suffix_dict.keys() and \
+                        suf_item[1] in job_suffix_dict[job_step].keys() \
+                and file_order < len(job_suffix_dict[job_step][suf_item[1]]):
+            par = par.replace('{Suffix:' + suf_item[0] + '-' + suf_item[1] + '-' + suf_item[2] + '}',
+                              job_suffix_dict[job_step][suf_item[1]][file_order])
     return par
 
 
