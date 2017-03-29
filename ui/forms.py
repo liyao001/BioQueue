@@ -116,6 +116,8 @@ class CreateReferenceForm(forms.Form):
     path = forms.CharField(
         required=True,
     )
+    description = forms.CharField(
+    )
 
 
 class RestrictedFileField(forms.FileField):

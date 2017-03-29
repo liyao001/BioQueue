@@ -156,8 +156,9 @@ class References(models.Model):
     """Reference Table
     Save custom references
     """
-    name = models.CharField(max_length=50)
-    path = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    path = models.CharField(max_length=500)
+    description = models.TextField()
     user_id = models.CharField(max_length=50)
 
     def __str__(self):
