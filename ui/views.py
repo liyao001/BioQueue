@@ -390,6 +390,7 @@ def export_protocol(request):
                         tmp = {
                             'software': step.software,
                             'parameter': step.parameter,
+                            'hash': step.hash,
                             'cpu': get_config('env', 'cpu'),
                             'mem': get_config('env', 'memory'),
                             'os': os_to_int(),
@@ -408,6 +409,7 @@ def export_protocol(request):
                         tmp = {
                             'software': step.software,
                             'parameter': step.parameter,
+                            'hash': step.hash,
                         }
                     protocol_data['step'].append(tmp)
                     protocol_data['reference'] = protocol_ref
