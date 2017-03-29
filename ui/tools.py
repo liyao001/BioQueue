@@ -90,7 +90,3 @@ def os_to_int():
         return 3
     else:
         return 2
-
-
-if __name__ == '__main__':
-    print get_disk_quota_info(1)

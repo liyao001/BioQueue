@@ -11,7 +11,7 @@ from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, Protoco
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
-
+import re
 
 @login_required
 def add_job(request):
@@ -356,10 +356,22 @@ def export_protocol(request):
                 raise Http404("Protocol does not exist")
             protocol_data['name'] = protocol_parent.name
             protocol_data['step'] = []
+            references = {}
+            reference_list = References.objects.filter(user_id=request.user.id).all()
+            protocol_ref = {}
+            #references.extend([reference.name for reference in reference_list])
+            for reference in reference_list:
+                references[reference.name] = reference.description
+
+            wildcard_pattern = re.compile("\\{(.*?)\\}", re.IGNORECASE | re.DOTALL)
             if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
                 steps = Protocol.objects.filter(parent=int(request.GET['id']))
                 for step in steps:
                     try:
+                        for wildcard in re.findall(wildcard_pattern, step.parameter):
+                            wildcard = wildcard.split(':')[0]
+                            if wildcard in references.keys() and wildcard not in protocol_ref.keys():
+                                protocol_ref[wildcard] = references[wildcard]
                         equations = Prediction.objects.filter(step_hash=step.hash)
                         cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = 0
                         for equation in equations:
@@ -391,12 +403,14 @@ def export_protocol(request):
                             'disk_b': disk_b,
                             'disk_r': disk_r,
                         }
-                    except:
+                    except Exception, e:
+                        print e
                         tmp = {
                             'software': step.software,
                             'parameter': step.parameter,
                         }
                     protocol_data['step'].append(tmp)
+                    protocol_data['reference'] = protocol_ref
                 return build_json_protocol(protocol_data)
             else:
                 return error('You are not owner of the protocol.')
@@ -556,6 +570,7 @@ def manage_reference(request):
             ref = References(
                 name=cd['name'],
                 path=cd['path'],
+                description=cd['description'],
                 user_id=request.user.id,
             )
             ref.save()
