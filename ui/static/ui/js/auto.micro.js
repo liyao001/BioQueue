@@ -171,5 +171,5 @@ wordSuggestions.prototype.requestSuggestions = function (oAutoSuggestControl /*:
  * @scope public
  */
 function wordSuggestions() {
-    this.words = ['{InputFile}', '{LastOutput}', '{Job}', '{ThreadN}', '{Output:', '{LastOutput:', '{Uploaded:', '{Suffix:', '{Workspace}'];
+    this.words = ['{InputFile}', '{LastOutput}', '{Job}', '{ThreadN}', '{Output:', '{LastOutput:', '{Uploaded:', '{Suffix:', '{Workspace}', '{History:'];
 }
