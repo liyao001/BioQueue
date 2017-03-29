@@ -33,7 +33,8 @@ def history_map(par, user_id, user_workspace, db):
         history_file = history_item[1]
         try:
             history_record = db.objects.get(id=history_id, user_id=user_id)
-            history_rep = os.path.join(user_workspace, history_record.run_dir)
+            history_rep = os.path.join(user_workspace, history_record.result)
+            history_rep = os.path.join(history_rep, history_file)
             par = par.replace('{History:'+str(history_id)+'-'+history_file+'}', history_rep)
         except:
             pass
