@@ -227,6 +227,3 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
     except:
         return {'cpu': None, 'mem': None, 'disk': None}
     return predict_need
-
-if __name__ == '__main__':
-    predict_resource_needed('3449cd80644bc1f05d0d7f498069a502', 26805351086, 3)

@@ -305,6 +305,8 @@ def run_prepare(job_id, job, no_new_learn = 0):
         step, outside_size = parameterParser.input_file_map(step, JOB_INPUT_FILES[job_id], job['user_folder'])
     if job_id in LAST_OUTPUT_SUFFIX.keys() and job_id in OUTPUT_DICT_SUFFIX.keys():
         step = parameterParser.suffix_map(step, OUTPUT_DICT_SUFFIX[job_id], LAST_OUTPUT_SUFFIX[job_id])
+    step = parameterParser.history_map(step, job['user_id'], job['user_folder'], Queue)
+
     step, outside_size_upload = parameterParser.upload_file_map(step, job['user_folder'])
     outside_size += outside_size_upload
     step = step.replace('{Workspace}', job['job_folder'])
