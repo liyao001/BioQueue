@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import baseDriver
 import re
+import os
 
 
 def build_special_parameter_dict(all_output):
@@ -23,6 +24,20 @@ def build_special_parameter_dict(all_output):
 
 def reference_map():
     return ''
+
+
+def history_map(par, user_id, user_workspace, db):
+    history_replacement = re.compile("\\{History:(\\d+)-(.*?)\\}", re.IGNORECASE | re.DOTALL)
+    for history_item in re.findall(history_replacement, par):
+        history_id = int(history_item[0])
+        history_file = history_item[1]
+        try:
+            history_record = db.objects.get(id=history_id, user_id=user_id)
+            history_rep = os.path.join(user_workspace, history_record.run_dir)
+            par = par.replace('{History:'+str(history_id)+'-'+history_file+'}', history_rep)
+        except:
+            pass
+    return  par
 
 
 def special_parameter_map(par, sp_map):
@@ -69,7 +84,6 @@ def output_file_map(par, output_dict):
 
 
 def upload_file_map(par, user_folder):
-    import os
     filesize = 0
     uploaded_replacement = re.compile("\\{Uploaded:(.*?)}", re.IGNORECASE | re.DOTALL)
     for uploaded_item in re.findall(uploaded_replacement, par):
