@@ -3,7 +3,7 @@
 # @Time: 2017/2/27 12:24
 # @Author: Li Yao
 # @File: feedback.py
-# @License: MIT
+# @License: Apache
 # @Bitbutcket: https://bitbucket.org/li_yao/
 # @Github: https://github.com/yauli
 import requests

@@ -354,9 +354,12 @@ def forecast_step(job_id, step_order, resources):
         rollback = 1
 
     if not rollback:
-        job = Queue.objects.get(id=job_id)
-        job.status = step_order + 1
-        job.save()
+        try:
+            job = Queue.objects.get(id=job_id)
+            job.status = step_order + 1
+            job.save()
+        except:
+            pass
         JOB_TABLE[job_id]['status'] = step_order + 1
         return True
     else:
@@ -390,10 +393,11 @@ def finish_step(job_id, step_order, resources):
     :return: None
     """
     global JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
-    job = Queue.objects.get(id=job_id)
-    job.resume = step_order
-    job.status = -2
     try:
+        job = Queue.objects.get(id=job_id)
+        job.resume = step_order
+        job.status = -2
+        job.save()
         JOB_TABLE[job_id]['status'] = -2
         JOB_TABLE[job_id]['resume'] = step_order
         this_output = baseDriver.get_folder_content(JOB_TABLE[job_id]['job_folder'])
@@ -415,7 +419,6 @@ def finish_step(job_id, step_order, resources):
         OUTPUT_DICT_SUFFIX[job_id] = {step_order + 1: suffix_dict}
     LAST_OUTPUT_SUFFIX[job_id] = suffix_dict
     LAST_OUTPUT_STRING[job_id] = ' '.join(NEW_FILES[job_id])
-    job.save()
     OUTPUT_SIZE[job_id] = baseDriver.get_folder_size(JOB_TABLE[job_id]['job_folder']) - FOLDER_SIZE_BEFORE[job_id]
     CUMULATIVE_OUTPUT_SIZE[job_id] += OUTPUT_SIZE[job_id]
 
@@ -434,10 +437,14 @@ def error_job(job_id, resources):
     :param job_id: int, job id
     :return: None
     """
-    job = Queue.objects.get(id=job_id)
-    job.status = -3
-    job.ter = 0
-    job.save()
+    try:
+        job = Queue.objects.get(id=job_id)
+        job.status = -3
+        job.ter = 0
+        job.save()
+    except:
+        pass
+
     if job_id in OUTPUT_DICT.keys():
         baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
 
