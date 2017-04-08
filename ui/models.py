@@ -83,7 +83,7 @@ class ProtocolList(models.Model):
     """Protocol List Table
     Save protocol names
     """
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=500)
     user_id = models.CharField(max_length=50)
 
     def __str__(self):

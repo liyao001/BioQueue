@@ -231,9 +231,12 @@ def finish_job(job_id, error=0):
                 except Exception, e:
                     print e
         else:
-            job = Queue.objects.get(id=job_id)
-            job.status = -1
-            job.save()
+            try:
+                job = Queue.objects.get(id=job_id)
+                job.status = -1
+                job.save()
+            except:
+                pass
             baseDriver.del_output_dict(job_id)
             if settings['mail']['notify'] == 'on':
                 try:
