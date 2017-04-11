@@ -6,7 +6,7 @@ from django.template import RequestContext, loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info
-from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config
+from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
@@ -960,6 +960,20 @@ def terminate_job(request):
             return error(str(terminate_form.errors))
     else:
         return error('Method error')
+
+
+@staff_member_required
+def update_bioqueue(request):
+    import urllib2
+    remote_address = get_config('program', 'latest_version')
+    try:
+        req = urllib2.Request(remote_address)
+        res_data = urllib2.urlopen(req)
+        remote_version = res_data.read()
+        remote_version += " | <b>Current version:</b> " + get_bioqueue_version()
+        return success(remote_version)
+    except Exception, e:
+        return error(str(remote_address))
 
 
 @login_required

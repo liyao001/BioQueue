@@ -239,6 +239,19 @@ def get_remote_size(head, host_name, path):
     return size
 
 
+def get_bioqueue_version():
+    """
+    Get BioQueue Version
+    :return: string, version
+    """
+    import os
+    version = ''
+    version_file = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/version'
+    with open(version_file) as version_file_handle:
+        version = version_file_handle.read()
+    return version
+
+
 def get_remote_size_factory(url):
     url = url.strip()
     if len(url) <= 4:
@@ -255,7 +268,7 @@ def get_remote_size_factory(url):
 
 def save_output_dict(dic, job):
     import pickle
-    fp = os.path.join(get_config('env', 'outputs'), str(job))
+    fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
     ff = open(fp, mode='wb')
     pickle.dump(dic, ff)
     ff.close()
@@ -263,7 +276,7 @@ def save_output_dict(dic, job):
 
 def load_output_dict(job):
     import pickle
-    fp = os.path.join(get_config('env', 'outputs'), str(job))
+    fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
     if os.path.exists(fp):
         try:
             ff = open(fp, mode='rb')
