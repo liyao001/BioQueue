@@ -39,5 +39,6 @@ urlpatterns = [
     url(r'^show-upload/$', views.show_upload_files, name='show_upload'),
     url(r'^show-workspace/$', views.show_workspace, name='show_workspace'),
     url(r'^terminate-job/$', views.terminate_job, name='terminate_job'),
+    url(r'^update-bioqueue/$', views.update_bioqueue, name='update_bioqueue'),
     url(r'^update-parameter/$', views.update_parameter, name='update_parameter'),
 ]

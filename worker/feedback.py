@@ -8,20 +8,7 @@
 # @Github: https://github.com/yauli
 import requests
 import base64
-from baseDriver import get_config
-
-
-def get_bioqueue_version():
-    """
-    Get BioQueue Version
-    :return: string, version
-    """
-    import os
-    version = ''
-    version_file = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/version'
-    with open(version_file) as version_file_handle:
-        version = version_file_handle.read()
-    return version
+from baseDriver import get_config, get_bioqueue_version
 
 
 def feedback(software, parameter, hash):
