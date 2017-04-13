@@ -154,8 +154,15 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0
     """
-    import subprocess
+    import subprocess, os
     template = load_template()
+
+    if not os.path.exists(workspace):
+        try:
+            os.makedirs(workspace)
+        except:
+            pass
+
     job_name = str(job_id)+'-'+str(job_step)+'.pbs'
     pbs_script_content = template.replace('{PROTOCOL}', protocol)\
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
@@ -167,7 +174,8 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''
     try:
         with open(job_name, 'w') as pbs_handler:
             pbs_handler.write(pbs_script_content)
-        step_process = subprocess.Popen(('qsub', job_name), shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        step_process = subprocess.Popen(('qsub', job_name), shell=False, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, cwd=workspace)
         stdout, stderr = step_process.communicate()
         pbs_trace_id = stdout.split('\n')[0]
         return pbs_trace_id
