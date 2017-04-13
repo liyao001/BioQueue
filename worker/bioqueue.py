@@ -419,11 +419,17 @@ def finish_step(job_id, step_order, resources):
         OUTPUTS[job_id] = NEW_FILES[job_id]
 
     suffix_dict = build_suffix_dict(NEW_FILES[job_id])
-    OUTPUT_DICT[job_id][step_order + 1] = NEW_FILES[job_id]
+
+    if job_id in OUTPUT_DICT.keys():
+        OUTPUT_DICT[job_id][step_order + 1] = NEW_FILES[job_id]
+    else:
+        OUTPUT_DICT[job_id] = {step_order + 1: NEW_FILES[job_id]}
+
     if job_id in OUTPUT_DICT_SUFFIX.keys():
         OUTPUT_DICT_SUFFIX[job_id][step_order+1] = suffix_dict
     else:
         OUTPUT_DICT_SUFFIX[job_id] = {step_order + 1: suffix_dict}
+
     LAST_OUTPUT_SUFFIX[job_id] = suffix_dict
     LAST_OUTPUT_STRING[job_id] = ' '.join(NEW_FILES[job_id])
     OUTPUT_SIZE[job_id] = baseDriver.get_folder_size(JOB_TABLE[job_id]['job_folder']) - FOLDER_SIZE_BEFORE[job_id]
