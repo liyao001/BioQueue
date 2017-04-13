@@ -436,7 +436,8 @@ def finish_step(job_id, step_order, resources):
 
     if 'trace' in resources.keys():
         training_item = Training.objects.get(id=resources['trace'])
-        if training_item.cpu != '-' and training_item.mem != '-':
+        if training_item.cpu != '-' and training_item.mem != '-' \
+                and training_item.cpu != '' and training_item.mem != '':
             training_item.output = OUTPUT_SIZE[job_id]
             training_item.lock = 0
             training_item.save()
