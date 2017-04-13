@@ -352,13 +352,12 @@ def forecast_step(job_id, step_order, resources):
     global JOB_TABLE
     rollback = 0
 
-    if settings['cluster']['type'] != '':
-        return True
+    if settings['cluster']['type'] == '':
+        #for clusters
+        new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
 
-    new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
-
-    if new_cpu < 0 or new_mem < 0 or new_disk < 0:
-        rollback = 1
+        if new_cpu < 0 or new_mem < 0 or new_disk < 0:
+            rollback = 1
 
     if not rollback:
         try:
