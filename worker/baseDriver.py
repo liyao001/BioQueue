@@ -216,7 +216,7 @@ def ftp_size(host_name, path):
 def http_size(host_name, path):
     import httplib
     try:
-        conn = httplib.HTTPConnection(host_name)
+        conn = httplib.HTTPConnection(host_name, timeout=3)
         conn.request("GET", path)
         resp = conn.getresponse()
         return int(resp.getheader("content-length"))

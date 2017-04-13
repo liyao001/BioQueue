@@ -27,7 +27,7 @@ def get_cluster_models():
     for model_name in os.listdir("cluster_models"):
         if not model_name.endswith('.py') or model_name.startswith('_') or model_name.startswith('cluster'):
             continue
-        models.append(model_name)
+        models.append(model_name.replace('.py', ''))
     return models
 
 
