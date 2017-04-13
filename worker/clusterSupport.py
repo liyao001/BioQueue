@@ -78,7 +78,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
             cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue, workspace)
 
         while True:
-            status_code = cluster_model.query_job_status(cluster_id)
+            status_code = cluster_model.query_job_status(cluster_id, step_id)
             if status_code == step_id or status_code == 0:
                 if if_terminate(job_id):
                     cluster_model.cancel_job(cluster_id)
