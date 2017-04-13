@@ -431,9 +431,10 @@ def finish_step(job_id, step_order, resources):
 
     if 'trace' in resources.keys():
         training_item = Training.objects.get(id=resources['trace'])
-        training_item.output = OUTPUT_SIZE[job_id]
-        training_item.lock = 0
-        training_item.save()
+        if training_item.cpu != '-' and training_item.mem != '-':
+            training_item.output = OUTPUT_SIZE[job_id]
+            training_item.lock = 0
+            training_item.save()
 
     if settings['cluster']['type'] == '':
         update_resource_pool(resources)
