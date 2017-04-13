@@ -7,77 +7,108 @@
     </div>
     <p><b>Latest version:</b> <span id="github-version">Fetching...</span></p>
     <form class="form" method="post" action=".">
-        <div class="form-group">
-            <label class="control-label" for="path">Run folder</label>
-            <input type="text" class="form-control" id="path" name="path" value="{{ run_folder }}" required />
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="cpu">Processors</label>
-            <input type="number" class="form-control" id="cpu" name="cpu" value="{{ cpu }}" required />
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mem">Memory(Gb)</label>
-            <input type="number" class="form-control" id="mem" name="mem" value="{{ memory }}" required />
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="dquota">User Disk Quota(Gb) <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Total Disk Space(Gb): {{ max_disk }}<br />Free Disk Space(Gb): {{ free_disk }}" data-html="true"></i></label>
-            <input id="dquota" name="dquota" class="sliderbar" data-slider-id='diskquota' type="text" data-slider-min="0" class="form-control" data-slider-max="{{ max_disk }}" data-slider-step="1" data-slider-value="{{ disk_quota }}"/>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="dcw">Disk confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
-            <input id="dcw" name="dcw" class="sliderbar" data-slider-id='dcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ disk_confidence_weight }}"/>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mcw">Memory confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
-            <input id="mcw" name="mcw" class="sliderbar" data-slider-id='mcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ mem_confidence_weight }}"/>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="ccw">CPU confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
-            <input id="ccw" name="ccw" class="sliderbar" data-slider-id='ccw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ cpu_confidence_weight }}"/>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="dquota">Correlation coefficient threshold: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="If the absolute value of correlation coefficient is less than this threshold, BioQueue will possess mean and sd." data-html="true"></i></label>
-            <input id="ccthr" name="ccthr" class="sliderbar" data-slider-id='corcoethr' type="text" data-slider-min="0.1" class="form-control" data-slider-max="1" data-slider-step="0.1" data-slider-value="{{ threshold }}"/>
-        </div>
-        <hr/>
-        <div class="page-header">
-            <h1>Notification</h1>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="sender">Sender name</label>
-            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" />
-            <p class="help-block">Leave it blank to turn off notification.</p>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mailhost">Mail host</label>
-            <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" />
-            <p class="help-block">Leave it blank to turn off notification.</p>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mailport">Mail port</label>
-            <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" />
-            <p class="help-block">Leave it blank to turn off notification.</p>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mailuser">Mail user</label>
-            <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" />
-            <p class="help-block">Leave it blank to turn off notification.</p>
-        </div>
-        <div class="form-group">
-            <label class="control-label" for="mailpassword">Mail password</label>
-            <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" />
-            <p class="help-block">Leave it blank to turn off notification.</p>
+        <div class="panel-group" id="settings-container" role="tablist" aria-multiselectable="true">
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="head-env-settings">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" data-parent="#settings-container" href="#env-settings" aria-expanded="true" aria-controls="env-settings">
+                            Enviorment Settings
+                        </a>
+                    </h4>
+                </div>
+                <div id="env-settings" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="head-env-settings">
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label class="control-label" for="path">Run folder</label>
+                            <input type="text" class="form-control" id="path" name="path" value="{{ run_folder }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="cpu">Processors</label>
+                            <input type="number" class="form-control" id="cpu" name="cpu" value="{{ cpu }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mem">Memory(Gb)</label>
+                            <input type="number" class="form-control" id="mem" name="mem" value="{{ memory }}" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="dquota">User Disk Quota(Gb) <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Total Disk Space(Gb): {{ max_disk }}<br />Free Disk Space(Gb): {{ free_disk }}" data-html="true"></i></label>
+                            <input id="dquota" name="dquota" class="sliderbar" data-slider-id='diskquota' type="text" data-slider-min="0" class="form-control" data-slider-max="{{ max_disk }}" data-slider-step="1" data-slider-value="{{ disk_quota }}"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="dcw">Disk confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+                            <input id="dcw" name="dcw" class="sliderbar" data-slider-id='dcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ disk_confidence_weight }}"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mcw">Memory confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+                            <input id="mcw" name="mcw" class="sliderbar" data-slider-id='mcw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ mem_confidence_weight }}"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="ccw">CPU confidence: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="Weight for regression result" data-html="true"></i></label>
+                            <input id="ccw" name="ccw" class="sliderbar" data-slider-id='ccw' type="text" data-slider-min="0.1" class="form-control" data-slider-max="2" data-slider-step="0.1" data-slider-value="{{ cpu_confidence_weight }}"/>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="dquota">Correlation coefficient threshold: <i id="tooltip" class="icon-info-sign tooltipopen" data-toggle="tooltip" title="If the absolute value of correlation coefficient is less than this threshold, BioQueue will possess mean and sd." data-html="true"></i></label>
+                            <input id="ccthr" name="ccthr" class="sliderbar" data-slider-id='corcoethr' type="text" data-slider-min="0.1" class="form-control" data-slider-max="1" data-slider-step="0.1" data-slider-value="{{ threshold }}"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="head-mail-settings">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" data-parent="#settings-container" href="#mail-settings" aria-expanded="true" aria-controls="mail-settings">
+                            E-mail Notification
+                        </a>
+                    </h4>
+                </div>
+                <div id="mail-settings" class="panel-collapse collapse" role="tabpanel" aria-labelledby="head-mail-settings">
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label class="control-label" for="sender">Sender name</label>
+                            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" />
+                            <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mailhost">Mail host</label>
+                            <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" />
+                            <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mailport">Mail port</label>
+                            <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" />
+                            <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mailuser">Mail user</label>
+                            <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" />
+                            <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mailpassword">Mail password</label>
+                            <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" />
+                            <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="head-maintenance-settings">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" data-parent="#settings-container" href="#maintenance-settings" aria-expanded="true" aria-controls="maintenance-settings">
+                            System Maintenance
+                        </a>
+                    </h4>
+                </div>
+                <div id="maintenance-settings" class="panel-collapse collapse" role="tabpanel" aria-labelledby="head-maintenance-settings">
+                    <div class="panel-body">
+                        <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
+                    </div>
+                </div>
+            </div>
         </div>
         {% csrf_token %}
         <input type="submit" class="btn btn-success btn-large" value="Update" />
     </form>
-    <hr/>
-    <div class="page-header">
-        <h1>System Maintenance</h1>
-    </div>
-    <div>
-        <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
-    </div>
 </div>
 {% endblock %}
 {% block script %}

@@ -351,6 +351,10 @@ def forecast_step(job_id, step_order, resources):
     """
     global JOB_TABLE
     rollback = 0
+
+    if settings['cluster']['type'] != '':
+        return True
+
     new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
 
     if new_cpu < 0 or new_mem < 0 or new_disk < 0:
@@ -431,7 +435,8 @@ def finish_step(job_id, step_order, resources):
         training_item.lock = 0
         training_item.save()
 
-    update_resource_pool(resources)
+    if settings['cluster']['type'] == '':
+        update_resource_pool(resources)
 
 
 def error_job(job_id, resources):
