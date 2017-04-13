@@ -12,7 +12,7 @@ def if_terminate(job_id):
     :return:
     """
     try:
-        job = Queue.objects.get(job_id)
+        job = Queue.objects.get(id=job_id)
         return job.ter
     except:
         return 1

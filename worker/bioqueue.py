@@ -520,6 +520,9 @@ def run_step(job_desc, resources):
                                           settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'])
         if return_code != 0:
             error_job(job_id, resources)
+        else:
+            #RUNNING_JOBS -= 1
+            finish_step(job_id, step_order, resources)
     else:
         # for local environment or cloud
         print "Now run %s" % job_desc
