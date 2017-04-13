@@ -172,9 +172,10 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''
     else:
         pbs_script_content = pbs_script_content.replace('{MEM}', '')
     try:
-        with open(job_name, 'w') as pbs_handler:
+        job_file_path = os.path.join(workspace, job_name)
+        with open(job_file_path, 'w') as pbs_handler:
             pbs_handler.write(pbs_script_content)
-        step_process = subprocess.Popen(('qsub', job_name), shell=False, stdout=subprocess.PIPE,
+        step_process = subprocess.Popen(('qsub', job_file_path), shell=False, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, cwd=workspace)
         stdout, stderr = step_process.communicate()
         pbs_trace_id = stdout.split('\n')[0]
