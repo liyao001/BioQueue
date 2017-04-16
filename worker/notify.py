@@ -22,15 +22,9 @@ class MailNotify:
     @staticmethod
     def get_user_mail_address(uid):
         """
-        from databaseDriver import con_mysql
-        con, cur = con_mysql()
-        sql = '''SELECT `email` FROM `auth_user` WHERE `id` = %d;''' % int(uid)
-        cur.execute(sql)
-        uid = cur.fetchone()
-        if uid:
-            return uid[0]
-        else:
-            return None
+        Get user mail address
+        :param uid: int, user id
+        :return: string or None, e-mail address
         """
         user_info = User.objects.get(id=uid)
         if user_info:
@@ -39,6 +33,10 @@ class MailNotify:
             return None
 
     def success_job(self):
+        """
+        Return the template content for successful jobs
+        :return: String, template
+        """
         content = """
         <h1>Job Updates from BioQueue</h1>
         <p>Your job has successfully finished! Here is a short overview of the job:</p>
@@ -52,6 +50,10 @@ class MailNotify:
         return content
 
     def error_job(self):
+        """
+        Return the template content for failed jobs
+        :return: String, template
+        """
         content = """
         <h1>Job Updates from BioQueue</h1>
         <p>Some error(s) occurred during running your job! Here is a short overview of the job:</p>
@@ -65,6 +67,11 @@ class MailNotify:
         return content
 
     def send_mail(self, to):
+        """
+        Send mail
+        :param to: string, receiver's e-mail address
+        :return: int, 1 for success, 0 for error
+        """
         import smtplib
         from email.mime.text import MIMEText
         from email.header import Header
@@ -87,13 +94,26 @@ class MailNotify:
 
         try:
             if settings['mail']['mail_host'] != '':
-                smtp_object = smtplib.SMTP()
-                smtp_object.connect(settings['mail']['mail_host'], int(settings['mail']['mail_port']))
+                if settings['mail']['ssl'] != '':
+                    # ssl connection
+                    url = "%s:%d" % (settings['mail']['mail_host'], int(settings['mail']['mail_port']))
+                    smtp_object = smtplib.SMTP_SSL(settings['mail']['mail_host'], int(settings['mail']['mail_port']))
+                elif settings['mail']['tls'] != '':
+                    # tls connection
+                    smtp_object = smtplib.SMTP(settings['mail']['mail_host'], int(settings['mail']['mail_port']))
+                    smtp_object.ehlo()
+                    smtp_object.starttls()
+                else:
+                    # normal connection
+                    smtp_object = smtplib.SMTP(settings['mail']['mail_host'], int(settings['mail']['mail_port']))
+
+                smtp_object.ehlo()
                 smtp_object.login(settings['mail']['mail_user'], settings['mail']['mail_password'])
             else:
                 smtp_object = smtplib.SMTP('localhost')
 
-            smtp_object.sendmail(settings['mail']['sender'], receivers, message.as_string())
+            smtp_object.sendmail(settings['mail']['mail_user'], receivers, message.as_string())
+            smtp_object.close()
             return 1
-        except smtplib.SMTPException:
-            return 0
+        except smtplib.SMTPException, e:
+            print e

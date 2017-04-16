@@ -64,12 +64,7 @@
                 <div id="mail-settings" class="panel-collapse collapse" role="tabpanel" aria-labelledby="head-mail-settings">
                     <div class="panel-body">
                         <div class="form-group">
-                            <label class="control-label" for="sender">Sender name</label>
-                            <input type="text" class="form-control" id="sender" name="sender" value="{{ sender }}" placeholder="Sender name" />
-                            <p class="help-block">Leave it blank to turn off notification.</p>
-                        </div>
-                        <div class="form-group">
-                            <label class="control-label" for="mailhost">Mail host</label>
+                            <label class="control-label" for="mailhost">Mail host (SMTP Server)</label>
                             <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" />
                             <p class="help-block">Leave it blank to turn off notification.</p>
                         </div>
@@ -77,6 +72,33 @@
                             <label class="control-label" for="mailport">Mail port</label>
                             <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" />
                             <p class="help-block">Leave it blank to turn off notification.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mailuser">Use SSL/TLS?</label>
+                            <p>
+                                {% if mail_protocol == 'ssl' %}
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-ssl" value="ssl" checked>Use SSL
+                                    </label>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-tls" value="tls">Use TLS
+                                    </label>
+                                {% elif mail_protocol == 'tls' %}
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-ssl" value="ssl">Use SSL
+                                    </label>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-tls" value="tls" checked>Use TLS
+                                    </label>
+                                {% else %}
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-ssl" value="ssl">Use SSL
+                                    </label>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="protocol" id="protocol-tls" value="tls">Use TLS
+                                    </label>
+                                {% endif %}
+                            </p>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="mailuser">Mail user</label>
