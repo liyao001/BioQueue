@@ -714,16 +714,26 @@ def settings(request):
         set_config('ml', 'threshold', request.POST['ccthr'])
         if request.POST['sender'] != '':
             set_config('mail', 'notify', 'on')
-            set_config('mail', 'sender', request.POST['sender'])
             set_config('mail', 'mail_host', request.POST['mailhost'])
             set_config('mail', 'mail_port', request.POST['mailport'])
             set_config('mail', 'mail_user', request.POST['mailuser'])
             set_config('mail', 'mail_password', request.POST['mailpassword'])
+            if request.POST['protocol'] == 'ssl':
+                set_config('mail', 'ssl', 'true')
+            elif request.POST['protocol'] == 'tls':
+                set_config('mail', 'tls', 'true')
         else:
             set_config('mail', 'notify', 'off')
         return HttpResponseRedirect('/ui/settings')
     else:
         try:
+            if get_config('mail', 'ssl') == 'true':
+                mail_protocol = 'ssl'
+            elif get_config('mail', 'tls') == 'true':
+                mail_protocol = 'tls'
+            else:
+                mail_protocol = 'nm'
+
             configuration = {
                 'run_folder': get_config('env', 'workspace'),
                 'cpu': get_config('env', 'cpu'),
@@ -735,11 +745,11 @@ def settings(request):
                 'cpu_confidence_weight': get_config('ml', 'confidence_weight_cpu'),
                 'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
                 'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
-                'sender': get_config('mail', 'sender'),
                 'mail_host': get_config('mail', 'mail_host'),
                 'mail_port': get_config('mail', 'mail_port'),
                 'mail_user': get_config('mail', 'mail_user'),
                 'mail_password': get_config('mail', 'mail_password'),
+                'mail_protocol': mail_protocol,
             }
         except Exception, e:
             return render(request, 'ui/error.html', {'error_msg': e})

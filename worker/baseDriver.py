@@ -21,10 +21,13 @@ def get_all_config():
 
 
 def get_config(section, key):
-    config = ConfigParser.ConfigParser()
-    path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
-    config.read(path)
-    return config.get(section, key)
+    try:
+        config = ConfigParser.ConfigParser()
+        path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
+        config.read(path)
+        return config.get(section, key)
+    except:
+        return None
 
 
 def set_config(section, key, value):
