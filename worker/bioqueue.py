@@ -527,9 +527,19 @@ def run_step(job_desc, resources):
             job_record.set_status(step_order+1)
         except:
             pass
-        return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
-                                          job_id, step_order, allocate_cpu, allocate_mem,
-                                          settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'])
+
+        if 'trace' in resources.keys():
+            # learn
+            return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
+                                              job_id, step_order, allocate_cpu, allocate_mem,
+                                              settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
+                                              settings['cluster']['walltime'], 1, resources['trace'])
+        else:
+            return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
+                                              job_id, step_order, allocate_cpu, allocate_mem,
+                                              settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
+                                              settings['cluster']['walltime'])
+
         if return_code != 0:
             error_job(job_id, resources)
         else:

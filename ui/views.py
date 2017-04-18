@@ -712,7 +712,8 @@ def settings(request):
         set_config('ml', 'confidence_weight_mem', request.POST['mcw'])
         set_config('ml', 'confidence_weight_cpu', request.POST['ccw'])
         set_config('ml', 'threshold', request.POST['ccthr'])
-        if request.POST['sender'] != '':
+
+        if request.POST['mailhost'] != '':
             set_config('mail', 'notify', 'on')
             set_config('mail', 'mail_host', request.POST['mailhost'])
             set_config('mail', 'mail_port', request.POST['mailport'])
@@ -724,8 +725,21 @@ def settings(request):
                 set_config('mail', 'tls', 'true')
         else:
             set_config('mail', 'notify', 'off')
+
+        if request.POST['cluster_type'] != '':
+            set_config('cluster', 'type', request.POST['cluster_type'])
+            set_config('cluster', 'cpu', request.POST['job_cpu'])
+            set_config('cluster', 'queue', request.POST['job_dest'])
+            set_config('cluster', 'walltime', request.POST['job_wt'])
+        else:
+            set_config('cluster', 'type', '')
+            set_config('cluster', 'cpu', '')
+            set_config('cluster', 'queue', '')
+            set_config('cluster', 'walltime', '')
+
         return HttpResponseRedirect('/ui/settings')
     else:
+        from worker.clusterSupport import get_cluster_models
         try:
             if get_config('mail', 'ssl') == 'true':
                 mail_protocol = 'ssl'
@@ -750,9 +764,15 @@ def settings(request):
                 'mail_user': get_config('mail', 'mail_user'),
                 'mail_password': get_config('mail', 'mail_password'),
                 'mail_protocol': mail_protocol,
+                'cluster_models': get_cluster_models(),
+                'cluster_type': get_config('cluster', 'type'),
+                'job_cpu': get_config('cluster', 'cpu'),
+                'job_dest': get_config('cluster', 'queue'),
+                'job_wt': get_config('cluster', 'walltime'),
             }
         except Exception, e:
             return render(request, 'ui/error.html', {'error_msg': e})
+
         return render(request, 'ui/settings.html', configuration)
 
 

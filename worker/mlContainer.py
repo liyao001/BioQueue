@@ -8,6 +8,7 @@ import sys
 from mlCollector import get_cpu, get_mem
 import django_initial
 from ui.models import Training
+import pickle
 
 
 def get_protocol(fn):
@@ -17,7 +18,7 @@ def get_protocol(fn):
     return tmp
 
 
-def main(pf, wd, trace):
+def main(pf, wd, trace, output_file):
     protocol = get_protocol(pf)
     for step in protocol:
         mem_list = []
@@ -55,15 +56,15 @@ def main(pf, wd, trace):
         else:
             cpu_usage = -1
 
-        training_item = Training.objects.get(id=trace)
-        training_item.mem = mem_usage
-        training_item.cpu = cpu_usage
-        training_item.save()
+        # save results to local file
+        result = {'cpu': cpu_usage, 'mem': mem_usage}
+        with open(output_file, 'wb') as handler:
+            pickle.dump(result, handler)
 
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "j:w:t:", ["job=", "workdir=", "trace="])
+        opts, args = getopt.getopt(sys.argv[1:], "j:w:t:o:", ["job=", "workdir=", "trace=", "output="])
     except getopt.GetoptError, err:
         print str(err)
         sys.exit()
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     job = ''
     work_dir = ''
     trace_id = 0
+    output_file = ''
     for o, a in opts:
         if o in ("-j", "--job"):
             job = a
@@ -79,4 +81,6 @@ if __name__ == '__main__':
             work_dir = a
         elif o in ("-t", "--trace"):
             trace_id = int(a)
-    main(job, work_dir, trace_id)
+        elif o in ("-o", "--output"):
+            output_file = a
+    main(job, work_dir, trace_id, output_file)
