@@ -142,7 +142,7 @@ def release_job(job_id):
         return 0
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', wall_time='', workspace=''):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"
@@ -171,6 +171,11 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', workspace=''
         pbs_script_content = pbs_script_content.replace('{MEM}', mem+',')
     else:
         pbs_script_content = pbs_script_content.replace('{MEM}', '')
+    if wall_time != '':
+        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '#PBS -l walltime='+wall_time)
+    else:
+        # no limit
+        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '')
     try:
         job_file_path = os.path.join(workspace, job_name)
         with open(job_file_path, 'w') as pbs_handler:
