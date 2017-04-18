@@ -37,8 +37,14 @@ def main(pf, wd, trace, output_file):
 
                 if proc_info.is_running():
                     try:
-                        mem_list.append(get_mem(process_id))
-                        cpu_list.append(get_cpu(process_id))
+                        total_memory_usage = get_mem(process_id)
+                        total_cpu_usage = get_cpu(process_id)
+                        children = proc_info.children()
+                        for child in children:
+                            total_memory_usage += get_mem(child.pid)
+                            total_cpu_usage += get_cpu(child.pid)
+                        mem_list.append(total_memory_usage)
+                        cpu_list.append(total_cpu_usage)
                     except Exception, e:
                         print e
             time.sleep(10)
