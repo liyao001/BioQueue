@@ -77,7 +77,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
             tmp_file.write(parameter)
             tmp_file.close()
 
-            ml_parameter = "python %s -j %s -w %s -t %s - o %s" % \
+            ml_parameter = "python %s -j %s -w %s -t %s -o %s" % \
                            (os.path.join(os.path.split(os.path.realpath(__file__))[0], "mlContainer.py"),
                             os.path.join(os.path.split(os.path.realpath(__file__))[0], tmp_filename),
                             workspace, str(trace_id), ml_file_name)
