@@ -204,4 +204,9 @@ class Training(models.Model):
         step_key = Protocol.objects.get(hash=self.step)
         return step_key.software+' '+step_key.parameter
 
+    def update_cpu_mem(self, cpu, mem):
+        self.mem = mem
+        self.cpu = cpu
+        self.save()
+
     step_name.admin_order_field = 'step'
