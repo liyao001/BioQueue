@@ -730,11 +730,13 @@ def settings(request):
             set_config('cluster', 'type', request.POST['cluster_type'])
             set_config('cluster', 'cpu', request.POST['job_cpu'])
             set_config('cluster', 'queue', request.POST['job_dest'])
+            set_config('cluster', 'mem', request.POST['job_mem'])
             set_config('cluster', 'walltime', request.POST['job_wt'])
         else:
             set_config('cluster', 'type', '')
             set_config('cluster', 'cpu', '')
             set_config('cluster', 'queue', '')
+            set_config('cluster', 'mem', '')
             set_config('cluster', 'walltime', '')
 
         return HttpResponseRedirect('/ui/settings')
@@ -768,6 +770,7 @@ def settings(request):
                 'cluster_type': get_config('cluster', 'type'),
                 'job_cpu': get_config('cluster', 'cpu'),
                 'job_dest': get_config('cluster', 'queue'),
+                'job_mem': get_config('cluster', 'mem'),
                 'job_wt': get_config('cluster', 'walltime'),
             }
         except Exception, e:
