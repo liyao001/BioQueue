@@ -168,7 +168,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', wall_time=''
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
         .replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
     if mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', mem+',')
+        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',')
     else:
         pbs_script_content = pbs_script_content.replace('{MEM}', '')
     if wall_time != '':
