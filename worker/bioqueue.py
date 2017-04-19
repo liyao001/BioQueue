@@ -333,6 +333,8 @@ def run_prepare(job_id, job, no_new_learn = 0):
     resource_needed = checkPoint.predict_resource_needed(job['steps'][job['resume'] + 1]['hash'],
                                                          INPUT_SIZE[job_id],
                                                          training_num)
+    if resource_needed['cpu'] > int(settings['env']['cpu']) * 100:
+        resource_needed['cpu'] = int(settings['env']['cpu']) * 95;
 
     if learning == 1 and no_new_learn == 0:
         trace_id = create_machine_learning_item(job['steps'][job['resume'] + 1]['hash'], INPUT_SIZE[job_id])
