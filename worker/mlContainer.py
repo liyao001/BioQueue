@@ -28,7 +28,19 @@ def main(pf, wd, trace, output_file):
         par.whitespace_split = True
         par.commenters = ''
         parameters = list(par)
-        proc = subprocess.Popen(parameters, shell=False, stdout=None, stderr=None, cwd=wd)
+        true_shell = 0
+        redirect_tags = ('>', '<')
+
+        for rt in redirect_tags:
+            if rt in parameters:
+                true_shell = 1
+                break
+
+        if true_shell:
+            proc = subprocess.Popen(step, shell=True, cwd=wd)
+        else:
+            proc = subprocess.Popen(parameters, shell=False, stdout=None, stderr=None, cwd=wd)
+
         process_id = proc.pid
 
         while proc.poll() is None:
