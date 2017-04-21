@@ -555,8 +555,20 @@ def run_step(job_desc, resources):
             log_file = os.path.join(settings["env"]["log"], str(job_id))
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
-            step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
-                                            stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
+            true_shell = 0
+            redirect_tags = ('>', '<')
+
+            for rt in redirect_tags:
+                if rt in JOB_COMMAND[job_id]:
+                    true_shell = 1
+                    break
+
+            if true_shell:
+                step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True, cwd=JOB_TABLE[job_id]['job_folder'])
+            else:
+                step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=None, stderr=None, cwd=JOB_TABLE[job_id]['job_folder'])
+            #step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
+            #                                stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
             process_id = step_process.pid
             if 'trace' in resources.keys():
                 learn_process = subprocess.Popen(["python", os.path.join(root_path, 'mlCollector.py'),
