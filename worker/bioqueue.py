@@ -514,7 +514,7 @@ def run_step(job_desc, resources):
             else:
                 allocate_cpu = predict_cpu
         if resources['mem'] is None:
-            allocate_mem = ''
+            allocate_mem = settings['env']['mem']
         else:
             if resources['mem'] > 1073741824:
                 allocate_mem = str(int(round(resources['mem'] / 1073741824) + 1)) + 'Gb'
