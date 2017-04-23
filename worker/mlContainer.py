@@ -5,7 +5,7 @@ import time
 import subprocess
 import psutil
 import sys
-from mlCollector import get_cpu, get_mem
+from mlCollector import get_cpu, get_mem, get_cpu_mem
 import django_initial
 from ui.models import Training
 import pickle
@@ -60,19 +60,7 @@ def main(pf, wd, output_file):
                         print e
             time.sleep(10)
 
-        if len(mem_list) > 0:
-            mem_usage = max(mem_list)
-        else:
-            mem_usage = -1
-        if len(cpu_list) > 2:
-            samples = int(round(len(cpu_list) * 0.5))
-            cpu_list.sort(reverse=True)
-            cpu_usage = sum(cpu_list[0:samples]) / samples
-        elif len(cpu_list) > 0:
-            cpu_usage = sum(cpu_list) / len(cpu_list)
-        else:
-            cpu_usage = -1
-
+        cpu_usage, mem_usage = get_cpu_mem(cpu_list, mem_list)
         # save results to local file
         result = {'cpu': cpu_usage, 'mem': mem_usage}
         with open(output_file, 'wb') as handler:
