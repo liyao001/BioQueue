@@ -735,7 +735,7 @@ def settings(request):
             set_config('cluster', 'type', request.POST['cluster_type'])
             set_config('cluster', 'cpu', request.POST['job_cpu'])
             set_config('cluster', 'queue', request.POST['job_dest'])
-            set_config('cluster', 'mem', request.POST['job_mem'])
+            set_config('cluster', 'mem', request.POST['job_mem']+'GB')
             set_config('cluster', 'walltime', request.POST['job_wt'])
         else:
             set_config('cluster', 'type', '')
@@ -758,7 +758,7 @@ def settings(request):
             configuration = {
                 'run_folder': get_config('env', 'workspace'),
                 'cpu': get_config('env', 'cpu'),
-                'memory': get_config('env', 'memory'),
+                'memory': get_config('env', 'mem'),
                 'disk_quota': get_config('env', 'disk_quota'),
                 'threshold': get_config('ml', 'threshold'),
                 'disk_confidence_weight': get_config('ml', 'confidence_weight_disk'),
