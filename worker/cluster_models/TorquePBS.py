@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 def alter_attribute(job_id, attribute):
     """
     Change job attribute
@@ -30,7 +31,8 @@ def cancel_job(job_id):
     """
     import subprocess
     try:
-        step_process = subprocess.Popen(('qdel', str(job_id)), shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        step_process = subprocess.Popen(('qdel', str(job_id)), shell=False, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
         return 1
     except Exception, e:
@@ -151,10 +153,12 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', wall_time=''
     :param cpu: int, cpu cores
     :param mem: string, allocated memory, eg. 64G
     :param queue: string, job queue
+    :param wall_time: string, cpu time
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0
     """
-    import subprocess, os
+    import subprocess
+    import os
     template = load_template()
 
     if not os.path.exists(workspace):

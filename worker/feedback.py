@@ -85,7 +85,7 @@ def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, m
         post_data_dict['cpu_r'] = cpu_r
     if abs(float(mem_r)) > 0.5:
         post_data_dict['mem_a'] = mem_a
-        post_data_dict['mem_b'] = mem_a
+        post_data_dict['mem_b'] = mem_b
         post_data_dict['mem_r'] = mem_r
     if abs(float(disk_r)) > 0.5:
         post_data_dict['disk_a'] = disk_a

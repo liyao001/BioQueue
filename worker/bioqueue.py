@@ -108,7 +108,7 @@ def prepare_workspace(resume, run_folder, job_id, user_id, result=''):
         user_folder = os.path.join(run_folder, str(user_id))
         run_folder = os.path.join(user_folder, result_store)
         create_user_folder(user_folder, run_folder)
-        #baseDriver.update(settings['datasets']['job_db'], job_id, 'result', result_store)
+        # baseDriver.update(settings['datasets']['job_db'], job_id, 'result', result_store)
         try:
             job_record = Queue.objects.get(id=job_id)
             job_record.set_result(result_store)
@@ -270,8 +270,7 @@ def finish_job(job_id, error=0):
             OUTPUT_DICT_SUFFIX.pop(job_id)
 
 
-
-def run_prepare(job_id, job, no_new_learn = 0):
+def run_prepare(job_id, job, no_new_learn=0):
     """
     Parse step's parameter and predict the resources needed by the step
     :param job_id: int, jod id
@@ -334,7 +333,7 @@ def run_prepare(job_id, job, no_new_learn = 0):
                                                          INPUT_SIZE[job_id],
                                                          training_num)
     if resource_needed['cpu'] > int(settings['env']['cpu']) * 100:
-        resource_needed['cpu'] = int(settings['env']['cpu']) * 95;
+        resource_needed['cpu'] = int(settings['env']['cpu']) * 95
 
     if learning == 1 and no_new_learn == 0:
         trace_id = create_machine_learning_item(job['steps'][job['resume'] + 1]['hash'], INPUT_SIZE[job_id])
@@ -355,7 +354,7 @@ def forecast_step(job_id, step_order, resources):
     rollback = 0
 
     if settings['cluster']['type'] == '':
-        #for clusters
+        # for clusters
         new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
 
         if new_cpu < 0 or new_mem < 0 or new_disk < 0:
@@ -400,7 +399,8 @@ def finish_step(job_id, step_order, resources):
     :param resources: dictionary, resources required by the step
     :return: None
     """
-    global JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE, CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
+    global JOB_TABLE, NEW_FILES, OUTPUTS, OUTPUT_DICT, OUTPUT_SIZE, FOLDER_SIZE_BEFORE,\
+        CUMULATIVE_OUTPUT_SIZE, LAST_OUTPUT_STRING
     try:
         job = Queue.objects.get(id=job_id)
         job.resume = step_order
@@ -410,7 +410,8 @@ def finish_step(job_id, step_order, resources):
         JOB_TABLE[job_id]['resume'] = step_order
         this_output = baseDriver.get_folder_content(JOB_TABLE[job_id]['job_folder'])
         NEW_FILES[job_id] = sorted(list(set(this_output).difference(set(LAST_OUTPUT[job_id]))))
-        NEW_FILES[job_id] = [os.path.join(JOB_TABLE[job_id]['job_folder'], file_name) for file_name in NEW_FILES[job_id]]
+        NEW_FILES[job_id] = [os.path.join(JOB_TABLE[job_id]['job_folder'], file_name)
+                             for file_name in NEW_FILES[job_id]]
     except Exception, e:
         print e
 
@@ -452,6 +453,7 @@ def error_job(job_id, resources):
     """
     Error occurs
     :param job_id: int, job id
+    :param resources: dict, job resources
     :return: None
     """
     try:
@@ -523,7 +525,7 @@ def run_step(job_desc, resources):
             else:
                 allocate_mem = str(int(round(resources['mem'] / 1048576) + 1)) + 'Mb'
 
-        #baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
+        # baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
         try:
             job_record = Queue.objects.get(id=job_id)
             job_record.set_status(step_order+1)
@@ -545,7 +547,7 @@ def run_step(job_desc, resources):
         if return_code != 0:
             error_job(job_id, resources)
         else:
-            #RUNNING_JOBS -= 1
+            # RUNNING_JOBS -= 1
             finish_step(job_id, step_order, resources)
     else:
         # for local environment or cloud
@@ -564,10 +566,12 @@ def run_step(job_desc, resources):
                     break
 
             if true_shell:
-                step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True, cwd=JOB_TABLE[job_id]['job_folder'])
+                step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True,
+                                                cwd=JOB_TABLE[job_id]['job_folder'])
             else:
-                step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=None, stderr=None, cwd=JOB_TABLE[job_id]['job_folder'])
-            #step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
+                step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=None,
+                                                stderr=None, cwd=JOB_TABLE[job_id]['job_folder'])
+            # step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
             #                                stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
             process_id = step_process.pid
             if 'trace' in resources.keys():
@@ -610,8 +614,8 @@ def run_step(job_desc, resources):
             try:
                 from feedback import feedback_error
                 feedback_error(JOB_COMMAND[job_id][0],
-                         ' '.join(JOB_COMMAND[job_id][1:]),
-                         str(e))
+                               ' '.join(JOB_COMMAND[job_id][1:]),
+                               str(e))
             except:
                 pass
             RUNNING_JOBS -= 1

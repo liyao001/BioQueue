@@ -12,13 +12,12 @@ import pickle
 
 
 def get_protocol(fn):
-    protocol = []
     pf = open(fn)
     tmp = pf.readlines()
     return tmp
 
 
-def main(pf, wd, trace, output_file):
+def main(pf, wd, output_file):
     protocol = get_protocol(pf)
     for step in protocol:
         mem_list = []
@@ -82,7 +81,7 @@ def main(pf, wd, trace, output_file):
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "j:w:t:o:", ["job=", "workdir=", "trace=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "j:w:o:", ["job=", "workdir=", "output="])
     except getopt.GetoptError, err:
         print str(err)
         sys.exit()
@@ -97,8 +96,6 @@ if __name__ == '__main__':
             job = a
         elif o in ("-w", "--workdir"):
             work_dir = a
-        elif o in ("-t", "--trace"):
-            trace_id = int(a)
         elif o in ("-o", "--output"):
             output_file = a
-    main(job, work_dir, trace_id, output_file)
+    main(job, work_dir, output_file)
