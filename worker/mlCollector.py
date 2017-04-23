@@ -39,6 +39,28 @@ def get_io(pid):
         return 0
 
 
+def get_cpu_mem(cpu_list, mem_list):
+    """
+    Get CPU and memory usage
+    :param cpu_list: list, cpu usage info
+    :param mem_list: list, memory usage info
+    :return: tuple, cpu_usage and mem_usage
+    """
+    if len(mem_list) > 0:
+        mem_usage = max(mem_list)
+    else:
+        mem_usage = -1
+    if len(cpu_list) > 2:
+        samples = int(round(len(cpu_list) * 0.5))
+        cpu_list.sort(reverse=True)
+        cpu_usage = sum(cpu_list[0:samples]) / samples
+    elif len(cpu_list) > 0:
+        cpu_usage = sum(cpu_list) / len(cpu_list)
+    else:
+        cpu_usage = -1
+    return cpu_usage, mem_usage
+
+
 def main():
 
     try:
@@ -87,18 +109,7 @@ def main():
             else:
                 break
 
-        if len(mem_list) > 0:
-            mem_usage = max(mem_list)
-        else:
-            mem_usage = -1
-        if len(cpu_list) > 2:
-            samples = int(round(len(cpu_list)*0.5))
-            cpu_list.sort(reverse=True)
-            cpu_usage = sum(cpu_list[0:samples])/samples
-        elif len(cpu_list) > 0:
-            cpu_usage = sum(cpu_list)/len(cpu_list)
-        else:
-            cpu_usage = -1
+        cpu_usage, mem_usage = get_cpu_mem(cpu_list, mem_list)
 
         try:
             training_item = Training.objects.get(id=job_id)
