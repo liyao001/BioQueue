@@ -107,7 +107,9 @@ def con_mysql():
     h=host, u=user, p=password, db=database, port=database port, local=local_infile"""
     import MySQLdb
     try:
-        connection = MySQLdb.connect(host=get_config("db", "host"), user=get_config("db", "user"), passwd=get_config("db", "password"), db=get_config("db", "db_name"), port=int(get_config("db", "port")), local_infile=1)
+        connection = MySQLdb.connect(host=get_config("db", "host"), user=get_config("db", "user"),
+                                     passwd=get_config("db", "password"), db=get_config("db", "db_name"),
+                                     port=int(get_config("db", "port")), local_infile=1)
         if buffer == 1:
             cursor = connection.cursor(buffer=True)
         else:
@@ -188,7 +190,7 @@ def get_path(url):
     
     if reg_site.match(url):
         host_name = reg_site.match(url).group(1)
-        if len(port)>1:
+        if len(port) > 1:
             host_name = host_name + ':' + port
         path = str(url).split(host_name)[1]
     else:

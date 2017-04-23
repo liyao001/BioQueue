@@ -13,6 +13,7 @@ from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
 
+
 @login_required
 def add_job(request):
     if request.method == 'POST':
@@ -123,7 +124,8 @@ def batch_job(request):
                                 else:
                                     return render(request,
                                                   'ui/error.html',
-                                                  {'error_msg': 'You are not the owner of the protocol(%s)' % protocol_id})
+                                                  {'error_msg': 'You are not the owner of the protocol(%s)' %
+                                                                protocol_id})
                             else:
                                 return render(request,
                                               'ui/error.html',
@@ -359,7 +361,7 @@ def export_protocol(request):
             references = {}
             reference_list = References.objects.filter(user_id=request.user.id).all()
             protocol_ref = {}
-            #references.extend([reference.name for reference in reference_list])
+            # references.extend([reference.name for reference in reference_list])
             for reference in reference_list:
                 references[reference.name] = reference.description
 
@@ -424,8 +426,10 @@ def export_protocol(request):
 
 @login_required
 def fetch_learning(request):
-    import urllib2, json
-    query_string = request.GET['hash']+','+request.GET['type']+','+str(get_config('env', 'cpu'))+','+str(get_config('env', 'memory'))+','+str(os_to_int())
+    import urllib2
+    import json
+    query_string = request.GET['hash'] + ',' + request.GET['type'] + ',' + str(get_config('env', 'cpu'))\
+                   + ',' + str(get_config('env', 'memory')) + ',' + str(os_to_int())
     api_bus = get_config('ml', 'api')+'/Index/share/q/' + query_string
     try:
         req = urllib2.Request(api_bus)
@@ -435,7 +439,7 @@ def fetch_learning(request):
                         'type': request.GET['type'],
                         'a': res['a'],
                         'b': res['b'],
-                        'r': res['r'],}
+                        'r': res['r'], }
         request.session['learning'] = session_dict
         template = loader.get_template('ui/fetch_learning.html')
         context = RequestContext(request, {
@@ -493,7 +497,8 @@ def import_protocol(request):
             try:
                 with open(file_name) as f:
                     protocol_raw = f.read()
-                    import json, hashlib
+                    import json
+                    import hashlib
                     protocol_json = json.loads(protocol_raw)
                     if ProtocolList.objects.filter(name=protocol_json['name'], user_id=request.user.id).exists():
                         return error('Duplicate record!')
@@ -623,7 +628,7 @@ def query_job_parameter(request):
                                 'Workspace']
             reference_list = References.objects.filter(user_id=request.user.id).all()
             pre_defined_keys.extend([reference.name for reference in reference_list])
-            steps = Protocol.objects.filter(parent = protocol.id)
+            steps = Protocol.objects.filter(parent=protocol.id)
             wildcard_pattern = re.compile("\\{(.*?)\\}", re.IGNORECASE | re.DOTALL)
             for step in steps:
                 for wildcard in re.findall(wildcard_pattern, step.parameter):
@@ -759,7 +764,8 @@ def settings(request):
                 'disk_confidence_weight': get_config('ml', 'confidence_weight_disk'),
                 'mem_confidence_weight': get_config('ml', 'confidence_weight_mem'),
                 'cpu_confidence_weight': get_config('ml', 'confidence_weight_cpu'),
-                'max_disk': round((get_disk_free(get_config('env', 'workspace'))+get_disk_used(get_config('env', 'workspace')))/1073741824),
+                'max_disk': round((get_disk_free(get_config('env', 'workspace'))
+                                   +get_disk_used(get_config('env', 'workspace')))/1073741824),
                 'free_disk': round(get_disk_free(get_config('env', 'workspace'))/1073741824),
                 'mail_host': get_config('mail', 'mail_host'),
                 'mail_port': get_config('mail', 'mail_port'),
@@ -840,7 +846,8 @@ def show_job_log(request):
 
 @login_required
 def show_job_folder(request):
-    import time, base64
+    import time
+    import base64
     if request.method == 'POST':
         query_job_form = JobManipulateForm(request.POST)
         if query_job_form.is_valid():
@@ -904,7 +911,8 @@ def show_learning_steps(request):
             if request.user.is_superuser:
                 step_list = Protocol.objects.filter(parent=int(request.GET['parent'])).all()
             else:
-                step_list = Protocol.objects.filter(parent=int(request.GET['parent'])).filter(user_id=request.user.id).all()
+                step_list = Protocol.objects.filter(parent=
+                                                    int(request.GET['parent'])).filter(user_id=request.user.id).all()
             template = loader.get_template('ui/show_learning_steps.html')
             context = RequestContext(request, {
                 'step_list': step_list,

@@ -60,7 +60,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
     :param mem: string, allocate memory
     :param queue: string, queue name
     :param workspace: string, job path
-    :param walltime: string, CPU time limit for a job
+    :param wall_time: string, CPU time limit for a job
     :param learning: int
     :param trace_id: int
     :return: int
@@ -77,10 +77,10 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
             tmp_file.write(parameter)
             tmp_file.close()
 
-            ml_parameter = "python %s -j %s -w %s -t %s -o %s" % \
+            ml_parameter = "python %s -j %s -w %s -o %s" % \
                            (os.path.join(os.path.split(os.path.realpath(__file__))[0], "mlContainer.py"),
                             os.path.join(os.path.split(os.path.realpath(__file__))[0], tmp_filename),
-                            workspace, str(trace_id), ml_file_name)
+                            workspace, ml_file_name)
 
             cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue, wall_time, workspace)
 

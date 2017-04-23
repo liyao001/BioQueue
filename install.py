@@ -6,6 +6,7 @@ from getpass import getpass
 import ConfigParser
 byte_to_gigabyte = 1073741824
 
+
 def set_config(section, key, value):
     config = ConfigParser.ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
