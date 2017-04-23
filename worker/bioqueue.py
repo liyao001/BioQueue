@@ -516,14 +516,14 @@ def run_step(job_desc, resources):
             else:
                 allocate_cpu = predict_cpu
         if resources['mem'] is None:
-            allocate_mem = settings['env']['mem']
+            allocate_mem = settings['cluster']['mem']
         else:
             if resources['mem'] > 1073741824:
-                allocate_mem = str(int(round(resources['mem'] / 1073741824) + 1)) + 'Gb'
+                allocate_mem = str(int(round(resources['mem'] / 1073741824) * 1.1)) + 'Gb'
             elif resources['mem']:
                 allocate_mem = ''
             else:
-                allocate_mem = str(int(round(resources['mem'] / 1048576) + 1)) + 'Mb'
+                allocate_mem = str(int(round(resources['mem'] / 1048576) * 1.1)) + 'Mb'
 
         # baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
         try:
