@@ -278,11 +278,26 @@ def run_prepare(job_id, job, no_new_learn=0):
     :param no_new_learn: int, 1 means refusing creating new training item
     :return:
     """
+    global LAST_OUTPUT_STRING, OUTPUTS, OUTPUT_DICT, OUTPUT_DICT_SUFFIX, NEW_FILES, LAST_OUTPUT, LAST_OUTPUT_STRING
     learning = 0
 
     if job['status'] == -1 and job['resume'] != -1:
         # skip and resume
-        OUTPUT_DICT[job_id] = baseDriver.load_output_dict(job_id)
+        tmp_dict = baseDriver.load_output_dict(job_id)
+        if 'LAST_OUTPUT_STRING' in tmp_dict.keys():
+            LAST_OUTPUT_STRING[job_id] = tmp_dict['LAST_OUTPUT_STRING']
+        if 'OUTPUTS' in tmp_dict.keys():
+            OUTPUTS[job_id] = tmp_dict['OUTPUTS']
+        if 'OUTPUT_DICT' in tmp_dict.keys():
+            OUTPUT_DICT[job_id] = tmp_dict['OUTPUT_DICT']
+        if 'OUTPUT_DICT_SUFFIX' in tmp_dict.keys():
+            OUTPUT_DICT_SUFFIX[job_id] = tmp_dict['OUTPUT_DICT_SUFFIX']
+        if 'NEW_FILES' in tmp_dict.keys():
+            NEW_FILES[job_id] = tmp_dict['NEW_FILES']
+        if 'LAST_OUTPUT' in tmp_dict.keys():
+            LAST_OUTPUT[job_id] = tmp_dict['LAST_OUTPUT']
+        if 'LAST_OUTPUT_SUFFIX' in tmp_dict.keys():
+            LAST_OUTPUT_SUFFIX[job_id] = tmp_dict['LAST_OUTPUT_SUFFIX']
 
     if (job['resume'] + 1) == len(job['steps']):
         return None
@@ -464,8 +479,23 @@ def error_job(job_id, resources):
     except:
         pass
 
+    file_map = dict()
     if job_id in OUTPUT_DICT.keys():
-        baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
+        file_map['OUTPUT_DICT'] = OUTPUT_DICT[job_id]
+    if job_id in LAST_OUTPUT_STRING.keys():
+        file_map['LAST_OUTPUT_STRING'] = LAST_OUTPUT_STRING[job_id]
+    if job_id in OUTPUT_DICT_SUFFIX.keys():
+        file_map['OUTPUT_DICT_SUFFIX'] = OUTPUT_DICT_SUFFIX[job_id]
+    if job_id in OUTPUTS.keys():
+        file_map['OUTPUTS'] = OUTPUTS[job_id]
+    if job_id in NEW_FILES.keys():
+        file_map['NEW_FILES'] = NEW_FILES[job_id]
+    if job_id in LAST_OUTPUT.keys():
+        file_map['LAST_OUTPUT'] = LAST_OUTPUT[job_id]
+    if job_id in LAST_OUTPUT_SUFFIX.keys():
+        file_map['LAST_OUTPUT_SUFFIX'] = LAST_OUTPUT_SUFFIX[job_id]
+
+    baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
 
     update_resource_pool(resources)
 
