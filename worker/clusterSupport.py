@@ -101,7 +101,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                 if status_code == 1 and pending_tag == 1:
                     pending_tag = 0
                     job = Queue.objects.get(id=job_id)
-                    job.status = job.status(step_id+1)
+                    job.status = job.status(int(step_id)+1)
                     job.save()
 
                 if if_terminate(job_id):
