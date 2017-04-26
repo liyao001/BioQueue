@@ -114,15 +114,39 @@ def query_job_status(job_id, step_id):
                                     stderr=subprocess.STDOUT)
     stdout, stderr = step_process.communicate()
     status_pattern = re.compile('job_state\\s+=\\s+(.)', re.IGNORECASE | re.DOTALL)
+    exit_pattern = re.compile('exit_status\\s+=\\s+(.)', re.IGNORECASE | re.DOTALL)
     status_m = status_pattern.search(stdout)
+    '''
+    TORQUE Supplied Exit Codes
+    JOB_EXEC_OK 0
+    JOB_EXEC_FAIL1 -1 job exec failed, before files, no retry
+    JOB_EXEC_FAIL2 -2 job exec failed, after files, no retry
+    JOB_EXEC_RETRY -3 job execution failed, do retry
+    JOB_EXEC_INITABT -4 job aborted on MOM initialization
+    JOB_EXEC_INITRST -5 job aborted on MOM init, chkpt, no migrate
+    JOB_EXEC_INITRMG -6 job aborted on MOM init, chkpt, ok migrate
+    JOB_EXEC_BADRESRT -7 job restart failed
+    JOB_EXEC_CMDFAIL -8 exec() of user command failed
+    '''
     if status_m:
         raw_code = status_m.group(1)
         if raw_code == 'R':
+            # running
             return step_id
         elif raw_code == 'Q':
-            return 0
+            # queueing
+            return 1
         elif raw_code == 'C':
-            return -1
+            # completed
+            try:
+                exit_m = exit_pattern.search(stdout)
+                if exit_m:
+                    exit_code = exit_m.group(1)
+                else:
+                    exit_code = 0
+                return int(exit_code)
+            except:
+                return 0
     else:
         return -3
 

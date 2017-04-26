@@ -32,6 +32,16 @@ def get_cluster_models():
     return models
 
 
+def mark_job_as_pending(job_id):
+    try:
+        from ui.models import Queue
+        job = Queue.objects.get(id=job_id)
+        job.set_wait(5)
+    except:
+        pass
+
+
+
 def dispatch(cluster_type):
     """
     Load cluster module
@@ -68,6 +78,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
     cluster_model = dispatch(cluster_type)
     base_name = str(job_id) + '_' + str(step_id)
     ml_file_name = os.path.join(workspace, base_name + ".mlc")
+    pending_tag = 0
     if cluster_model:
         if learning == 0:
             cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, queue, wall_time, workspace)
@@ -86,12 +97,18 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
 
         while True:
             status_code = cluster_model.query_job_status(cluster_id, step_id)
-            if status_code == step_id or status_code == 0:
+            if status_code == step_id or status_code == 1:
+                # running or queueing
+                if status_code == 0 and pending_tag == 0:
+                    # queueing
+                    pending_tag = 1
+                    mark_job_as_pending(job_id)
+
                 if if_terminate(job_id):
                     cluster_model.cancel_job(cluster_id)
                     break
                 time.sleep(30)
-            elif status_code == -1:
+            elif status_code == 0:
                 if learning == 1:
                     # load learning results
                     try:

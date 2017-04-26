@@ -144,6 +144,11 @@ class Queue(models.Model):
         self.status = status
         self.save()
 
+    def set_wait(self, for_what):
+        self.status = -2
+        self.wait_for = for_what
+        self.save()
+
     def get_result(self):
         return self.result
 
