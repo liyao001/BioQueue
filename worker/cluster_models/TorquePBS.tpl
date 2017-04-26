@@ -1,5 +1,8 @@
 #PBS -N {JOBNAME}
 #PBS -l {MEM}nodes=1:ppn={GLOBAL_MAX_CPU_FOR_CLUSTER}
+#PBS -e {STDERR}
+#PBS -o {STDOUT}
+#PBS -j oe
 {WALLTIME}
 #PBS -q {DEFAULT_QUEUE}
 
