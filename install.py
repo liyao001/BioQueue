@@ -110,13 +110,13 @@ def setup():
     set_config('env', 'cpu', cpu_cores)
     import psutil
     memory_gbs = round(psutil.virtual_memory().total / byte_to_gigabyte)
-    user_memory = raw_input('Memory(Gb, by default: %s Gb): ' % memory_gbs)
+    user_memory = raw_input('Memory (Gb, by default: %s Gb): ' % memory_gbs)
     if user_memory:
         memory_gbs = user_memory
     set_config('env', 'memory', memory_gbs)
 
     disk_size = psutil.disk_usage(workspace_path).total / byte_to_gigabyte
-    user_disk_size = raw_input('Disk quota for each user(Gb, by default: %s Gb): ' % disk_size)
+    user_disk_size = raw_input('Disk quota for each user (Gb, by default: %s Gb): ' % disk_size)
     if user_disk_size:
         disk_size = user_disk_size
     set_config('env', 'disk_quota', disk_size)
