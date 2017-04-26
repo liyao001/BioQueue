@@ -99,7 +99,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                                                   log_path, wall_time, workspace)
 
         while True:
-            status_code = cluster_model.query_job_status(cluster_id, step_id)
+            status_code = cluster_model.query_job_status(cluster_id)
             if status_code == 1 or status_code == 2:
                 # running or queueing
                 if status_code == 2 and pending_tag == 0:
