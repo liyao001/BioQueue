@@ -143,7 +143,7 @@ def query_job_status(job_id):
                     exit_code = exit_m.group(1)
                     exit_code = int(exit_code)
                     if exit_code == 1 or exit_code == 2:
-                        exit_code = 0
+                        exit_code = -8
                 else:
                     exit_code = 0
                 return int(exit_code)
