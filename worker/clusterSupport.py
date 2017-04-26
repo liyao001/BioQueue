@@ -95,14 +95,20 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                 if status_code == 2 and pending_tag == 0:
                     # queueing
                     pending_tag = 1
-                    job = Queue.objects.get(id=job_id)
-                    job.status = job.set_wait(5)
+                    try:
+                        job = Queue.objects.get(id=job_id)
+                        job.status = job.set_wait(5)
+                    except:
+                        pass
 
                 if status_code == 1 and pending_tag == 1:
                     pending_tag = 0
-                    job = Queue.objects.get(id=job_id)
-                    job.status = job.status(int(step_id)+1)
-                    job.save()
+                    try:
+                        job = Queue.objects.get(id=job_id)
+                        job.status = step_id + 1
+                        job.save()
+                    except:
+                        pass
 
                 if if_terminate(job_id):
                     cluster_model.cancel_job(cluster_id)
