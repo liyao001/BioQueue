@@ -32,16 +32,6 @@ def get_cluster_models():
     return models
 
 
-def mark_job_as_pending(job_id):
-    try:
-        from ui.models import Queue
-        job = Queue.objects.get(id=job_id)
-        job.set_wait(5)
-    except:
-        pass
-
-
-
 def dispatch(cluster_type):
     """
     Load cluster module
@@ -105,7 +95,14 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                 if status_code == 2 and pending_tag == 0:
                     # queueing
                     pending_tag = 1
-                    mark_job_as_pending(job_id)
+                    job = Queue.objects.get(id=job_id)
+                    job.status = job.set_wait(5)
+
+                if status_code == 1 and pending_tag == 1:
+                    pending_tag = 0
+                    job = Queue.objects.get(id=job_id)
+                    job.status = job.status(step_id+1)
+                    job.save()
 
                 if if_terminate(job_id):
                     cluster_model.cancel_job(cluster_id)
