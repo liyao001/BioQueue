@@ -66,6 +66,10 @@ def main(pf, wd, output_file):
         with open(output_file, 'wb') as handler:
             pickle.dump(result, handler)
 
+        if proc.returncode != 0:
+            import sys
+            sys.exit(1)
+
 
 if __name__ == '__main__':
     try:
