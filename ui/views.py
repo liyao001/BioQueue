@@ -42,7 +42,7 @@ def add_job(request):
                 else:
                     return error('You are not owner of the protocol.')
 
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         return error(str(job_form.errors))
     else:
@@ -80,7 +80,7 @@ def add_step(request):
                     return success('Your step have been created.')
                 else:
                     return error('You are not owner of the protocol.')
-            except Exception, e:
+            except Exception as e:
                 return error(str(e))
     elif request.method == 'GET':
         template = loader.get_template('ui/add_step.html')
@@ -112,7 +112,7 @@ def batch_job(request):
                                     try:
                                         protocol = ProtocolList.objects.get(id=protocol_id)
                                         protocol_cache[protocol_id] = protocol.user_id
-                                    except Exception, e:
+                                    except Exception as e:
                                         return render(request, 'ui/error.html', {'error_msg': e})
                                 if protocol_cache[protocol_id] == request.user.id or request.user.is_superuser:
                                     job_list.append(
@@ -138,7 +138,7 @@ def batch_job(request):
                     Queue.objects.bulk_create(job_list)
                     return HttpResponseRedirect('/ui/query-job')
 
-            except Exception, e:
+            except Exception as e:
                 return render(request, 'ui/error.html', {'error_msg': e})
         else:
             return render(request,
@@ -216,7 +216,7 @@ def create_protocol(request):
                                               user_id=request.user.id))
                 Protocol.objects.bulk_create(steps)
                 return success('Your protocol have been created!')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(protocol_form.errors))
@@ -237,7 +237,7 @@ def delete_job(request):
                     return success('Your job have been deleted.')
                 else:
                     return error('Your are not the owner of the job.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(terminate_form.errors))
@@ -299,7 +299,7 @@ def delete_step(request):
                     return success('Your step has been deleted.')
                 else:
                     return error('You are not owner of the step.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error('Unknown parameter.')
@@ -327,7 +327,7 @@ def download_job_file(request, f):
         response['Content-Disposition'] = 'attachment;filename="{0}"'.format(os.path.basename(file_path))
         response['Content-Length'] = os.path.getsize(file_path)
         return response
-    except Exception, e:
+    except Exception as e:
         return error(e)
 
 
@@ -342,7 +342,7 @@ def download_upload_file(request, f):
         response['Content-Disposition'] = 'attachment;filename="{0}"'.format(os.path.basename(file_path))
         response['Content-Length'] = os.path.getsize(file_path)
         return response
-    except Exception, e:
+    except Exception as e:
         return error(e)
 
 
@@ -406,7 +406,7 @@ def export_protocol(request):
                             'disk_b': disk_b,
                             'disk_r': disk_r,
                         }
-                    except Exception, e:
+                    except Exception as e:
                         print e
                         tmp = {
                             'software': step.software,
@@ -446,7 +446,7 @@ def fetch_learning(request):
             'step': res,
         })
         return success(template.render(context))
-    except Exception, e:
+    except Exception as e:
         return error(api_bus)
 
 
@@ -463,7 +463,7 @@ def get_learning_result(request):
                     'hit': train,
                 })
                 return success(template.render(context))
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(learning_form.errors))
@@ -546,7 +546,7 @@ def import_protocol(request):
                     if len(predictions):
                         Prediction.objects.bulk_create(predictions)
                     return HttpResponseRedirect('/ui/query-protocol')
-            except Exception, e:
+            except Exception as e:
                 return render(request, 'ui/error.html', {'error_msg': e})
         else:
             return render(request, 'ui/error.html', {'error_msg': str(form.errors)})
@@ -677,7 +677,7 @@ def rerun_job(request):
                     return success('Your job will rerun soon.')
                 else:
                     return error('Your are not the owner of the job.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(rerun_form.errors))
@@ -698,7 +698,7 @@ def resume_job(request):
                     return success('Your job will be resumed soon.')
                 else:
                     return error('Your are not the owner of the job.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(terminate_form.errors))
@@ -778,8 +778,9 @@ def settings(request):
                 'job_dest': get_config('cluster', 'queue'),
                 'job_mem': get_config('cluster', 'mem'),
                 'job_wt': get_config('cluster', 'walltime'),
+                'cv': get_bioqueue_version(),
             }
-        except Exception, e:
+        except Exception as e:
             return render(request, 'ui/error.html', {'error_msg': e})
 
         return render(request, 'ui/settings.html', configuration)
@@ -836,7 +837,7 @@ def show_job_log(request):
                 log_content = '<br />'.join(log)
                 log_file.close()
                 return success(log_content)
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(query_job_form.errors))
@@ -876,7 +877,7 @@ def show_job_folder(request):
                     return success(template.render(context))
                 else:
                     return error('Your are not the owner of the job.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(query_job_form.errors))
@@ -951,7 +952,7 @@ def show_upload_files(request):
     if not os.path.exists(user_path):
         try:
             os.makedirs(user_path)
-        except Exception, e:
+        except Exception as e:
             return render(request, 'ui/error.html', {'error_msg': e})
 
     context = {'user_files': os.listdir(user_path)}
@@ -995,7 +996,7 @@ def terminate_job(request):
                     return success('Your job will be terminated soon.')
                 else:
                     return error('Your are not the owner of the job.')
-            except Exception, e:
+            except Exception as e:
                 return error(e)
         else:
             return error(str(terminate_form.errors))
@@ -1011,9 +1012,8 @@ def update_bioqueue(request):
         req = urllib2.Request(remote_address)
         res_data = urllib2.urlopen(req)
         remote_version = res_data.read()
-        remote_version += " | <b>Current version:</b> " + get_bioqueue_version()
         return success(remote_version)
-    except Exception, e:
+    except Exception as e:
         return error(str(remote_address))
 
 
