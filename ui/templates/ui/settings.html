@@ -5,7 +5,6 @@
     <div class="page-header">
         <h1>System Settings</h1>
     </div>
-    <p><b>Latest version:</b> <span id="github-version">Fetching...</span></p>
     <form class="form" method="post" action=".">
         <div class="panel-group" id="settings-container" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default">
@@ -168,6 +167,9 @@
                 </div>
                 <div id="maintenance-settings" class="panel-collapse collapse" role="tabpanel" aria-labelledby="head-maintenance-settings">
                     <div class="panel-body">
+                        <p><b>Latest version:</b> <span id="github-version">Fetching...</span></p>
+                        <p><b>Current version:</b> <span id="local-version">{{ cv }}</span></p>
+                        <p><button type="button" id="update-trigger" class="btn btn-default" disabled="disabled">Update</button></p>
                         <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
                     </div>
                 </div>
@@ -199,6 +201,11 @@ $.get("{% url 'ui:update_bioqueue' %}", function(data){
     var msg = "";
     if (data.status){
         msg = data.info;
+        if (msg == $("#local-version").text()){
+            $("#update-trigger").attr("disabled", "disabled");
+        }else{
+            $('#update-trigger').removeAttr("disabled");
+        }
     }else{
         msg = "Can not connect to github, please check your connection.";
     }
