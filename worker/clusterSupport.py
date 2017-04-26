@@ -100,9 +100,9 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
 
         while True:
             status_code = cluster_model.query_job_status(cluster_id, step_id)
-            if status_code == step_id or status_code == 1:
+            if status_code == 1 or status_code == 2:
                 # running or queueing
-                if status_code == 1 and pending_tag == 0:
+                if status_code == 2 and pending_tag == 0:
                     # queueing
                     pending_tag = 1
                     mark_job_as_pending(job_id)
