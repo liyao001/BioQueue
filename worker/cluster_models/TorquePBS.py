@@ -101,11 +101,10 @@ def load_template():
     return template
 
 
-def query_job_status(job_id, step_id):
+def query_job_status(job_id):
     """
     Query job status
     :param job_id: int, job id
-    :param step_id: int, step order
     :return: int, job status
     """
     import subprocess
@@ -132,10 +131,10 @@ def query_job_status(job_id, step_id):
         raw_code = status_m.group(1)
         if raw_code == 'R':
             # running
-            return step_id
+            return 1
         elif raw_code == 'Q':
             # queueing
-            return 1
+            return 2
         elif raw_code == 'C':
             # completed
             try:
