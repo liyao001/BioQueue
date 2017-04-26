@@ -522,6 +522,8 @@ def run_step(job_desc, resources):
     step_order = int(items[1])
     recheck = forecast_step(job_id, step_order, resources)
 
+    log_file = os.path.join(settings["env"]["log"], str(job_id))
+
     if recheck is not True:
         return
 
@@ -567,12 +569,12 @@ def run_step(job_desc, resources):
             return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
                                               job_id, step_order, allocate_cpu, allocate_mem,
                                               settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
-                                              settings['cluster']['walltime'], 1, resources['trace'])
+                                              log_file, settings['cluster']['walltime'], 1, resources['trace'])
         else:
             return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
                                               job_id, step_order, allocate_cpu, allocate_mem,
                                               settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
-                                              settings['cluster']['walltime'])
+                                              log_file, settings['cluster']['walltime'])
 
         if return_code != 0:
             error_job(job_id, resources)
@@ -584,7 +586,6 @@ def run_step(job_desc, resources):
         print "Now run %s" % job_desc
         print CPU_POOL, MEMORY_POOL, DISK_POOL
         try:
-            log_file = os.path.join(settings["env"]["log"], str(job_id))
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
             true_shell = 0

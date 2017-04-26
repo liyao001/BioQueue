@@ -59,7 +59,7 @@ def dispatch(cluster_type):
         return None
 
 
-def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, wall_time='', learning=0, trace_id=0):
+def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, log_path, wall_time='', learning=0, trace_id=0):
     """
     Cluster support function
     :param cluster_type: string, cluster type, like TorquePBS
@@ -70,6 +70,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
     :param mem: string, allocate memory
     :param queue: string, queue name
     :param workspace: string, job path
+    :param log_path: string, path to store job logs
     :param wall_time: string, CPU time limit for a job
     :param learning: int
     :param trace_id: int
@@ -81,7 +82,8 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
     pending_tag = 0
     if cluster_model:
         if learning == 0:
-            cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, queue, wall_time, workspace)
+            cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, queue,
+                                                  log_path, wall_time, workspace)
         else:
             tmp_filename = os.path.join(workspace, base_name + ".tmp")
             tmp_file = open(tmp_filename, mode='w')
@@ -93,7 +95,8 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, w
                             os.path.join(os.path.split(os.path.realpath(__file__))[0], tmp_filename),
                             workspace, ml_file_name)
 
-            cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue, wall_time, workspace)
+            cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue,
+                                                  log_path, wall_time, workspace)
 
         while True:
             status_code = cluster_model.query_job_status(cluster_id, step_id)
