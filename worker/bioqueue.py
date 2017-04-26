@@ -600,8 +600,8 @@ def run_step(job_desc, resources):
                 step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True,
                                                 cwd=JOB_TABLE[job_id]['job_folder'])
             else:
-                step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=None,
-                                                stderr=None, cwd=JOB_TABLE[job_id]['job_folder'])
+                step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
+                                                stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
             # step_process = subprocess.Popen(JOB_COMMAND[job_id], shell=False, stdout=log_file_handler,
             #                                stderr=log_file_handler, cwd=JOB_TABLE[job_id]['job_folder'])
             process_id = step_process.pid
@@ -620,7 +620,8 @@ def run_step(job_desc, resources):
                             job.status = -3
                             job.ter = 0
                             job.save()
-                            proc_info.kill()
+                            # proc_info.kill()
+                            step_process.kill()
                             error_job(job_id, resources)
                             RUNNING_JOBS -= 1
 
