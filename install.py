@@ -55,12 +55,23 @@ def setup():
     print '===================================================='
 
     pip_import_path = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
-    if os.system('pip install -r %s' % pip_import_path):
-        print '====================================================='
-        print '|Fetal error occured when installing python packages|'
-        print '|Installation will be terminated now                |'
-        print '====================================================='
-        sys.exit(1)
+    pip_install = 'pip install -r %s' % pip_import_path
+    if os.system(pip_install):
+        print '======================================================='
+        print '|Fetal error occured when installing python packages  |'
+        print '|Now BioQueue will try to install alternative packages|'
+        print '======================================================='
+        mydb_to_pymy_script = os.path.split(os.path.realpath(__file__))[0] + '/deploy/switch_from_MySQLdb_to_PyMySQL.py'
+        os.system('python %s' % mydb_to_pymy_script)
+        if os.system(pip_install):
+            print '======================================================='
+            print '|Fetal error occured when installing python packages  |'
+            print '|Installation will be terminated now                  |'
+            print '|You can visit:                                       |'
+            print '|https://github.com/liyao001/BioQueue/issues          |'
+            print '|to post the problem that you have encontered.        |'
+            print '======================================================='
+            sys.exit(1)
 
     log_path = os.path.join(workspace_path, 'logs')
     output_path = os.path.join(workspace_path, 'outputs')
