@@ -637,6 +637,8 @@ def query_job_parameter(request):
                         user_defined_wildcards.append(wildcard)
     except:
         pass
+    
+    result = ''
     user_defined_wildcards = list(set(user_defined_wildcards))
     if len(user_defined_wildcards) > 0:
         result = '=;'.join(user_defined_wildcards)
