@@ -1,7 +1,7 @@
-Cython>=0.24.1
-MySQL-python>=1.2.5
-numpy>=1.11.2
-psutil>=4.3.1
-pyftpdlib>=1.5.1
-Django>=1.10.1
-python-daemon>=2.1.2
+Cython==0.24.1
+MySQL-python==1.2.5
+numpy==1.11.2
+psutil==4.3.1
+pyftpdlib==1.5.1
+Django==1.10.1
+python-daemon==2.1.2
