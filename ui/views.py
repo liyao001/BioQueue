@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render
-from django.template import RequestContext, loader
+from django.template import loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info
@@ -84,9 +84,9 @@ def add_step(request):
                 return error(str(e))
     elif request.method == 'GET':
         template = loader.get_template('ui/add_step.html')
-        context = RequestContext(request, {
+        context = {
             'parent': request.GET['protocol'],
-        })
+        }
         return success(template.render(context))
     else:
         return error('Method error')
@@ -442,9 +442,9 @@ def fetch_learning(request):
                         'r': res['r'], }
         request.session['learning'] = session_dict
         template = loader.get_template('ui/fetch_learning.html')
-        context = RequestContext(request, {
+        context = {
             'step': res,
-        })
+        }
         return success(template.render(context))
     except Exception as e:
         return error(api_bus)
@@ -459,9 +459,9 @@ def get_learning_result(request):
             try:
                 train = Prediction.objects.get(step_hash=cd['stephash'], type=cd['type'])
                 template = loader.get_template('ui/get_learning_result.html')
-                context = RequestContext(request, {
+                context = {
                     'hit': train,
-                })
+                }
                 return success(template.render(context))
             except Exception as e:
                 return error(e)
@@ -873,9 +873,9 @@ def show_job_folder(request):
                             tmp['trace'] = base64.b64encode(os.path.join(result_folder, file_path))
                             user_files.append(tmp)
                     template = loader.get_template('ui/show_job_folder.html')
-                    context = RequestContext(request, {
+                    context = {
                         'user_files': user_files,
-                    })
+                    }
                     return success(template.render(context))
                 else:
                     return error('Your are not the owner of the job.')
@@ -917,9 +917,9 @@ def show_learning_steps(request):
                 step_list = Protocol.objects.filter(parent=
                                                     int(request.GET['parent'])).filter(user_id=request.user.id).all()
             template = loader.get_template('ui/show_learning_steps.html')
-            context = RequestContext(request, {
+            context = {
                 'step_list': step_list,
-            })
+            }
             return success(template.render(context))
         else:
             return error('Wrong parameter.')
@@ -938,9 +938,9 @@ def show_step(request):
             else:
                 step_list = Protocol.objects.filter(parent=cd['parent']).filter(user_id=request.user.id).all()
             template = loader.get_template('ui/show_steps.html')
-            context = RequestContext(request, {
+            context = {
                 'step_list': step_list,
-            })
+            }
             return success(template.render(context))
         else:
             return error(str(query_protocol_form.errors))
