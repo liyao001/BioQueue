@@ -105,8 +105,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                     pending_tag = 0
                     try:
                         job = Queue.objects.get(id=job_id)
-                        job.status = step_id + 1
-                        job.save()
+                        job.set_status(step_id + 1)
                     except:
                         pass
 

@@ -157,33 +157,29 @@ def regression(step_hash, save=1):
     :param save:  int, 1 or 0. If save equals 1, the record will be saved to database
     :return: coefficients
     """
+    coefficients = dict()
     try:
         x, out, mem, cpu = load_train_frame(step_hash)
         # Output Size
-        ao, bo, ro = reg_single_feature(x, out)
-        ao = 0 if numpy.isnan(ao) else ao
-        bo = 0 if numpy.isnan(bo) else bo
-        ro = 0 if numpy.isnan(ro) else ro
+        coefficients['ao'], coefficients['bo'], coefficients['ro'] = reg_single_feature(x, out)
 
         # Memory Usage
-        am, bm, rm = reg_single_feature(x, mem)
-        am = 0 if numpy.isnan(am) else am
-        bm = 0 if numpy.isnan(bm) else bm
-        rm = 0 if numpy.isnan(rm) else rm
+        coefficients['am'], coefficients['bm'], coefficients['rm'] = reg_single_feature(x, mem)
 
         # CPU Usage
-        ac, bc, rc = reg_single_feature(x, cpu)
-        ac = 0 if numpy.isnan(ac) else ac
-        bc = 0 if numpy.isnan(bc) else bc
-        rc = 0 if numpy.isnan(rc) else rc
+        coefficients['ac'], coefficients['bc'], coefficients['rc'] = reg_single_feature(x, cpu)
+
+        for coefficient in coefficients:
+            coefficients[coefficient] = 0 if numpy.isnan(coefficients[coefficient]) else coefficients[coefficient]
 
         if save:
-            record_result(step_hash, ao, bo, ro, 1)
-            record_result(step_hash, am, bm, rm, 2)
-            record_result(step_hash, ac, bc, rc, 3)
+            record_result(step_hash, coefficients['ao'], coefficients['bo'], coefficients['ro'], 1)
+            record_result(step_hash, coefficients['am'], coefficients['bm'], coefficients['rm'], 2)
+            record_result(step_hash, coefficients['ac'], coefficients['bc'], coefficients['rc'], 3)
 
-        return ao, bo, am, bm, ac, bc
-    except Exception, e:
+        return coefficients['ao'], coefficients['bo'], coefficients['am'],\
+               coefficients['bm'], coefficients['ac'], coefficients['bc']
+    except Exception as e:
         print e
 
 
@@ -224,6 +220,7 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                 predict_need['mem'] = int((am * in_size + bm) * float(settings['ml']['confidence_weight_mem']))
                 predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight_cpu']))
 
-    except:
+    except Exception as e:
+        print e
         return {'cpu': None, 'mem': None, 'disk': None}
     return predict_need

@@ -378,8 +378,7 @@ def forecast_step(job_id, step_order, resources):
     if not rollback:
         try:
             job = Queue.objects.get(id=job_id)
-            job.status = step_order + 1
-            job.save()
+            job.set_status(step_order + 1)
         except:
             pass
         JOB_TABLE[job_id]['status'] = step_order + 1
@@ -756,7 +755,7 @@ def main():
                 new_thread.setDaemon(True)
                 new_thread.start()
             time.sleep(5)
-        except Exception, e:
+        except Exception as e:
             print e
 
 

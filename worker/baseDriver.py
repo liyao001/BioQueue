@@ -6,10 +6,15 @@ import psutil
 from multiprocessing import cpu_count
 
 
-def get_all_config():
+def config_init():
     config = ConfigParser.ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
     config.read(path)
+    return config
+
+
+def get_all_config():
+    config = config_init()
     configurations = {}
     for section in config.sections():
         tmp = config.items(section)
@@ -22,18 +27,14 @@ def get_all_config():
 
 def get_config(section, key):
     try:
-        config = ConfigParser.ConfigParser()
-        path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
-        config.read(path)
+        config = config_init()
         return config.get(section, key)
     except:
         return None
 
 
 def set_config(section, key, value):
-    config = ConfigParser.ConfigParser()
-    path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
-    config.read(path)
+    config = config_init()
     config.set(section, key, value)
     config.write(open(os.path.split(os.path.realpath(__file__))[0] + '/config.conf', "w"))
 

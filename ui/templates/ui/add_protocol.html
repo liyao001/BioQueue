@@ -4,6 +4,29 @@
 <div class="row-fluid">
     <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
         <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="importHeading">
+                <h4 class="panel-title">
+                    <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#importCollapse" aria-expanded="false" aria-controls="importCollapse">Import a Protocol</a>
+                </h4>
+            </div>
+            <div id="importCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="importHeading">
+                <div class="panel-body">
+                    <form class="form" method="post" action="{% url 'ui:import_protocol' %}" enctype="multipart/form-data">
+                        <fieldset>
+                            <div class="form-group">
+                                <label for="parameter">Protocol file</label>
+                                <input type="file" id="protocol_list" name="job_list">
+                            </div>
+                            {% csrf_token %}
+                            <div class="form-group" style="margin-bottom: 9px;">
+                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and import</button>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
             <div class="panel-heading" role="tab" id="createHeading">
                 <h4 class="panel-title">
                     <a role="button" data-toggle="collapse" data-parent="#accordion" href="#createCollapse" aria-expanded="true" aria-controls="createCollapse">Create New Protocol</a>
@@ -39,29 +62,6 @@
                         </div>
                     </form>
                     {% include 'ui/variant_hint.html' %}
-                </div>
-            </div>
-        </div>
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="importHeading">
-                <h4 class="panel-title">
-                    <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#importCollapse" aria-expanded="false" aria-controls="importCollapse">Import a Protocol</a>
-                </h4>
-            </div>
-            <div id="importCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="importHeading">
-                <div class="panel-body">
-                    <form class="form" method="post" action="{% url 'ui:import_protocol' %}" enctype="multipart/form-data">
-                        <fieldset>
-                            <div class="form-group">
-                                <label for="parameter">Protocol file</label>
-                                <input type="file" id="protocol_list" name="job_list">
-                            </div>
-                            {% csrf_token %}
-                            <div class="form-group" style="margin-bottom: 9px;">
-                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and import</button>
-                            </div>
-                        </fieldset>
-                    </form>
                 </div>
             </div>
         </div>

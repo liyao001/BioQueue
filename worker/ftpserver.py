@@ -36,17 +36,22 @@ def load_user_table():
 
             auth.add_user(user.username, user.password, user_directory, perm='elradfmw')
         return auth
-    except Exception, e:
+    except Exception as e:
         print e
         return 0
 
-if __name__ == "__main__":
+
+def ftp_init():
     authentication = load_user_table()
     if authentication:
         handler = FTPHandler
         handler.authorizer = authentication
-        
+
         server = FTPServer((get_config('env', 'ftp_addr'), int(get_config('env', 'ftp_port'))), handler)
         server.serve_forever()
     else:
         print '==Unable to Start BioQueue FTP Server=='
+
+
+if __name__ == "__main__":
+    ftp_init()

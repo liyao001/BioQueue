@@ -1,6 +1,5 @@
 #!/usr/local/bin python
 import getopt
-import shlex
 import time
 import subprocess
 import psutil
@@ -22,11 +21,8 @@ def main(pf, wd, output_file):
     for step in protocol:
         mem_list = []
         cpu_list = []
-        par = shlex.shlex(step)
-        par.quotes = '"'
-        par.whitespace_split = True
-        par.commenters = ''
-        parameters = list(par)
+        from parameterParser import parameter_string_to_list
+        parameters = parameter_string_to_list(step)
         true_shell = 0
         redirect_tags = ('>', '<')
 
