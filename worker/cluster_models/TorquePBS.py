@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 
+from __future__ import print_function
+
+
 def alter_attribute(job_id, attribute):
     """
     Change job attribute
@@ -18,8 +21,8 @@ def alter_attribute(job_id, attribute):
                                         stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
         return 1
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
 
 
@@ -35,8 +38,8 @@ def cancel_job(job_id):
                                         stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
         return 1
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
 
 
@@ -68,8 +71,8 @@ def get_cluster_status():
                 node_status['memtol'] = int(totmem_m.group(1)) * 1024
             node_name = node.split('\n')[0]
             cluster_status[node_name] = node_status
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
     return cluster_status
 
 
@@ -85,8 +88,8 @@ def hold_job(job_id):
                                         stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
         return 1
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
 
 
@@ -165,8 +168,8 @@ def release_job(job_id):
                                         stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
         return 1
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
 
 
@@ -219,6 +222,6 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='',
         stdout, stderr = step_process.communicate()
         pbs_trace_id = stdout.split('\n')[0]
         return pbs_trace_id
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -423,7 +424,7 @@ def export_protocol(request):
                             'disk_r': disk_r,
                         }
                     except Exception as e:
-                        print e
+                        print(e)
                         tmp = {
                             'software': step.software,
                             'parameter': step.parameter,
@@ -442,14 +443,17 @@ def export_protocol(request):
 
 @login_required
 def fetch_learning(request):
-    import urllib2
+    try:
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.request import urlopen
+
     import json
     query_string = request.GET['hash'] + ',' + request.GET['type'] + ',' + str(get_config('env', 'cpu'))\
                    + ',' + str(get_config('env', 'memory')) + ',' + str(os_to_int())
     api_bus = get_config('ml', 'api')+'/Index/share/q/' + query_string
     try:
-        req = urllib2.Request(api_bus)
-        res_data = urllib2.urlopen(req)
+        res_data = urlopen(api_bus)
         res = json.loads(res_data.read())
         session_dict = {'hash': request.GET['hash'],
                         'type': request.GET['type'],
@@ -1026,11 +1030,14 @@ def terminate_job(request):
 
 @staff_member_required
 def update_bioqueue(request):
-    import urllib2
+    try:
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.request import urlopen
+
     remote_address = get_config('program', 'latest_version')
     try:
-        req = urllib2.Request(remote_address)
-        res_data = urllib2.urlopen(req)
+        res_data = urlopen(remote_address)
         remote_version = res_data.read()
         return success(remote_version)
     except Exception as e:

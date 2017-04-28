@@ -1,13 +1,18 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
-import ConfigParser
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
+
 import os
 import psutil
 from multiprocessing import cpu_count
 
 
 def config_init():
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
     config.read(path)
     return config
@@ -116,8 +121,8 @@ def con_mysql():
         else:
             cursor = connection.cursor()
             
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
     return connection, cursor
 
 
@@ -128,8 +133,8 @@ def update(table, jid, field, value):
         cursor.execute(query)
         connection.commit()
         connection.close()
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
     return 1
 
@@ -145,8 +150,8 @@ def multi_update(table, jid, m):
         cursor.execute(query)
         connection.commit()
         connection.close()
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
     return 1
 
@@ -162,8 +167,8 @@ def get_field(field, table, key, value):
             return res[0]
         else:
             return None
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
 
 
 def delete(table, record_id):
@@ -173,8 +178,8 @@ def delete(table, record_id):
         cursor.execute(query)
         connection.commit()
         connection.close()
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
     return 1
 
@@ -185,7 +190,7 @@ def get_path(url):
     head = str(url).split(":")[0]
     try:
         port = str(url).split(':')[2].split('/')[0]
-    except Exception, e:
+    except Exception as e:
         port = ""
     reg_site.match(url)
     
@@ -205,29 +210,32 @@ def ftp_size(host_name, path):
     from ftplib import FTP
     try:
         ftp = FTP(host_name)
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return -1
     try:
         ftp.login()
         ftp.voidcmd('TYPE I')
         size = ftp.size(path)
         ftp.quit()
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
     return size
 
 
 def http_size(host_name, path):
-    import httplib
     try:
-        conn = httplib.HTTPConnection(host_name, timeout=3)
+        from httplib import HTTPConnection
+    except ImportError:
+        from http.client import HTTPConnection
+    try:
+        conn = HTTPConnection(host_name, timeout=3)
         conn.request("GET", path)
         resp = conn.getresponse()
         return int(resp.getheader("content-length"))
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
         return 0
 
 
@@ -289,8 +297,8 @@ def load_output_dict(job):
             dic = pickle.load(ff)
             ff.close()
             return dic
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             return {}
     else:
         return {}
@@ -301,8 +309,8 @@ def del_output_dict(job):
     if os.path.exists(fp):
         try:
             os.remove(fp)
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
 
 def build_upload_file_path(user_folder, file_name):

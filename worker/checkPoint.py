@@ -1,4 +1,5 @@
 #!/usb/bin/env python
+from __future__ import print_function
 from numpy import *
 import numpy
 from baseDriver import get_all_config
@@ -180,7 +181,7 @@ def regression(step_hash, save=1):
         return coefficients['ao'], coefficients['bo'], coefficients['am'],\
                coefficients['bm'], coefficients['ac'], coefficients['bc']
     except Exception as e:
-        print e
+        print(e)
 
 
 def predict_resource_needed(step, in_size=-99999.0, training_num=0):
@@ -221,6 +222,6 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                 predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight_cpu']))
 
     except Exception as e:
-        print e
+        print(e)
         return {'cpu': None, 'mem': None, 'disk': None}
     return predict_need

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from pyftpdlib.authorizers import DummyAuthorizer, AuthenticationFailed
 from django.utils.crypto import pbkdf2
 from pyftpdlib.handlers import FTPHandler
@@ -37,7 +38,7 @@ def load_user_table():
             auth.add_user(user.username, user.password, user_directory, perm='elradfmw')
         return auth
     except Exception as e:
-        print e
+        print(e)
         return 0
 
 
@@ -50,7 +51,7 @@ def ftp_init():
         server = FTPServer((get_config('env', 'ftp_addr'), int(get_config('env', 'ftp_port'))), handler)
         server.serve_forever()
     else:
-        print '==Unable to Start BioQueue FTP Server=='
+        print('==Unable to Start BioQueue FTP Server==')
 
 
 if __name__ == "__main__":

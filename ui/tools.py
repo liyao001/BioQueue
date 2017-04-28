@@ -39,7 +39,7 @@ def delete_file(file_path):
             return success('Deleted')
         else:
             return error('File can not be found.')
-    except Exception, e:
+    except Exception as e:
         return error(e)
 
 
@@ -48,7 +48,7 @@ def check_user_existence(username):
     try:
         u = User.objects.get(username=username)
         return u.id
-    except Exception, e:
+    except Exception as e:
         return 0
 
 
