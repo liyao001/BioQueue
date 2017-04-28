@@ -12,7 +12,7 @@ def set_config(section, key, value):
     path = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
     config.read(path)
     config.set(section, key, value)
-    config.write(open(os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf', "w"))
+    config.write(open(path, "w"))
 
 
 def get_random_secret_key():

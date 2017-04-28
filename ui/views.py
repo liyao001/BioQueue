@@ -321,6 +321,8 @@ def download_job_file(request, f):
     import base64
     file_path = os.path.join(get_config('env', 'workspace'),
                              str(request.user.id), base64.b64decode(f.replace('f/', '')))
+    return download(file_path)
+    '''
     try:
         response = FileResponse(open(file_path, 'rb'))
         response['Content-Type'] = 'application/octet-stream'
@@ -329,13 +331,26 @@ def download_job_file(request, f):
         return response
     except Exception as e:
         return error(e)
+    '''
 
+
+def download(file_path):
+    try:
+        response = FileResponse(open(file_path, 'rb'))
+        response['Content-Type'] = 'application/octet-stream'
+        response['Content-Disposition'] = 'attachment;filename="{0}"'.format(os.path.basename(file_path))
+        response['Content-Length'] = os.path.getsize(file_path)
+        return response
+    except Exception as e:
+        return error(e)
 
 @login_required
 def download_upload_file(request, f):
     import base64
     file_path = os.path.join(get_config('env', 'workspace'),
                              str(request.user.id), 'uploads', base64.b64decode(f.replace('f/', '')))
+    return download(file_path)
+    '''
     try:
         response = FileResponse(open(file_path, 'rb'))
         response['Content-Type'] = 'application/octet-stream'
@@ -344,6 +359,7 @@ def download_upload_file(request, f):
         return response
     except Exception as e:
         return error(e)
+    '''
 
 
 @login_required
@@ -592,6 +608,16 @@ def manage_reference(request):
         return render(request, 'ui/manage_reference.html', {'references': reference_list})
 
 
+def page_info(page_model, page):
+    try:
+        items = page_model.page(page)
+    except PageNotAnInteger:
+        items = page_model.page(1)
+    except EmptyPage:
+        items = page_model.page(page_model.num_pages)
+    return items
+
+
 @login_required
 def query_job(request):
     if request.user.is_superuser:
@@ -601,14 +627,15 @@ def query_job(request):
     paginator = Paginator(job_list, 25)
 
     page = request.GET.get('page')
-
+    '''
     try:
         jobs = paginator.page(page)
     except PageNotAnInteger:
         jobs = paginator.page(1)
     except EmptyPage:
         jobs = paginator.page(paginator.num_pages)
-
+    '''
+    jobs = page_info(paginator, page)
     dt, du, dp = get_disk_quota_info(request.user.id)
     return render(request, 'ui/query_job.html', {'job_list': jobs, 't_disk': dt, 'u_disk': du, 'disk_per': dp})
 
@@ -646,23 +673,28 @@ def query_job_parameter(request):
     return success(result)
 
 
-@login_required
-def query_protocol(request):
-    if request.user.is_superuser:
+def query_protocol_atom(is_superuser, user_id, page):
+    if is_superuser:
         protocol_list = ProtocolList.objects.all()
     else:
-        protocol_list = ProtocolList.objects.filter(user_id=request.user.id).all()
+        protocol_list = ProtocolList.objects.filter(user_id=user_id).all()
+
     paginator = Paginator(protocol_list, 25)
-
-    page = request.GET.get('page')
-
+    '''
     try:
         protocols = paginator.page(page)
     except PageNotAnInteger:
         protocols = paginator.page(1)
     except EmptyPage:
         protocols = paginator.page(paginator.num_pages)
+    return protocols
+    '''
+    return page_info(paginator, page)
 
+
+@login_required
+def query_protocol(request):
+    protocols = query_protocol_atom(request.user.is_superuser, request.user.id, request.GET.get('page'))
     return render(request, 'ui/list_protocol.html', {'protocol_list': protocols})
 
 
@@ -889,21 +921,7 @@ def show_job_folder(request):
 
 @login_required
 def show_learning(request):
-    if request.user.is_superuser:
-        protocol_list = ProtocolList.objects.all()
-    else:
-        protocol_list = ProtocolList.objects.filter(user_id=request.user.id).all()
-    paginator = Paginator(protocol_list, 25)
-
-    page = request.GET.get('page')
-
-    try:
-        protocols = paginator.page(page)
-    except PageNotAnInteger:
-        protocols = paginator.page(1)
-    except EmptyPage:
-        protocols = paginator.page(paginator.num_pages)
-
+    protocols = query_protocol_atom(request.user.is_superuser, request.user.id, request.GET.get('page'))
     return render(request, 'ui/show_learning.html', {'protocol_list': protocols})
 
 

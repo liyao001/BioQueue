@@ -65,7 +65,7 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "n:p:j:", ["protocolStep=", "pid=", "job_id="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         print str(err)
         sys.exit()
         
@@ -101,7 +101,7 @@ def main():
                         mem_list.append(total_memory_usage)
                         cpu_list.append(total_cpu_usage)
                         time.sleep(30)
-                    except Exception, e:
+                    except Exception as e:
                         print e
                         break
                 else:
