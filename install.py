@@ -1,9 +1,16 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import os
 import sys
 from multiprocessing import cpu_count
 from getpass import getpass
-import ConfigParser
+try:
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
+
+from six.moves import input
+
 byte_to_gigabyte = 1073741824
 
 
@@ -46,31 +53,31 @@ def setup():
         try:
             os.makedirs(workspace_path)
             break
-        except Exception, e:
-            print 'The path you input doesn\'t exist! Please reassign it.', e
-            workspace_path = raw_input('Path of workspace: ')
+        except Exception as e:
+            print('The path you input doesn\'t exist! Please reassign it.', e)
+            workspace_path = input('Path of workspace: ')
 
-    print '===================================================='
-    print 'Installing dependent python packages, please wait...'
-    print '===================================================='
+    print('====================================================')
+    print('Installing dependent python packages, please wait...')
+    print('====================================================')
 
     pip_import_path = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
     pip_install = 'pip install -r %s' % pip_import_path
     if os.system(pip_install):
-        print '======================================================='
-        print '|Fetal error occured when installing python packages  |'
-        print '|Now BioQueue will try to install alternative packages|'
-        print '======================================================='
+        print('=======================================================')
+        print('|Fetal error occured when installing python packages  |')
+        print('|Now BioQueue will try to install alternative packages|')
+        print('=======================================================')
         mydb_to_pymy_script = os.path.split(os.path.realpath(__file__))[0] + '/deploy/switch_from_MySQLdb_to_PyMySQL.py'
         os.system('python %s' % mydb_to_pymy_script)
         if os.system(pip_install):
-            print '======================================================='
-            print '|Fetal error occured when installing python packages  |'
-            print '|Installation will be terminated now                  |'
-            print '|You can visit:                                       |'
-            print '|https://github.com/liyao001/BioQueue/issues          |'
-            print '|to post the problem that you have encontered.        |'
-            print '======================================================='
+            print('=======================================================')
+            print('|Fetal error occured when installing python packages  |')
+            print('|Installation will be terminated now                  |')
+            print('|You can visit:                                       |')
+            print('|https://github.com/liyao001/BioQueue/issues          |')
+            print('|to post the problem that you have encontered.        |')
+            print('=======================================================')
             sys.exit(1)
 
     log_path = os.path.join(workspace_path, 'logs')
@@ -82,8 +89,8 @@ def setup():
         os.mkdir(output_path)
         os.mkdir(train_path)
         os.mkdir(upload_path)
-    except Exception, e:
-        print 'Doesn\'t have the permission to write your workspace!', e
+    except Exception as e:
+        print('Doesn\'t have the permission to write your workspace!', e)
         sys.exit(1)
 
     set_config('env', 'workspace', workspace_path)
@@ -108,34 +115,34 @@ def setup():
     set_config('program', 'secret_key', secret_key)
     setting_file = setting_file.replace('{SECRET_KEY}', secret_key)
 
-    print ''
-    print '==================='
-    print 'Basic configuration'
-    print '==================='
-    print ''
+    print('')
+    print('===================')
+    print('Basic configuration')
+    print('===================')
+    print('')
 
     cpu_cores = str(cpu_count())
-    user_cpu_cores = raw_input('CPU cores (By default: %s): ' % cpu_cores)
+    user_cpu_cores = input('CPU cores (By default: %s): ' % cpu_cores)
     if user_cpu_cores:
         cpu_cores = user_cpu_cores
     set_config('env', 'cpu', cpu_cores)
     import psutil
     memory_gbs = round(psutil.virtual_memory().total / byte_to_gigabyte)
-    user_memory = raw_input('Memory (Gb, by default: %s Gb): ' % memory_gbs)
+    user_memory = input('Memory (Gb, by default: %s Gb): ' % memory_gbs)
     if user_memory:
         memory_gbs = user_memory
     set_config('env', 'memory', memory_gbs)
 
     disk_size = psutil.disk_usage(workspace_path).total / byte_to_gigabyte
-    user_disk_size = raw_input('Disk quota for each user (Gb, by default: %s Gb): ' % disk_size)
+    user_disk_size = input('Disk quota for each user (Gb, by default: %s Gb): ' % disk_size)
     if user_disk_size:
         disk_size = user_disk_size
     set_config('env', 'disk_quota', disk_size)
 
-    print '======================================='
-    print 'Do you want to use BioQueue with MySQL? '
-    print '======================================='
-    mysql_fb = raw_input('y/n (By default: y)')
+    print('=======================================')
+    print('Do you want to use BioQueue with MySQL? ')
+    print('=======================================')
+    mysql_fb = input('y/n (By default: y)')
 
     if mysql_fb == 'n':
         db_file_template = app_root + '/deploy/sqlite.tpl'
@@ -146,18 +153,18 @@ def setup():
         db_file_handler = open(db_file_template, 'r')
         db_file = db_file_handler.read()
         database_configure = dict()
-        database_configure['host'] = raw_input('Database host: ')
-        database_configure['user'] = raw_input('Database user: ')
-        database_configure['db_name'] = raw_input('Database name: ')
+        database_configure['host'] = input('Database host: ')
+        database_configure['user'] = input('Database user: ')
+        database_configure['db_name'] = input('Database name: ')
         database_configure['password'] = getpass('Database password: ')
-        db_port = raw_input('Database port (By default is 3306): ')
+        db_port = input('Database port (By default is 3306): ')
         if not db_port:
             db_port = '3306'
         database_configure['port'] = db_port
 
-        print '===================================='
-        print 'Configuring database, please wait...'
-        print '===================================='
+        print('====================================')
+        print('Configuring database, please wait...')
+        print('====================================')
 
         set_config('db', 'host', database_configure['host'])
         set_config('db', 'user', database_configure['user'])
@@ -172,11 +179,11 @@ def setup():
 
     setting_file = setting_file.replace('{DATABASE_BACKEND}', db_file)
 
-    print '====================================================================================='
-    print 'Do you agree to provide us diagnostic and usage information to help improve BioQueue?'
-    print 'We collect this information anonymously.'
-    print '====================================================================================='
-    fb = raw_input('y/n (By default: y)')
+    print('=====================================================================================')
+    print('Do you agree to provide us diagnostic and usage information to help improve BioQueue?')
+    print('We collect this information anonymously.')
+    print('=====================================================================================')
+    fb = input('y/n (By default: y)')
 
     if fb == 'n':
         set_config('program', 'feedback', 'no')
@@ -194,21 +201,21 @@ def setup():
 
     init_data_path = os.path.split(os.path.realpath(__file__))[0] + '/init_resource.json'
 
-    print '==============================='
-    print 'Creating tables, please wait...'
-    print '==============================='
+    print('===============================')
+    print('Creating tables, please wait...')
+    print('===============================')
 
     os.system('python %s migrate' % django_manage_path)
 
-    print '============================'
-    print 'Loading data, please wait...'
-    print '============================'
+    print('============================')
+    print('Loading data, please wait...')
+    print('============================')
 
     os.system('python %s loaddata %s' % (django_manage_path, init_data_path))
 
-    print '====================================='
-    print 'Now we\'ll create a superuser account'
-    print '====================================='
+    print('=====================================')
+    print('Now we\'ll create a superuser account')
+    print('=====================================')
 
     os.system('python %s createsuperuser' % django_manage_path)
 

@@ -5,7 +5,7 @@
 # @File: feedback.py
 # @License: Apache
 # @Bitbutcket: https://bitbucket.org/li_yao/
-# @Github: https://github.com/yauli
+# @Github: https://github.com/liyao001
 import requests
 import base64
 from baseDriver import get_config, get_bioqueue_version

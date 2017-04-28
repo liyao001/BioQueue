@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import django_initial
 from django.contrib.auth.models import User
 
@@ -115,5 +116,5 @@ class MailNotify:
             smtp_object.sendmail(settings['mail']['mail_user'], receivers, message.as_string())
             smtp_object.close()
             return 1
-        except smtplib.SMTPException, e:
-            print e
+        except smtplib.SMTPException as e:
+            print(e)

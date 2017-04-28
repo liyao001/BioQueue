@@ -1,11 +1,17 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from multiprocessing import cpu_count
 import baseDriver
 import time
 import os
 import parameterParser
 import django_initial
-import HTMLParser
+
+try:
+    from HTMLParser import HTMLParser
+except ImportError:
+    from html.parser import HTMLParser
+
 import checkPoint
 from ui.models import Queue, Protocol, References, Training
 import threading
@@ -49,7 +55,7 @@ def get_steps(protocol_id):
     step_list = []
 
     steps = Protocol.objects.filter(parent=protocol_id)
-    html_parser = HTMLParser.HTMLParser()
+    html_parser = HTMLParser()
 
     for index, step in enumerate(steps):
         step_list.append({
@@ -89,8 +95,8 @@ def create_user_folder(uf, jf):
             os.mkdir(uf)
         if not os.path.exists(jf):
             os.mkdir(jf)
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
 
 
 def prepare_workspace(resume, run_folder, job_id, user_id, result=''):
@@ -228,8 +234,8 @@ def finish_job(job_id, error=0):
                     mail = MailNotify(JOB_TABLE[job_id]['user_id'], 2, job_id, JOB_TABLE[job_id]['protocol'],
                                       JOB_TABLE[job_id]['input_file'], JOB_TABLE[job_id]['parameter'])
                     mail.send_mail(mail.get_user_mail_address(JOB_TABLE[job_id]['user_id']))
-                except Exception, e:
-                    print e
+                except Exception as e:
+                    print(e)
         else:
             try:
                 job = Queue.objects.get(id=job_id)
@@ -244,8 +250,8 @@ def finish_job(job_id, error=0):
                     mail = MailNotify(JOB_TABLE[job_id]['user_id'], 1, job_id, JOB_TABLE[job_id]['protocol'],
                                       JOB_TABLE[job_id]['input_file'], JOB_TABLE[job_id]['parameter'])
                     mail.send_mail(mail.get_user_mail_address(JOB_TABLE[job_id]['user_id']))
-                except Exception, e:
-                    print e
+                except Exception as e:
+                    print(e)
 
         if job_id in JOB_TABLE.keys():
             resume = JOB_TABLE[job_id]['resume']
@@ -426,8 +432,8 @@ def finish_step(job_id, step_order, resources):
         NEW_FILES[job_id] = sorted(list(set(this_output).difference(set(LAST_OUTPUT[job_id]))))
         NEW_FILES[job_id] = [os.path.join(JOB_TABLE[job_id]['job_folder'], file_name)
                              for file_name in NEW_FILES[job_id]]
-    except Exception, e:
-        print e
+    except Exception as e:
+        print(e)
 
     if job_id in OUTPUTS.keys():
         OUTPUTS[job_id].extend(NEW_FILES[job_id])
@@ -582,8 +588,8 @@ def run_step(job_desc, resources):
             finish_step(job_id, step_order, resources)
     else:
         # for local environment or cloud
-        print "Now run %s" % job_desc
-        print CPU_POOL, MEMORY_POOL, DISK_POOL
+        print("Now run %s" % job_desc)
+        print(CPU_POOL, MEMORY_POOL, DISK_POOL)
         try:
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
@@ -628,7 +634,7 @@ def run_step(job_desc, resources):
 
                 time.sleep(30)
             log_file_handler.close()
-            print "Now job %s finished." % job_desc
+            print("Now job %s finished." % job_desc)
             # finish_step(job_id, step_order, resources)
             if step_process.returncode != 0:
                 RUNNING_JOBS -= 1
@@ -640,8 +646,8 @@ def run_step(job_desc, resources):
             if job_id > LATEST_JOB_ID and (step_order + 1) > LATEST_JOB_STEP:
                 LATEST_JOB_ID = job_id
                 LATEST_JOB_STEP = step_order
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             try:
                 from feedback import feedback_error
                 feedback_error(JOB_COMMAND[job_id][0],
@@ -756,7 +762,7 @@ def main():
                 new_thread.start()
             time.sleep(5)
         except Exception as e:
-            print e
+            print(e)
 
 
 if __name__ == '__main__':

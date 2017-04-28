@@ -1,4 +1,5 @@
 #!/usr/local/bin python
+from __future__ import print_function
 import getopt
 import time
 import subprocess
@@ -52,8 +53,8 @@ def main(pf, wd, output_file):
                             total_cpu_usage += get_cpu(child.pid)
                         mem_list.append(total_memory_usage)
                         cpu_list.append(total_cpu_usage)
-                    except Exception, e:
-                        print e
+                    except Exception as e:
+                        print(e)
             time.sleep(10)
 
         cpu_usage, mem_usage = get_cpu_mem(cpu_list, mem_list)
@@ -70,8 +71,8 @@ def main(pf, wd, output_file):
 if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], "j:w:o:", ["job=", "workdir=", "output="])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         sys.exit()
     if len(opts) == 0:
         sys.exit()

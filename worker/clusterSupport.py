@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import time
 import os
 import django_initial
@@ -128,4 +129,4 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
             else:
                 return 1
     else:
-        print 'Unknown Cluster'
+        print('Unknown Cluster')

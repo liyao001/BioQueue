@@ -1,4 +1,5 @@
 #!/usr/local/bin python
+from __future__ import print_function
 import psutil
 import time
 import getopt
@@ -66,7 +67,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "n:p:j:", ["protocolStep=", "pid=", "job_id="])
     except getopt.GetoptError as err:
-        print str(err)
+        print(str(err))
         sys.exit()
         
     if len(opts) == 0:
@@ -102,7 +103,7 @@ def main():
                         cpu_list.append(total_cpu_usage)
                         time.sleep(30)
                     except Exception as e:
-                        print e
+                        print(e)
                         break
                 else:
                     break

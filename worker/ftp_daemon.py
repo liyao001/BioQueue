@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from daemon import runner
 from pyftpdlib.authorizers import DummyAuthorizer, AuthenticationFailed
 from django.utils.crypto import pbkdf2
@@ -26,7 +27,7 @@ class App:
             try:
                 ftp_init()
             except Exception as e:
-                print e
+                print(e)
 
 app = App()
 daemon_runner = runner.DaemonRunner(app)
