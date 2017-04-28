@@ -15,7 +15,7 @@ byte_to_gigabyte = 1073741824
 
 
 def set_config(section, key, value):
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
     config.read(path)
     config.set(section, key, value)
