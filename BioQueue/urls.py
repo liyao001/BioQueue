@@ -20,5 +20,5 @@ urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^accounts/', include('accounts.urls', namespace='accounts', app_name='accounts')),
     url(r'^ui/', include('ui.urls', namespace='ui', app_name='ui')),
-    url(r'^', include('ui.urls', namespace='ui', app_name='ui')),
+    url(r'^', include('ui.urls', namespace='overall', app_name='overall')),
 ]
