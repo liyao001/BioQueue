@@ -2,12 +2,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Dashboard | BioQueue</title>
-<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+	<meta charset="UTF-8">
+	<title>Dashboard | BioQueue</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
+	<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">
+	<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
+	<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+	<!--[if lt IE 9]>
+        <script src="{% static "ui/js/respond.min.js" %}"></script>
+        <script src="{% static "ui/js/html5shiv.min.js" %}"></script>
+    <![endif]-->
 </head>
 <body>
 <div class="navbar">
@@ -64,7 +70,7 @@
 		        <div class="status">Sample Pool</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-red">
+		<div class="metro-nav-block nav-block-red" style="margin-right: 0;">
 		    <a data-original-title="" href="{% url 'ui:show_learning' %}">
 		        <i class="icon-bar-chart"></i>
 		        <div class="status">Machine Learning</div>
@@ -102,7 +108,7 @@
 		        <div class="status">Authorization required</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-grey">
+		<div class="metro-nav-block nav-block-grey" style="margin-right: 0;">
 		    <a data-original-title="" href="/admin/auth/user">
 		        <i class="icon-ok"></i>
 		        <div class="info">Users</div>
