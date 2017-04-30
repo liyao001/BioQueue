@@ -222,7 +222,8 @@ def create_protocol(request):
         else:
             return error(str(protocol_form.errors))
     else:
-        return render(request, 'ui/add_protocol.html')
+        context = {'api_bus': get_config('ml', 'api')}
+        return render(request, 'ui/add_protocol.html', context)
 
 
 @login_required
