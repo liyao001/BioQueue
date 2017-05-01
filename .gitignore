@@ -8,4 +8,5 @@ workspace/*
 worker/.idea/*
 BioQueue/settings.py
 deploy/000-default.conf
+deploy/prerequisites.txt
 worker/config.conf
