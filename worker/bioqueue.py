@@ -286,6 +286,7 @@ def run_prepare(job_id, job, no_new_learn=0):
     """
     global LAST_OUTPUT_STRING, OUTPUTS, OUTPUT_DICT, OUTPUT_DICT_SUFFIX, NEW_FILES, LAST_OUTPUT, LAST_OUTPUT_STRING
     learning = 0
+    outside_size = 0
 
     if job['status'] == -1 and job['resume'] != -1:
         # skip and resume

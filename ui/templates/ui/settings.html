@@ -169,7 +169,7 @@
                     <div class="panel-body">
                         <p><b>Latest version:</b> <span id="github-version">Fetching...</span></p>
                         <p><b>Current version:</b> <span id="local-version">{{ cv }}</span></p>
-                        <p><button type="button" id="update-trigger" class="btn btn-default" disabled="disabled">Update</button></p>
+                        <p><button type="button" id="update-trigger" class="btn btn-default" disabled="disabled" onclick="update(this);">Update</button></p>
                         <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
                     </div>
                 </div>
@@ -211,5 +211,25 @@ $.get("{% url 'ui:update_bioqueue' %}", function(data){
     }
     $("#github-version").html(msg);
 });
-
+function update(obj){
+    var self = $(obj);
+    self.attr("disabled", true);
+    $.get("{% url 'ui:update_bioqueue' %}", function(data){
+        if(data.status){
+            Messenger().post({
+                message: data.info,
+                showCloseButton: true
+            });
+        }else{
+            Messenger().post({
+                message: data.info,
+                type: 'error',
+                showCloseButton: true
+            });
+            self.attr("disabled", false);
+        }
+    }).error(function(){
+        self.attr("disabled", false);
+    });
+}
 {% endblock %}

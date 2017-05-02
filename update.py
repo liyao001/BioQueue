@@ -48,7 +48,10 @@ def main():
         os.rename(settings_file, settings_file+'.back')
         # update
         try:
-            return_code = subprocess.Popen(('git', 'pull'))
+            git_back = subprocess.Popen(('git', 'pull'))
+            git_back.wait()
+            return_code = git_back.returncode
+
             if return_code:
                 # force
                 step_1 = os.system('git fetch --all')
@@ -60,6 +63,7 @@ def main():
                 return_code = os.system('git pull')
                 if return_code:
                     sys.exit(3)
+
         except OSError:
             print("===========================================")
             print("|Please install git before update BioQueue|")
@@ -70,9 +74,10 @@ def main():
         os.rename(settings_file + '.back', settings_file)
 
         # update dependant packages
-        from install import package_install
-        if not package_install():
+        from install import install_package
+        if not install_package():
             sys.exit(2)
+
 
 if __name__ == '__main__':
     main()

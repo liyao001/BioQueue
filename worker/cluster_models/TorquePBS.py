@@ -182,6 +182,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='',
     :param cpu: int, cpu cores
     :param mem: string, allocated memory, eg. 64G
     :param queue: string, job queue
+    :param log_file: string, log file
     :param wall_time: string, cpu time
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0

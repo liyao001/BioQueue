@@ -47,6 +47,30 @@ def get_random_secret_key():
     return ''.join(random.choice(chars) for i in range(50))
 
 
+def install_package():
+    common_suffix = os.path.split(os.path.realpath(__file__))[0]
+    pip_import_path = common_suffix + '/deploy/prerequisites.txt'
+    pip_import_fallback_path = common_suffix + '/deploy/prerequisites.fallback.txt'
+    pip_install = 'pip install -r %s' % pip_import_path
+    pip_install_fallback = 'pip install -r %s' % pip_import_fallback_path
+    if os.system(pip_install):
+        print('=======================================================')
+        print('|Fetal error occured when installing python packages  |')
+        print('|Now BioQueue will try to install alternative packages|')
+        print('=======================================================')
+        mydb_to_pymy_script = os.path.split(os.path.realpath(__file__))[0] + '/deploy/switch_from_MySQLdb_to_PyMySQL.py'
+        os.system('python %s' % mydb_to_pymy_script)
+        if os.system(pip_install_fallback):
+            print('=======================================================')
+            print('|Fetal error occured when installing python packages  |')
+            print('|Installation will be terminated now                  |')
+            print('|You can visit:                                       |')
+            print('|https://github.com/liyao001/BioQueue/issues          |')
+            print('|to post the problem that you have encontered.        |')
+            print('=======================================================')
+            sys.exit(1)
+
+
 def setup():
     workspace_path = os.path.split(os.path.realpath(__file__))[0] + '/workspace'
     while not os.path.exists(workspace_path):
