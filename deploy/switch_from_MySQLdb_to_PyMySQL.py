@@ -7,12 +7,14 @@
 import os
 
 # remove from prerequisites
-pip_import_path = os.path.split(os.path.realpath(__file__))[0] + '/prerequisites.txt'
+common_suffix = os.path.split(os.path.realpath(__file__))[0]
+pip_import_path = common_suffix + '/prerequisites.txt'
+pip_import_fallback_path = common_suffix + '/prerequisites.fallback.txt'
 pip_list_handler = open(pip_import_path, 'r')
 pip_list = pip_list_handler.read()
 pip_list = pip_list.replace('MySQL-python==1.2.5', 'PyMySQL')
 pip_list_handler.close()
-pip_list_handler = open(pip_import_path, 'w')
+pip_list_handler = open(pip_import_fallback_path, 'w')
 pip_list_handler.write(pip_list)
 pip_list_handler.close()
 

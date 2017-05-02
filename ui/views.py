@@ -1030,6 +1030,19 @@ def terminate_job(request):
 
 
 @staff_member_required
+def update_project(request):
+    try:
+        update_py_path = os.path.split(os.path.realpath(__file__))[0] + '/update.py'
+        update_command = 'python %s' % update_py_path
+        if os.system(update_command):
+            return success('Your instance has been updated, please restatrt the web server and queue service to apply the changes.')
+        else:
+            return error('An error occurred during the update process, please run update.py manually.')
+    except Exception as e:
+        return error(str(e))
+
+
+@staff_member_required
 def update_bioqueue(request):
     try:
         from urllib2 import urlopen
