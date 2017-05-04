@@ -122,7 +122,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                         with open(ml_file_name, "rb") as handler:
                             res = pickle.load(handler)
                             training_item = Training.objects.get(id=trace_id)
-                            training_item.update_cpu_mem(res['cpu'], res['mem'])
+                            training_item.update_cpu_mem(res['cpu'], res['mem'], res['vrt_mem'])
                     except:
                         pass
                 return 0

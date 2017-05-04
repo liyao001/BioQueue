@@ -20,6 +20,7 @@ def get_protocol(fn):
 def main(pf, wd, output_file):
     protocol = get_protocol(pf)
     for step in protocol:
+        vrt_mem_list = []
         mem_list = []
         cpu_list = []
         from parameterParser import parameter_string_to_list
@@ -45,21 +46,25 @@ def main(pf, wd, output_file):
 
                 if proc_info.is_running():
                     try:
-                        total_memory_usage = get_mem(process_id)
+                        total_memory_usage, virt = get_mem(process_id)
                         total_cpu_usage = get_cpu(process_id)
                         children = proc_info.children()
                         for child in children:
-                            total_memory_usage += get_mem(child.pid)
+                            t1, t2 = get_mem(child.pid)
+                            total_memory_usage += t1
+                            virt += t2
+                            # total_memory_usage += get_mem(child.pid)
                             total_cpu_usage += get_cpu(child.pid)
                         mem_list.append(total_memory_usage)
+                        vrt_mem_list.append(virt)
                         cpu_list.append(total_cpu_usage)
                     except Exception as e:
                         print(e)
             time.sleep(10)
 
-        cpu_usage, mem_usage = get_cpu_mem(cpu_list, mem_list)
+        cpu_usage, mem_usage, vrt_mem_usage = get_cpu_mem(cpu_list, mem_list, vrt_mem_list)
         # save results to local file
-        result = {'cpu': cpu_usage, 'mem': mem_usage}
+        result = {'cpu': cpu_usage, 'mem': mem_usage, 'vrt_mem': vrt_mem_usage}
         with open(output_file, 'wb') as handler:
             pickle.dump(result, handler)
 

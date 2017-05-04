@@ -198,6 +198,7 @@ class Training(models.Model):
     input = models.CharField(max_length=50, blank=True, null=True)
     output = models.CharField(max_length=50, blank=True, null=True)
     mem = models.CharField(max_length=50, blank=True, null=True)
+    vrt_mem = models.CharField(max_length=50, blank=True, null=True)
     cpu = models.CharField(max_length=50, blank=True, null=True)
     create_time = models.DateTimeField(auto_now_add=True)
     lock = models.SmallIntegerField(default=1)
@@ -209,9 +210,10 @@ class Training(models.Model):
         step_key = Protocol.objects.get(hash=self.step)
         return step_key.software+' '+step_key.parameter
 
-    def update_cpu_mem(self, cpu, mem):
+    def update_cpu_mem(self, cpu, mem, vrt_mem):
         self.mem = mem
         self.cpu = cpu
+        self.vrt_mem = vrt_mem
         self.save()
 
     step_name.admin_order_field = 'step'
