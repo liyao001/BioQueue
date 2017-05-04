@@ -7,6 +7,7 @@ import sys
 import django_initial
 from ui.models import Training
 
+vrt_mem_list = []
 mem_list = []
 cpu_list = []
 read_list = []
@@ -17,7 +18,7 @@ def get_mem(pid):
     running_process = psutil.Process(pid)
     if running_process.is_running():
         mem = running_process.memory_info()
-        return mem[0]
+        return mem[0], mem[1]
     else:
         return 0
 
@@ -40,7 +41,7 @@ def get_io(pid):
         return 0
 
 
-def get_cpu_mem(cpu_list, mem_list):
+def get_cpu_mem(cpu_list, mem_list, virt_mem_list):
     """
     Get CPU and memory usage
     :param cpu_list: list, cpu usage info
@@ -51,6 +52,10 @@ def get_cpu_mem(cpu_list, mem_list):
         mem_usage = max(mem_list)
     else:
         mem_usage = -1
+    if len(virt_mem_list) > 0:
+        virt_mem_usage = max(virt_mem_list)
+    else:
+        virt_mem_usage = -1
     if len(cpu_list) > 2:
         samples = int(round(len(cpu_list) * 0.5))
         cpu_list.sort(reverse=True)
@@ -59,7 +64,7 @@ def get_cpu_mem(cpu_list, mem_list):
         cpu_usage = sum(cpu_list) / len(cpu_list)
     else:
         cpu_usage = -1
-    return cpu_usage, mem_usage
+    return cpu_usage, mem_usage, virt_mem_usage
 
 
 def main():
@@ -93,13 +98,16 @@ def main():
 
                 if process_info.is_running():
                     try:
-                        total_memory_usage = get_mem(process_id)
+                        total_memory_usage, virt = get_mem(process_id)
                         total_cpu_usage = get_cpu(process_id)
                         children = process_info.children()
                         for child in children:
-                            total_memory_usage += get_mem(child.pid)
+                            t1, t2 = get_mem(child.pid)
+                            total_memory_usage += t1
+                            virt += t2
                             total_cpu_usage += get_cpu(child.pid)
                         mem_list.append(total_memory_usage)
+                        vrt_mem_list.append(virt)
                         cpu_list.append(total_cpu_usage)
                         time.sleep(30)
                     except Exception as e:
@@ -110,11 +118,12 @@ def main():
             else:
                 break
 
-        cpu_usage, mem_usage = get_cpu_mem(cpu_list, mem_list)
+        cpu_usage, mem_usage, vrt_mem_usage = get_cpu_mem(cpu_list, mem_list, vrt_mem_list)
 
         try:
             training_item = Training.objects.get(id=job_id)
             training_item.mem = mem_usage
+            training_item.vrt_mem = vrt_mem_usage
             training_item.cpu = cpu_usage
             training_item.save()
         except:
