@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Queue, Training, Prediction, Resource
+from .models import Queue, Training, Prediction, Resource, Protocol, ProtocolList
 
 '''
 class QueueInline(admin.StackedInline):
@@ -24,7 +24,15 @@ class PredictionAdmin(admin.ModelAdmin):
 class ResourceAdmin(admin.ModelAdmin):
     list_display = ('cpu', 'mem', 'disk', 'lock')
 
+class ProtocolAdmin(admin.ModelAdmin):
+    list_display = ('software', 'parameter', 'specify_output', 'parent')
+
+class ProtocolListAdmin(admin.ModelAdmin):
+    list_display = ('name', 'user_id')
+
 admin.site.register(Queue, QueueAdmin)
 admin.site.register(Prediction, PredictionAdmin)
 admin.site.register(Training, TrainingAdmin)
 admin.site.register(Resource, ResourceAdmin)
+admin.site.register(ProtocolList, ProtocolListAdmin)
+admin.site.register(Protocol, ProtocolAdmin)
