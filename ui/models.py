@@ -51,7 +51,8 @@ class Protocol(models.Model):
     software = models.CharField(max_length=50)
     parameter = models.TextField()
     specify_output = models.CharField(max_length=50, blank=True, null=True)
-    parent = models.CharField(max_length=50, db_index=True)
+    # parent = models.CharField(max_length=50, db_index=True)
+    parent = models.ForeignKey('ProtocolList')
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
 

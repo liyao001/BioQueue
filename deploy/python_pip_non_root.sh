@@ -6,3 +6,5 @@ mkdir -p $HOME/bin
 ./configure --prefix="$HOME"
 make
 make install
+wget https://bootstrap.pypa.io/get-pip.py
+$HOME/bin/python get-pip.py
