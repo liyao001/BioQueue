@@ -1033,7 +1033,7 @@ def terminate_job(request):
 @staff_member_required
 def update_bioqueue(request):
     try:
-        update_py_path = os.path.split(os.path.realpath(__file__))[0] + '/update.py'
+        update_py_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/update.py'
         update_command = 'python %s' % update_py_path
         if os.system(update_command):
             return success('Your instance has been updated, please restatrt the web server and queue service to apply the changes.')
