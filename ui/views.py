@@ -206,13 +206,17 @@ def create_protocol(request):
                 softwares = request.POST.getlist('software', '')
                 parameters = request.POST.getlist('parameter', '')
                 steps = []
+                try:
+                    protocol_id_trace = ProtocolList.objects.get(id=protocol.id)
+                except Exception as e:
+                    return error(e)
                 for index, software in enumerate(softwares):
                     if parameters[index]:
                         m = hashlib.md5()
                         m.update(software + ' ' + parameters[index].strip())
                         steps.append(Protocol(software=software,
                                               parameter=parameters[index],
-                                              parent=protocol.id,
+                                              parent=protocol_id_trace,
                                               hash=m.hexdigest(),
                                               user_id=request.user.id))
                 Protocol.objects.bulk_create(steps)
@@ -527,12 +531,16 @@ def import_protocol(request):
                     protocol.save()
                     steps = []
                     predictions = []
+                    try:
+                        protocol_id_trace = ProtocolList.objects.get(id=protocol.id)
+                    except Exception as e:
+                        return error(e)
                     for step in protocol_json['step']:
                         m = hashlib.md5()
                         m.update(step['software'] + ' ' + step['parameter'].strip())
                         steps.append(Protocol(software=step['software'],
                                               parameter=step['parameter'],
-                                              parent=protocol.id,
+                                              parent=protocol_id_trace,
                                               hash=m.hexdigest(),
                                               user_id=request.user.id))
                         if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
