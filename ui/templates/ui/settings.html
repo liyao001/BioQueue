@@ -198,6 +198,11 @@ $('.sliderbar').slider({
     }
 });
 $.get("{{ rv }}", function(data){
+    if (data == $("#local-version").text()){
+        $("#update-trigger").attr("disabled", "disabled");
+    }else{
+        $('#update-trigger').removeAttr("disabled");
+    }
     $("#github-version").html(data);
 });
 function update(obj){
