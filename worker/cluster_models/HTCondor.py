@@ -42,7 +42,38 @@ def query_job_status(job_id):
     :param job_id: int, job id
     :return: int, job status
     """
-    return None
+    import subprocess
+    import re
+    step_process = subprocess.Popen(('condor_q', str(job_id)), shell=False, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+    stdout, stderr = step_process.communicate()
+    rg = re.compile(
+        "(\\d+)\\s+completed,\\s+(\\d+)\\s+removed,\\s+(\\d+)\\s+idle,\\s+(\\d+)\\s+running,\\s+(\\d+)\\s+held,\\s+(\\d+)\\s+suspended",
+        re.IGNORECASE | re.DOTALL)
+    m = rg.search(stdout)
+    status_code = 0
+    if m:
+        if m.group(1) == '1':
+            # completed
+            status_code = 0
+        elif m.group(2) == '1':
+            # removed
+            status_code = -8
+        elif m.group(3) == '1':
+            # idle
+            status_code = 2
+        elif m.group(4) == '1':
+            # running
+            status_code = 1
+        elif m.group(5) == '1':
+            # held
+            status_code = 3
+        elif m.group(6) == '1':
+            # suspended
+            status_code = 4
+        else:
+            status_code = 0
+    return status_code
 
 
 def build_executable_file(job_id, job_step, protocol, workspace):
