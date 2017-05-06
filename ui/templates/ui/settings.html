@@ -197,19 +197,8 @@ $('.sliderbar').slider({
         return 'Current value: ' + value;
     }
 });
-$.get("{% url 'ui:update_bioqueue' %}", function(data){
-    var msg = "";
-    if (data.status){
-        msg = data.info;
-        if (msg == $("#local-version").text()){
-            $("#update-trigger").attr("disabled", "disabled");
-        }else{
-            $('#update-trigger').removeAttr("disabled");
-        }
-    }else{
-        msg = "Can not connect to github, please check your connection.";
-    }
-    $("#github-version").html(msg);
+$.get("{{ rv }}", function(data){
+    $("#github-version").html(data);
 });
 function update(obj){
     var self = $(obj);

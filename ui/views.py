@@ -817,6 +817,7 @@ def settings(request):
                 'job_dest': get_config('cluster', 'queue'),
                 'job_mem': get_config('cluster', 'mem'),
                 'job_wt': get_config('cluster', 'walltime'),
+                'rv': get_config('program', 'latest_version'),
                 'cv': get_bioqueue_version(),
             }
         except Exception as e:
@@ -1030,7 +1031,7 @@ def terminate_job(request):
 
 
 @staff_member_required
-def update_project(request):
+def update_bioqueue(request):
     try:
         update_py_path = os.path.split(os.path.realpath(__file__))[0] + '/update.py'
         update_command = 'python %s' % update_py_path
@@ -1040,22 +1041,6 @@ def update_project(request):
             return error('An error occurred during the update process, please run update.py manually.')
     except Exception as e:
         return error(str(e))
-
-
-@staff_member_required
-def update_bioqueue(request):
-    try:
-        from urllib2 import urlopen
-    except ImportError:
-        from urllib.request import urlopen
-
-    remote_address = get_config('program', 'latest_version')
-    try:
-        res_data = urlopen(remote_address)
-        remote_version = res_data.read()
-        return success(remote_version)
-    except Exception as e:
-        return error(str(remote_address))
 
 
 @login_required
