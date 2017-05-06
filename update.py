@@ -63,7 +63,7 @@ def main():
                 return_code = os.system('git pull')
                 if return_code:
                     sys.exit(3)
-                    
+
         except OSError:
             print("===========================================")
             print("|Please install git before update BioQueue|")
