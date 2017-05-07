@@ -80,9 +80,11 @@ class CreateStepForm(forms.Form):
 
 
 class StepManipulateForm(forms.Form):
+    '''
     parent = forms.IntegerField(
         required=True,
     )
+    '''
     id = forms.IntegerField(
         required=True,
     )
