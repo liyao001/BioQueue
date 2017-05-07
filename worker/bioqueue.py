@@ -546,7 +546,7 @@ def run_step(job_desc, resources):
         # for cluster
         import clusterSupport
         if resources['cpu'] is None:
-            allocate_cpu = settings['env']['cpu']
+            allocate_cpu = settings['cluster']['cpu']
         else:
             predict_cpu = int(round(resources['cpu']) / 100)
             if predict_cpu > settings['cluster']['cpu'] or predict_cpu == 0:

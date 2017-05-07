@@ -159,6 +159,8 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='',
         step_process = subprocess.Popen(('condor_submit', job_file_path), shell=False, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, cwd=workspace)
         stdout, stderr = step_process.communicate()
+        if step_process.returncode != 0:
+            return 0
         re_pattern_for_condor_id = "submitted to cluster (\d+)\."
         status_m = re.search(re_pattern_for_condor_id, stdout)
         if status_m:
