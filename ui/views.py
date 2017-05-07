@@ -240,6 +240,7 @@ def delete_job(request):
                 job = Queue.objects.get(id=cd['job'])
                 if job.check_owner(request.user.id) or request.user.is_superuser:
                     job.delete()
+                    delete_job_file_tree(request, job.result)
                     return success('Your job have been deleted.')
                 else:
                     return error('Your are not the owner of the job.')
@@ -258,6 +259,16 @@ def delete_job_file(request, f):
     delete_file(file_path)
 
     return success('Deleted')
+
+
+def delete_job_file_tree(request, f):
+    job_path = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)),
+                            f)
+    try:
+        import shutil
+        shutil.rmtree(job_path)
+    except Exception as e:
+        print(e)
 
 
 @login_required
@@ -720,6 +731,7 @@ def rerun_job(request):
             try:
                 job = Queue.objects.get(id=cd['job'])
                 if job.check_owner(request.user.id) or request.user.is_superuser:
+                    delete_job_file_tree(request, job.result)
                     job.rerun_job()
                     return success('Your job will rerun soon.')
                 else:
