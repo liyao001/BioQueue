@@ -88,7 +88,9 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
 
             cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue,
                                                   log_path, wall_time, workspace)
-
+            if cluster_id == 0:
+                # fail to submit
+                return 1
         while True:
             status_code = cluster_model.query_job_status(cluster_id)
             if status_code == 1 or status_code == 2:
