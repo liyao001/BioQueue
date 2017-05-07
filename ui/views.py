@@ -1059,7 +1059,7 @@ def update_parameter(request):
         if update_parameter_form.is_valid():
             cd = update_parameter_form.cleaned_data
             step = Protocol.objects.get(id=cd['id'])
-            if (step.check_owner(request.user.id) or request.user.is_superuser) and step.check_parent(cd['parent']):
+            if (step.check_owner(request.user.id) or request.user.is_superuser):
                 step.update_parameter(unquote(cd['parameter']))
                 step.save()
                 return success('Your step has been updated.')
