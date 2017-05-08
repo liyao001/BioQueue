@@ -267,7 +267,9 @@ def delete_job_file_tree(request, f):
                             f)
     try:
         import shutil
-        shutil.rmtree(job_path)
+        if os.path.exists(job_path):
+            shutil.rmtree(job_path, ignore_errors=True)
+
     except Exception as e:
         print(e)
 
