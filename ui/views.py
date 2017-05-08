@@ -159,6 +159,7 @@ def batch_operation(request):
 
                 if job.check_owner(request.user.id) or request.user.is_superuser:
                     job.delete()
+                    delete_job_file_tree(request, job.result)
                 else:
                     return error('Your are not the owner of the job.')
             return success('Ok')
