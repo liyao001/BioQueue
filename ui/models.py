@@ -7,6 +7,7 @@ PREDICTION_CHOICES = (
     (1, 'Disk'),
     (2, 'Memory'),
     (3, 'CPU'),
+    (4, 'Virtual Memory'),
 )
 
 CHECKPOINT_CHOICES = (
@@ -216,5 +217,11 @@ class Training(models.Model):
         self.cpu = cpu
         self.vrt_mem = vrt_mem
         self.save()
+
+    def mem_h(self):
+        return str(self.mem / 1024 / 1024 / 1024)+'GB'
+
+    def vrt_h(self):
+        return str(self.vrt_mem / 1024 / 1024 / 1024) + 'GB'
 
     step_name.admin_order_field = 'step'
