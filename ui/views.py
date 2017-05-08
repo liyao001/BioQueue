@@ -176,6 +176,7 @@ def batch_operation(request):
                 job = Queue.objects.get(id=job_id)
                 if job.check_owner(request.user.id) or request.user.is_superuser:
                     job.rerun_job()
+                    delete_job_file_tree(request, job.result)
                 else:
                     return error('Your are not the owner of the job.')
             return success('Ok')
