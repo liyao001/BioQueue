@@ -14,7 +14,7 @@ class QueueAdmin(admin.ModelAdmin):
 
 
 class TrainingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'step_name', 'input', 'output', 'mem', 'cpu', 'create_time')
+    list_display = ('id', 'step_name', 'input', 'output', 'mem_h', 'vrt_h', 'cpu', 'create_time')
 
 
 class PredictionAdmin(admin.ModelAdmin):
