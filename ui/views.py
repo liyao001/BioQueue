@@ -931,8 +931,9 @@ def show_job_folder(request):
                             tmp['trace'] = base64.b64encode(os.path.join(result_folder, file_path))
                             user_files.append(tmp)
                     template = loader.get_template('ui/show_job_folder.html')
+                    import operator
                     context = {
-                        'user_files': user_files,
+                        'user_files': sorted(user_files, key=lambda user_files : user_files['name']),
                     }
                     return success(template.render(context))
                 else:
@@ -1024,7 +1025,7 @@ def show_workspace(request):
         tmp['file_create'] = time.ctime(os.path.getctime(file_path))
         tmp['trace'] = base64.b64encode(file_name)
         user_files.append(tmp)
-    context = {'user_files': user_files}
+    context = {'user_files': sorted(user_files, key=lambda user_files : user_files['name']),}
 
     return render(request, 'ui/show_workspace.html', context)
 
