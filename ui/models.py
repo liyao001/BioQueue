@@ -227,7 +227,7 @@ class Training(models.Model):
 
     def vrt_mem_in_gb(self):
         if self.vrt_mem:
-            return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024), 2) + 'GB'
+            return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024, 2)) + 'GB'
         else:
             return '-'
 
