@@ -117,6 +117,10 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                     break
                 time.sleep(30)
             elif status_code == 0:
+                try:
+                    os.remove(tmp_filename)
+                except:
+                    pass
                 if learning == 1:
                     # load learning results
                     try:
@@ -125,10 +129,15 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                             res = pickle.load(handler)
                             training_item = Training.objects.get(id=trace_id)
                             training_item.update_cpu_mem(res['cpu'], res['mem'], res['vrt_mem'])
+                        os.remove(ml_file_name)
                     except:
                         pass
                 return 0
             else:
+                try:
+                    os.remove(tmp_filename)
+                except:
+                    pass
                 return 1
     else:
         print('Unknown Cluster')
