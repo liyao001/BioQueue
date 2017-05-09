@@ -1006,7 +1006,7 @@ def show_upload_files(request):
         except Exception as e:
             return render(request, 'ui/error.html', {'error_msg': e})
 
-    context = {'user_files': os.listdir(user_path)}
+    context = {'user_files': sorted(os.listdir(user_path))}
     return render(request, 'ui/show_uploads.html', context)
 
 
@@ -1061,7 +1061,7 @@ def update_bioqueue(request):
         update_py_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/update.py'
         update_command = 'python %s' % update_py_path
         if os.system(update_command):
-            return success('Your instance has been updated, please restatrt the web server and queue service to apply the changes.')
+            return success('Your instance has been updated, please restart the web server and queue service to apply the changes.')
         else:
             return error('An error occurred during the update process, please run update.py manually.')
     except Exception as e:
