@@ -221,13 +221,13 @@ class Training(models.Model):
     def mem_in_gb(self):
         #return self.mem
         if self.mem:
-            return str(int(self.mem) / 1024 / 1024 / 1024)+'GB'
+            return str(round(float(self.mem) / 1024 / 1024 /1024, 2))+'GB'
         else:
             return '-'
 
     def vrt_mem_in_gb(self):
         if self.vrt_mem:
-            return str(int(self.vrt_mem) / 1024 / 1024 / 1024) + 'GB'
+            return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024), 2) + 'GB'
         else:
             return '-'
 
