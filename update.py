@@ -19,9 +19,12 @@ def check_version():
     except ImportError:
         from urllib.request import urlopen
 
+    import ssl
+
     remote_address = get_config('program', 'latest_version')
     try:
-        res_data = urlopen(remote_address)
+        ssl_sig = ssl._create_unverified_context()
+        res_data = urlopen(remote_address, context=ssl_sig)
         remote_version = res_data.read()
         local_version = get_bioqueue_version()
         if remote_version == local_version:
@@ -77,6 +80,12 @@ def main():
         from install import install_package
         if not install_package():
             sys.exit(2)
+
+        # migrate model
+        manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
+        os.system('python %s migrate' % manage_file)
+    else:
+        print("Your instance is already up-to-date.")
 
 
 if __name__ == '__main__':
