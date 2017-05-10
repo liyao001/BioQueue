@@ -20,7 +20,7 @@ import psutil
 
 
 settings = baseDriver.get_all_config()
-CPU_POOL, MEMORY_POOL, DISK_POOL = baseDriver.get_init_resource()
+CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL = baseDriver.get_init_resource()
 MAX_JOB = cpu_count()
 JOB_TABLE = dict()
 USER_REFERENCES = dict()
@@ -204,15 +204,17 @@ def create_machine_learning_item(step_hash, input_size):
 
 
 def update_resource_pool(resource_dict, direction=1):
-    global CPU_POOL, MEMORY_POOL, DISK_POOL
+    global CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL
     if resource_dict['cpu'] is not None:
         CPU_POOL += direction * resource_dict['cpu']
     if resource_dict['mem'] is not None:
         MEMORY_POOL += direction * resource_dict['mem']
     if resource_dict['disk'] is not None:
         DISK_POOL += direction * resource_dict['disk']
+    if resource_dict['vrt_mem'] is not None:
+        VRT_POOL += direction * resource_dict['vrt_mem']
 
-    return CPU_POOL, MEMORY_POOL, DISK_POOL
+    return CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL
 
 
 def finish_job(job_id, error=0):
@@ -357,6 +359,7 @@ def run_prepare(job_id, job, no_new_learn=0):
     if resource_needed['cpu'] > int(settings['env']['cpu']) * 100:
         resource_needed['cpu'] = int(settings['env']['cpu']) * 95
 
+    # if resource_needed['mem'] >
     if learning == 1 and no_new_learn == 0:
         trace_id = create_machine_learning_item(job['steps'][job['resume'] + 1]['hash'], INPUT_SIZE[job_id])
         resource_needed['trace'] = trace_id
@@ -377,9 +380,9 @@ def forecast_step(job_id, step_order, resources):
 
     if settings['cluster']['type'] == '':
         # for clusters
-        new_cpu, new_mem, new_disk = update_resource_pool(resources, -1)
+        new_cpu, new_mem, new_disk, new_vrt_mem = update_resource_pool(resources, -1)
 
-        if new_cpu < 0 or new_mem < 0 or new_disk < 0:
+        if new_cpu < 0 or new_mem < 0 or new_disk < 0 or new_vrt_mem < 0:
             rollback = 1
 
     if not rollback:
@@ -557,11 +560,11 @@ def run_step(job_desc, resources):
             allocate_mem = settings['cluster']['mem']
         else:
             if resources['mem'] > 1073741824:
-                allocate_mem = str(int(round(resources['mem'] / 1073741824) * 1.1)) + 'Gb'
+                allocate_mem = str(int(round(resources['mem'] / 1073741824) * 1.1)) + 'GB'
             elif resources['mem']:
                 allocate_mem = ''
             else:
-                allocate_mem = str(int(round(resources['mem'] / 1048576) * 1.1)) + 'Mb'
+                allocate_mem = str(int(round(resources['mem'] / 1048576) * 1.1)) + 'MB'
 
         # baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
         try:
@@ -684,7 +687,7 @@ def main():
     while True:
         try:
             cpu_indeed = baseDriver.get_cpu_available()
-            mem_indeed = baseDriver.get_memo_usage_available()
+            mem_indeed, vrt_indeed = baseDriver.get_memo_usage_available()
             disk_indeed = baseDriver.get_disk_free(settings['env']['workspace'])
             get_job(MAX_JOB - len(JOB_TABLE))
 
@@ -716,6 +719,7 @@ def main():
             biggest_cpu = None
             biggest_mem = None
             biggest_id = None
+            biggest_vrt_mem = None
 
             sorted_resources_info = sorted(RESOURCES.keys())
             for index, job_desc in enumerate(sorted_resources_info):
@@ -745,6 +749,8 @@ def main():
                         set_checkpoint_info(job_id, 2)
                     elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
                         set_checkpoint_info(job_id, 1)
+                    elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
+                        set_checkpoint_info(job_id, 4)
                     else:
                         if biggest_cpu is None:
                             biggest_cpu = RESOURCES[job_desc]['cpu']
@@ -752,10 +758,13 @@ def main():
                             biggest_mem = RESOURCES[job_desc]['mem']
                         if biggest_id is None:
                             biggest_id = job_desc
+                        if biggest_vrt_mem is None:
+                            biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
 
                         if biggest_cpu < RESOURCES[job_desc]['cpu']:
                             biggest_cpu = RESOURCES[job_desc]['cpu']
                             biggest_mem = RESOURCES[job_desc]['mem']
+                            biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
                             biggest_id = job_desc
             if biggest_id is not None:
                 new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))

@@ -37,19 +37,23 @@ def load_train_frame(step_hash):
     tmp_x = []
     tmp_out = []
     tmp_mem = []
+    tmp_vrt_mem = []
     tmp_cpu = []
     for training in trainings:
         tmp_x.append(training.input)
         tmp_out.append(training.output)
         tmp_mem.append(training.mem)
+        tmp_vrt_mem.append(training.vrt_mem)
         tmp_cpu.append(training.cpu)
     all_x = [[1.0, float(feat)] for feat in tmp_x]
     out_y = [float(label) for label in tmp_out]
     mem_y = [float(label) for label in tmp_mem]
+    vrt_mem_y = [float(label) for label in tmp_vrt_mem]
     cpu_y = [float(label) for label in tmp_cpu]
     mem_y = fill_missing_data_with_mean(mem_y)
+    vrt_mem_y = fill_missing_data_with_mean(vrt_mem_y)
     cpu_y = fill_missing_data_with_mean(cpu_y)
-    return all_x, out_y, mem_y, cpu_y
+    return all_x, out_y, mem_y, cpu_y, vrt_mem_y
 
 
 def stand_regression(x_array, y_array):
@@ -160,12 +164,15 @@ def regression(step_hash, save=1):
     """
     coefficients = dict()
     try:
-        x, out, mem, cpu = load_train_frame(step_hash)
+        x, out, mem, cpu, vrt_mem = load_train_frame(step_hash)
         # Output Size
         coefficients['ao'], coefficients['bo'], coefficients['ro'] = reg_single_feature(x, out)
 
         # Memory Usage
         coefficients['am'], coefficients['bm'], coefficients['rm'] = reg_single_feature(x, mem)
+
+        # Virtual Memory Usage
+        coefficients['av'], coefficients['bv'], coefficients['rv'] = reg_single_feature(x, vrt_mem)
 
         # CPU Usage
         coefficients['ac'], coefficients['bc'], coefficients['rc'] = reg_single_feature(x, cpu)
@@ -177,9 +184,10 @@ def regression(step_hash, save=1):
             record_result(step_hash, coefficients['ao'], coefficients['bo'], coefficients['ro'], 1)
             record_result(step_hash, coefficients['am'], coefficients['bm'], coefficients['rm'], 2)
             record_result(step_hash, coefficients['ac'], coefficients['bc'], coefficients['rc'], 3)
+            record_result(step_hash, coefficients['av'], coefficients['bv'], coefficients['rv'], 4)
 
-        return coefficients['ao'], coefficients['bo'], coefficients['am'],\
-               coefficients['bm'], coefficients['ac'], coefficients['bc']
+        return coefficients['ao'], coefficients['bo'], coefficients['am'], coefficients['bm'],\
+               coefficients['ac'], coefficients['bc'], coefficients['av'], coefficients['bv']
     except Exception as e:
         print(e)
 
@@ -207,21 +215,25 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                     predict_need['mem'] = (a * in_size + b) * float(settings['ml']['confidence_weight_mem'])
                 elif t == 3:
                     predict_need['cpu'] = (a * in_size + b) * float(settings['ml']['confidence_weight_cpu'])
+                elif t == 4:
+                    predict_need['vrt_mem'] = (a * in_size + b) * float(settings['ml']['confidence_weight_mem'])
         else:
             if training_num < 2:
                 predict_need['cpu'] = None
                 predict_need['mem'] = None
                 predict_need['disk'] = None
+                predict_need['vrt_mem'] = None
             else:
                 if training_num < 10:
-                    ao, bo, am, bm, ac, bc = regression(step, 0)
+                    ao, bo, am, bm, ac, bc, av, bv = regression(step, 0)
                 else:
-                    ao, bo, am, bm, ac, bc = regression(step)
+                    ao, bo, am, bm, ac, bc, av, bv = regression(step)
                 predict_need['disk'] = int((ao * in_size + bo) * float(settings['ml']['confidence_weight_disk']))
                 predict_need['mem'] = int((am * in_size + bm) * float(settings['ml']['confidence_weight_mem']))
                 predict_need['cpu'] = int((ac * in_size + bc) * float(settings['ml']['confidence_weight_cpu']))
+                predict_need['vrt_mem'] = int((av * in_size + bv) * float(settings['ml']['confidence_weight_mem']))
 
     except Exception as e:
         print(e)
-        return {'cpu': None, 'mem': None, 'disk': None}
+        return {'cpu': None, 'mem': None, 'disk': None, 'vrt_mem': None}
     return predict_need

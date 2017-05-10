@@ -20,7 +20,7 @@ def get_mem(pid):
         mem = running_process.memory_info()
         return mem[0], mem[1]
     else:
-        return 0
+        return 0, 0
 
 
 def get_cpu(pid):
@@ -98,16 +98,16 @@ def main():
 
                 if process_info.is_running():
                     try:
-                        total_memory_usage, virt = get_mem(process_id)
+                        total_memory_usage, vrt = get_mem(process_id)
                         total_cpu_usage = get_cpu(process_id)
                         children = process_info.children()
                         for child in children:
                             t1, t2 = get_mem(child.pid)
                             total_memory_usage += t1
-                            virt += t2
+                            vrt += t2
                             total_cpu_usage += get_cpu(child.pid)
                         mem_list.append(total_memory_usage)
-                        vrt_mem_list.append(virt)
+                        vrt_mem_list.append(vrt)
                         cpu_list.append(total_cpu_usage)
                         time.sleep(30)
                     except Exception as e:

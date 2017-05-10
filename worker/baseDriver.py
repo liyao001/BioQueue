@@ -71,8 +71,9 @@ def get_cpu_available():
 
 
 def get_memo_usage_available():
-    mem = psutil.virtual_memory()
-    return list(mem)[1]
+    psy_mem = psutil.virtual_memory()
+    vrt_mem = psutil.swap_memory()
+    return psy_mem.available, vrt_mem.available + psy_mem.available
 
 
 def get_disk_used(path='/'):
@@ -87,9 +88,11 @@ def get_disk_free(path='/'):
 
 def get_init_resource():
     cpu = cpu_count() * 100
-    mem = list(psutil.virtual_memory())[0]
+    # mem = list(psutil.virtual_memory())[0]
+    psy_mem = psutil.virtual_memory()
+    vrt_mem = psutil.swap_memory()
     disk = list(psutil.disk_usage(get_config("env", "workspace")))[0]
-    return cpu, mem, disk
+    return cpu, psy_mem.total, disk, vrt_mem.total + psy_mem.total
 
 
 def write_append(file_name, lines):
