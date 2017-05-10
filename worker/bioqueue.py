@@ -529,6 +529,7 @@ def kill_proc(proc):
         gone, still_alive = psutil.wait_procs(children, timeout=3)
         for p in still_alive:
             p.kill()
+        proc.kill()
     except:
         pass
 
