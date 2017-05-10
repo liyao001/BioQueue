@@ -46,17 +46,17 @@ def main(pf, wd, output_file):
 
                 if proc_info.is_running():
                     try:
-                        total_memory_usage, virt = get_mem(process_id)
+                        total_memory_usage, vrt = get_mem(process_id)
                         total_cpu_usage = get_cpu(process_id)
                         children = proc_info.children()
                         for child in children:
                             t1, t2 = get_mem(child.pid)
                             total_memory_usage += t1
-                            virt += t2
+                            vrt += t2
                             # total_memory_usage += get_mem(child.pid)
                             total_cpu_usage += get_cpu(child.pid)
                         mem_list.append(total_memory_usage)
-                        vrt_mem_list.append(virt)
+                        vrt_mem_list.append(vrt)
                         cpu_list.append(total_cpu_usage)
                     except Exception as e:
                         print(e)
