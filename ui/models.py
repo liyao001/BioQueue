@@ -17,6 +17,7 @@ CHECKPOINT_CHOICES = (
     (3, 'CPU'),
     (4, 'Former'),
     (5, 'Peer'),
+    (6, 'Virtual Memory')
 )
 
 

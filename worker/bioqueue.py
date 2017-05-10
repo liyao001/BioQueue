@@ -750,7 +750,7 @@ def main():
                     elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
                         set_checkpoint_info(job_id, 1)
                     elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
-                        set_checkpoint_info(job_id, 4)
+                        set_checkpoint_info(job_id, 6)
                     else:
                         if biggest_cpu is None:
                             biggest_cpu = RESOURCES[job_desc]['cpu']
