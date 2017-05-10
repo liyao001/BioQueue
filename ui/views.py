@@ -74,7 +74,7 @@ def add_step(request):
                     m.update(cd['software'] + ' ' + cd['parameter'].strip())
                     step = Protocol(software=cd['software'],
                                     parameter=cd['parameter'],
-                                    parent=cd['parent'],
+                                    parent=protocol,
                                     user_id=request.user.id,
                                     hash=m.hexdigest())
                     step.save()
