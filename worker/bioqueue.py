@@ -504,7 +504,7 @@ def error_job(job_id, resources):
     if job_id in LAST_OUTPUT_SUFFIX.keys():
         file_map['LAST_OUTPUT_SUFFIX'] = LAST_OUTPUT_SUFFIX[job_id]
 
-    baseDriver.save_output_dict(OUTPUT_DICT[job_id], job_id)
+    baseDriver.save_output_dict(file_map, job_id)
 
     update_resource_pool(resources)
 
