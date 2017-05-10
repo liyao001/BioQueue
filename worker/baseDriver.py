@@ -73,7 +73,7 @@ def get_cpu_available():
 def get_memo_usage_available():
     psy_mem = psutil.virtual_memory()
     vrt_mem = psutil.swap_memory()
-    return psy_mem.available, vrt_mem.available + psy_mem.available
+    return psy_mem.available, vrt_mem.free + psy_mem.available
 
 
 def get_disk_used(path='/'):

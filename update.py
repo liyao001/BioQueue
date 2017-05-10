@@ -19,12 +19,9 @@ def check_version():
     except ImportError:
         from urllib.request import urlopen
 
-    import ssl
-
     remote_address = get_config('program', 'latest_version')
     try:
-        ssl_sig = ssl._create_unverified_context()
-        res_data = urlopen(remote_address, context=ssl_sig)
+        res_data = urlopen(remote_address)
         remote_version = res_data.read()
         local_version = get_bioqueue_version()
         if remote_version == local_version:
