@@ -518,6 +518,21 @@ def error_job(job_id, resources):
     finish_job(job_id, 1)
 
 
+def kill_proc(proc):
+    try:
+        children = proc.children()
+        for child in children:
+            try:
+                child.terminate()
+            except:
+                pass
+        gone, still_alive = psutil.wait_procs(children, timeout=3)
+        for p in still_alive:
+            p.kill()
+    except:
+        pass
+
+
 def run_step(job_desc, resources):
     """
     Run step (parallel to main thread)
@@ -630,7 +645,8 @@ def run_step(job_desc, resources):
                             job.ter = 0
                             job.save()
                             # proc_info.kill()
-                            step_process.kill()
+                            kill_proc(proc_info)
+                            # step_process.kill()
                             error_job(job_id, resources)
                             RUNNING_JOBS -= 1
 
