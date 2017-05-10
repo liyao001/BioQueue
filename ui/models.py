@@ -210,7 +210,9 @@ class Training(models.Model):
         return self.step
 
     def step_name(self):
-        step_key = Protocol.objects.get(hash=self.step)
+        steps = Protocol.objects.filter(hash=self.step)
+        if steps:
+            step_key = steps[0]
         return step_key.software+' '+step_key.parameter
 
     def update_cpu_mem(self, cpu, mem, vrt_mem):
