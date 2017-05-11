@@ -173,7 +173,7 @@ def release_job(job_id):
         return 0
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='', wall_time='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"
@@ -201,8 +201,13 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='',
     pbs_script_content = template.replace('{PROTOCOL}', protocol)\
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
         .replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
-    if mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',')
+    if mem != '' and vrt_mem != '':
+        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',pmem='+mem+',vmem='
+                                                        +vrt_mem+',pvmem='+vrt_mem+',')
+    elif mem != '':
+        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem=' + mem + ',pmem=' + mem + ',')
+    elif vrt_mem != '':
+        pbs_script_content = pbs_script_content.replace('{MEM}', 'vmem=' + vrt_mem + ',pvmem=' + vrt_mem + ',')
     else:
         pbs_script_content = pbs_script_content.replace('{MEM}', '')
     if wall_time != '':
