@@ -799,12 +799,14 @@ def settings(request):
             set_config('cluster', 'cpu', request.POST['job_cpu'])
             set_config('cluster', 'queue', request.POST['job_dest'])
             set_config('cluster', 'mem', request.POST['job_mem'])
+            set_config('cluster', 'vrt', request.POST['job_vrt'])
             set_config('cluster', 'walltime', request.POST['job_wt'])
         else:
             set_config('cluster', 'type', '')
             set_config('cluster', 'cpu', '')
             set_config('cluster', 'queue', '')
             set_config('cluster', 'mem', '')
+            set_config('cluster', 'vrt', '')
             set_config('cluster', 'walltime', '')
 
         return HttpResponseRedirect('/ui/settings')
@@ -840,6 +842,7 @@ def settings(request):
                 'job_cpu': get_config('cluster', 'cpu'),
                 'job_dest': get_config('cluster', 'queue'),
                 'job_mem': get_config('cluster', 'mem'),
+                'job_vrt': get_config('cluster', 'vrt'),
                 'job_wt': get_config('cluster', 'walltime'),
                 'rv': get_config('program', 'latest_version'),
                 'cv': get_bioqueue_version(),
