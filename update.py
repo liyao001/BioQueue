@@ -76,8 +76,8 @@ def main():
             sys.exit(2)
 
         # migrate model
-        manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
-        os.system('python %s migrate' % manage_file)
+        # manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
+        # os.system('python %s migrate' % manage_file)
     else:
         print("Your instance is already up-to-date.")
 
