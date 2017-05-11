@@ -110,7 +110,7 @@ cd %s
     return file_name
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='', wall_time='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"
@@ -140,14 +140,24 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', queue='', log_file='',
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
         .replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
     if mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'RequestMemory='+mem)
+        if mem.find('GB') != -1:
+            mem = str(int(mem.replace('GB', ''))*1024)
+        elif mem.find('KB') != -1:
+            mem = str(round(int(mem.replace('KB', '')) / 1024))
+            if mem == '0':
+                mem = '1'
+            else:
+                mem = None
+        elif mem.find('MB') != -1:
+            mem = mem.replace('GB', '')
+        else:
+            mem = None
+        if mem is not None:
+            pbs_script_content = pbs_script_content.replace('{MEM}', 'Request_memory='+mem)
+        else:
+            pbs_script_content = pbs_script_content.replace('{MEM}', '')
     else:
         pbs_script_content = pbs_script_content.replace('{MEM}', '')
-    if wall_time != '':
-        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '#PBS -l walltime='+wall_time)
-    else:
-        # no limit
-        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '')
     if log_file != '':
         pbs_script_content = pbs_script_content.replace('{STDERR}', log_file).replace('{STDOUT}', log_file)
     else:

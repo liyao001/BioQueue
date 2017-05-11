@@ -50,7 +50,7 @@ def dispatch(cluster_type):
         return None
 
 
-def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, log_path, wall_time='', learning=0, trace_id=0):
+def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, workspace, log_path, wall_time='', learning=0, trace_id=0):
     """
     Cluster support function
     :param cluster_type: string, cluster type, like TorquePBS
@@ -73,7 +73,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
     pending_tag = 0
     if cluster_model:
         if learning == 0:
-            cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, queue,
+            cluster_id = cluster_model.submit_job(parameter, job_id, step_id, cpu, mem, vrt_mem, queue,
                                                   log_path, wall_time, workspace)
         else:
             tmp_filename = os.path.join(workspace, base_name + ".tmp")
@@ -86,7 +86,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, queue, workspace, l
                             os.path.join(os.path.split(os.path.realpath(__file__))[0], tmp_filename),
                             workspace, ml_file_name)
 
-            cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, queue,
+            cluster_id = cluster_model.submit_job(ml_parameter, job_id, step_id, cpu, mem, vrt_mem, queue,
                                                   log_path, wall_time, workspace)
             if cluster_id == 0:
                 # fail to submit

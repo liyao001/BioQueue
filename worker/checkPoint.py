@@ -218,7 +218,7 @@ def predict_resource_needed(step, in_size=-99999.0, training_num=0):
                 elif t == 4:
                     predict_need['vrt_mem'] = (a * in_size + b) * float(settings['ml']['confidence_weight_mem'])
         else:
-            if training_num < 2:
+            if training_num < 1:
                 predict_need['cpu'] = None
                 predict_need['mem'] = None
                 predict_need['disk'] = None

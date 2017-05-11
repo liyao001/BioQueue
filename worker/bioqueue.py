@@ -519,6 +519,11 @@ def error_job(job_id, resources):
 
 
 def kill_proc(proc):
+    """
+    Kill a process and its children processes
+    :param proc: Process class defined in psutil
+    :return: None
+    """
     try:
         children = proc.children()
         for child in children:
@@ -532,6 +537,26 @@ def kill_proc(proc):
         proc.kill()
     except:
         pass
+
+
+def bytes_to_readable(bytes_value):
+    """
+    Convert bytes to a readable form
+    :param bytes_value: int, bytes
+    :return: string, readable value, like 1GB
+    """
+    if bytes_value > 1073741824:
+        # 1073741824 = 1024 * 1024 * 1024
+        # bytes to gigabytes
+        readable_value = str(int(round(bytes_value / 1073741824) * 1.1)) + 'GB'
+    elif bytes_value > 1048576:
+        # 1048576 = 1024 * 1024
+        # bytes to megabytes
+        readable_value = str(int(round(bytes_value / 1048576) * 1.1)) + 'MB'
+    else:
+        # bytes to kilobytes
+        readable_value = str(int(round(bytes_value / 1024) * 1.1)) + 'KB'
+    return readable_value
 
 
 def run_step(job_desc, resources):
@@ -575,13 +600,11 @@ def run_step(job_desc, resources):
         if resources['mem'] is None:
             allocate_mem = settings['cluster']['mem']
         else:
-            if resources['mem'] > 1073741824:
-                allocate_mem = str(int(round(resources['mem'] / 1073741824) * 1.1)) + 'GB'
-            elif resources['mem']:
-                allocate_mem = ''
-            else:
-                allocate_mem = str(int(round(resources['mem'] / 1048576) * 1.1)) + 'MB'
-
+            allocate_mem = bytes_to_readable(resources['mem'])
+        if resources['vrt_mem'] is None:
+            allocate_vrt = settings['cluster']['vrt']
+        else:
+            allocate_vrt = bytes_to_readable(resources['vrt_mem'])
         # baseDriver.update(settings['datasets']['job_db'], job_id, 'status', step_order + 1)
         try:
             job_record = Queue.objects.get(id=job_id)
@@ -592,12 +615,12 @@ def run_step(job_desc, resources):
         if 'trace' in resources.keys():
             # learn
             return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
-                                              job_id, step_order, allocate_cpu, allocate_mem,
+                                              job_id, step_order, allocate_cpu, allocate_mem, allocate_vrt,
                                               settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
                                               log_file, settings['cluster']['walltime'], 1, resources['trace'])
         else:
             return_code = clusterSupport.main(settings['cluster']['type'], ' '.join(JOB_COMMAND[job_id]),
-                                              job_id, step_order, allocate_cpu, allocate_mem,
+                                              job_id, step_order, allocate_cpu, allocate_mem, allocate_vrt,
                                               settings['cluster']['queue'], JOB_TABLE[job_id]['job_folder'],
                                               log_file, settings['cluster']['walltime'])
 
@@ -614,7 +637,7 @@ def run_step(job_desc, resources):
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
             true_shell = 0
-            redirect_tags = ('>', '<')
+            redirect_tags = ('>', '<', '|')
 
             for rt in redirect_tags:
                 if rt in JOB_COMMAND[job_id]:
@@ -739,54 +762,84 @@ def main():
             biggest_vrt_mem = None
 
             sorted_resources_info = sorted(RESOURCES.keys())
-            for index, job_desc in enumerate(sorted_resources_info):
-                items = job_desc.split('_')
-                job_id = int(items[0])
-                step_order = int(items[1])
+            if settings['cluster']['type']:
+                # for cluster
+                # switch off greedy algorithm
+                for index, job_desc in enumerate(sorted_resources_info):
+                    items = job_desc.split('_')
+                    job_id = int(items[0])
+                    step_order = int(items[1])
 
-                if job_id not in JOB_TABLE.keys():
-                    continue
-                if JOB_TABLE[job_id]['status'] > 0:
-                    continue
+                    if job_id not in JOB_TABLE.keys():
+                        continue
+                    if JOB_TABLE[job_id]['status'] > 0:
+                        continue
 
-                if RESOURCES[job_desc]['cpu'] is None \
-                        and RESOURCES[job_desc]['mem'] is None \
-                        and RESOURCES[job_desc]['disk'] is None:
-                    if RUNNING_JOBS > 0:
-                        set_checkpoint_info(job_id, 4)
+                    if RESOURCES[job_desc]['cpu'] is None \
+                            and RESOURCES[job_desc]['mem'] is None \
+                            and RESOURCES[job_desc]['disk'] is None:
+                        if RUNNING_JOBS > 0:
+                            set_checkpoint_info(job_id, 4)
+                        else:
+                            new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
+                            new_thread.setDaemon(True)
+                            new_thread.start()
+                        break
                     else:
                         new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
                         new_thread.setDaemon(True)
                         new_thread.start()
-                    break
-                else:
-                    if RESOURCES[job_desc]['cpu'] > cpu_indeed or RESOURCES[job_desc]['cpu'] > CPU_POOL:
-                        set_checkpoint_info(job_id, 3)
-                    elif RESOURCES[job_desc]['mem'] > mem_indeed or RESOURCES[job_desc]['mem'] > MEMORY_POOL:
-                        set_checkpoint_info(job_id, 2)
-                    elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
-                        set_checkpoint_info(job_id, 1)
-                    elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
-                        set_checkpoint_info(job_id, 6)
-                    else:
-                        if biggest_cpu is None:
-                            biggest_cpu = RESOURCES[job_desc]['cpu']
-                        if biggest_mem is None:
-                            biggest_mem = RESOURCES[job_desc]['mem']
-                        if biggest_id is None:
-                            biggest_id = job_desc
-                        if biggest_vrt_mem is None:
-                            biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
+            else:
+                # local / cloud
+                # greedy algorithm
+                for index, job_desc in enumerate(sorted_resources_info):
+                    items = job_desc.split('_')
+                    job_id = int(items[0])
+                    step_order = int(items[1])
 
-                        if biggest_cpu < RESOURCES[job_desc]['cpu']:
-                            biggest_cpu = RESOURCES[job_desc]['cpu']
-                            biggest_mem = RESOURCES[job_desc]['mem']
-                            biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
-                            biggest_id = job_desc
-            if biggest_id is not None:
-                new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))
-                new_thread.setDaemon(True)
-                new_thread.start()
+                    if job_id not in JOB_TABLE.keys():
+                        continue
+                    if JOB_TABLE[job_id]['status'] > 0:
+                        continue
+
+                    if RESOURCES[job_desc]['cpu'] is None \
+                            and RESOURCES[job_desc]['mem'] is None \
+                            and RESOURCES[job_desc]['disk'] is None:
+                        if RUNNING_JOBS > 0:
+                            set_checkpoint_info(job_id, 4)
+                        else:
+                            new_thread = threading.Thread(target=run_step, args=(job_desc, RESOURCES[job_desc]))
+                            new_thread.setDaemon(True)
+                            new_thread.start()
+                        break
+                    else:
+                        if RESOURCES[job_desc]['cpu'] > cpu_indeed or RESOURCES[job_desc]['cpu'] > CPU_POOL:
+                            set_checkpoint_info(job_id, 3)
+                        elif RESOURCES[job_desc]['mem'] > mem_indeed or RESOURCES[job_desc]['mem'] > MEMORY_POOL:
+                            set_checkpoint_info(job_id, 2)
+                        elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
+                            set_checkpoint_info(job_id, 1)
+                        elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
+                            set_checkpoint_info(job_id, 6)
+                        else:
+                            if biggest_cpu is None:
+                                biggest_cpu = RESOURCES[job_desc]['cpu']
+                            if biggest_mem is None:
+                                biggest_mem = RESOURCES[job_desc]['mem']
+                            if biggest_id is None:
+                                biggest_id = job_desc
+                            if biggest_vrt_mem is None:
+                                biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
+
+                            if biggest_cpu < RESOURCES[job_desc]['cpu']:
+                                biggest_cpu = RESOURCES[job_desc]['cpu']
+                                biggest_mem = RESOURCES[job_desc]['mem']
+                                biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
+                                biggest_id = job_desc
+                if biggest_id is not None:
+                    new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))
+                    new_thread.setDaemon(True)
+                    new_thread.start()
             time.sleep(5)
         except Exception as e:
             print(e)
