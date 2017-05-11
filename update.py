@@ -14,15 +14,12 @@ def check_version():
     Compare local version with remote version, decide whether the instance needs to be updated.
     :return: int, 0 or 1
     """
-    try:
-        from urllib2 import urlopen
-    except ImportError:
-        from urllib.request import urlopen
+    import requests
 
     remote_address = get_config('program', 'latest_version')
     try:
-        res_data = urlopen(remote_address)
-        remote_version = res_data.read()
+        res_data = requests.get(remote_address)
+        remote_version = res_data.content
         local_version = get_bioqueue_version()
         if remote_version == local_version:
             return 0
