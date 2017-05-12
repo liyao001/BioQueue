@@ -93,7 +93,7 @@ def reg_single_feature(x, y):
             pass
         b = rc[0][0]
         a = rc[1][0]
-        if abs(r) < float(settings['ml']['threshold']):
+        if abs(r) < float(settings['ml']['threshold']) or numpy.isnan(r):
             a = 0
             try:
                 b = numpy.mean(y)
