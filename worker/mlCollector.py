@@ -126,7 +126,8 @@ def main():
             training_item.vrt_mem = vrt_mem_usage
             training_item.cpu = cpu_usage
             training_item.save()
-        except:
+        except Exception as e:
+            print(e)
             pass
 
     else:
