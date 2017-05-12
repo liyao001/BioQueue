@@ -29,7 +29,7 @@ class MailNotify:
         """
         user_info = User.objects.get(id=uid)
         if user_info:
-            return user_info.mail
+            return user_info.email
         else:
             return None
 
