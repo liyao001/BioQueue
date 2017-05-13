@@ -744,7 +744,7 @@ def main():
                             and RESOURCES[now_step]['mem'] is None \
                             and RESOURCES[now_step]['disk'] is None:
                         resource = run_prepare(job_id, JOB_TABLE[job_id], 1)
-                        if 'trace' in RESOURCES[now_step].keys():
+                        if 'trace' in RESOURCES[now_step].keys() and resource != 'running':
                             resource['trace'] = RESOURCES[now_step]['trace']
                     else:
                         continue
