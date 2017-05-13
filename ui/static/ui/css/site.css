@@ -561,10 +561,6 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
 	padding-top: 20px;
 }
 
-.admin-sidebar #content-related{
-	/*float: left;*/
-}
-
 .dashboard .module caption a{
 	color: white;
 }
