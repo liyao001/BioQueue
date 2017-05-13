@@ -813,3 +813,10 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
 .user-actions span {
   display: inline-block;
 }
+
+.admin-sidebar #content-related {
+	float: none;
+	width: auto;
+	position: inherit;
+	margin-right: 0;
+}
