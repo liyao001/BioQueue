@@ -284,11 +284,14 @@ def get_remote_size_factory(url):
 
 
 def save_output_dict(dic, job):
-    import pickle
-    fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
-    ff = open(fp, mode='wb')
-    pickle.dump(dic, ff)
-    ff.close()
+    try:
+        import pickle
+        fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
+        ff = open(fp, mode='wb')
+        pickle.dump(dic, ff)
+        ff.close()
+    except:
+        pass
 
 
 def load_output_dict(job):
