@@ -30,6 +30,26 @@ def check_version():
         return 0
 
 
+def calc_md5_for_file(file_path):
+    """
+    Calculate the md5 value for a file
+    :param file_path: string, file path
+    :return: string, md5 value or ''
+    """
+    import hashlib
+    if not os.path.isfile(file_path):
+        return
+    file_hash = hashlib.md5()
+    f = open(file_path, 'rb')
+    while True:
+        b = f.read(8096)
+        if not b:
+            break
+        file_hash.update(b)
+    f.close()
+    return file_hash.hexdigest()
+
+
 def main():
     """
     Update function
@@ -39,6 +59,8 @@ def main():
     """
     if check_version():
         # backup settings
+        prerequisite_file = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
+        prerequisite_md5_before = calc_md5_for_file(prerequisite_file)
         config_file = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
         settings_file = os.path.split(os.path.realpath(__file__))[0] + '/BioQueue/settings.py'
         os.rename(config_file, config_file+'.back')
@@ -71,9 +93,19 @@ def main():
         os.rename(settings_file + '.back', settings_file)
 
         # update dependant packages
-        from install import install_package
-        if not install_package():
-            sys.exit(2)
+        prerequisite_md5_after = calc_md5_for_file(prerequisite_file)
+        if prerequisite_md5_before == prerequisite_md5_after:
+            print('===================================')
+            print('|Dependent packages are up-to-date|')
+            print('===================================')
+        else:
+            print('===================================')
+            print('|Updating dependent packages......|')
+            print('===================================')
+
+            from install import install_package
+            if not install_package():
+                sys.exit(2)
 
         # migrate model
         # manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
