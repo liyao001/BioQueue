@@ -171,5 +171,16 @@ wordSuggestions.prototype.requestSuggestions = function (oAutoSuggestControl /*:
  * @scope public
  */
 function wordSuggestions() {
-    this.words = ['{InputFile}', '{LastOutput}', '{Job}', '{ThreadN}', '{Output:', '{LastOutput:', '{Uploaded:', '{Suffix:', '{Workspace}', '{History:'];
+    /*this.words = ['{InputFile}', '{LastOutput}', '{Job}', '{ThreadN}', '{Output:', '{LastOutput:', '{Uploaded:', '{Suffix:', '{Workspace}', '{History:'];*/
+	var wordList = ['{InputFile}', '{LastOutput}', '{Job}', '{ThreadN}', '{Output:', '{LastOutput:', '{Uploaded:', '{Suffix:', '{Workspace}', '{History:']; 
+    $.ajax({
+    	type: "GET",
+    	url: "/ui/user-reference",
+    	dataType: "json",
+    	success: function(data){
+    		wordList = wordList.concat(data.split(','));
+    	},
+    	async: false,
+    });
+    this.words = wordList;
 }
