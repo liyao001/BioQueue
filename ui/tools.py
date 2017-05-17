@@ -31,6 +31,13 @@ def build_json_protocol(protocol):
     return response
 
 
+def build_json_reference(ref):
+    result = list()
+    for value in ref:
+        result.append('{'+value+'}')
+    return JsonResponse(','.join(result), safe=False)
+
+
 def delete_file(file_path):
     import os
     try:

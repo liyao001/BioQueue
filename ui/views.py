@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.template import loader
 from django.http import HttpResponseRedirect, FileResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
-    check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info
+    check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info, build_json_reference
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
@@ -644,6 +644,18 @@ def page_info(page_model, page):
     except EmptyPage:
         items = page_model.page(page_model.num_pages)
     return items
+
+
+@login_required
+def print_user_reference(request):
+    result = list()
+    try:
+        refs = References.objects.filter(user_id=request.user.id)
+        for ref in refs:
+            result.append(ref.name)
+        return build_json_reference(result)
+    except:
+        return build_json_reference(result)
 
 
 @login_required
