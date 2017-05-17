@@ -74,3 +74,5 @@ python worker/ftp_daemon.py stop
 ```
 
 * To get a better performance, moving the webserver to [Apache](http://bioqueue.readthedocs.io/en/latest/faq.html#use-bioqueue-with-apache-in-production-environment) or [nginx](https://nginx.org) is a good idea.
+
+With the generous help from [BrowserStack](https://www.browserstack.com), we are able to carefully test the cross-browser performance of BioQueue. So if you need to test the cross-browser performance, BrowserStack is worthy of a try.[![BrowserStack](https://d3but80xmlhqzj.cloudfront.net/production/images/static/header/header-logo.svg "BrowserStack")](https://www.browserstack.com)
