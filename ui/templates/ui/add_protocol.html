@@ -116,7 +116,7 @@
                     hint_panel.show();
                 }
                 self.attr("disabled", false);
-            }).error(function(){
+            }, 'json').error(function(){
                 self.attr("disabled", false);
             });
         }else{
