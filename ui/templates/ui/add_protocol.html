@@ -110,7 +110,17 @@
         if (before_software != this_software){
             before_software = this_software;
             self.attr("disabled", true);
-            $.post("{{ api_bus }}/Kb/findSoftwareUsage", {software: this_software}, function(data){
+            var api_bus = "{{ api_bus }}/Kb/findSoftwareUsage";
+            if (document.all && !window.atob){
+                api_bus = "{% url 'ui:query_usage' %}";
+                var csrftoken = $.cookie('csrftoken');
+                $.ajaxSetup({
+                    beforeSend: function(xhr, settings){
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                });
+            }
+            $.post(api_bus, {software: this_software}, function(data){
                 if (data.status){
                     hint_panel.children('.hints-container').html(data.content);
                     hint_panel.show();
