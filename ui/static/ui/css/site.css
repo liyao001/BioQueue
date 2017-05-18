@@ -276,7 +276,7 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
 	position: absolute;
 	text-overflow: ellipsis;
 	vertical-align: top;
-	width: 88%;
+	width: 100%;
 	text-decoration: none;
 }
 
@@ -326,7 +326,7 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
 }
 
 .metro-nav .metro-nav-block.double a {
-	width: 94%;
+	width: 100%;
 }
 
 .metro-nav .metro-nav-block .info {
