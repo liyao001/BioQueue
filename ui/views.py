@@ -4,7 +4,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.shortcuts import render
 from django.template import loader
-from django.http import HttpResponseRedirect, FileResponse
+from django.http import HttpResponseRedirect, FileResponse, HttpResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info, build_json_reference
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
@@ -736,6 +736,27 @@ def query_protocol_atom(is_superuser, user_id, page):
 def query_protocol(request):
     protocols = query_protocol_atom(request.user.is_superuser, request.user.id, request.GET.get('page'))
     return render(request, 'ui/list_protocol.html', {'protocol_list': protocols})
+
+
+@login_required
+def query_usage(request):
+    """
+    This function should only be called when the user is using IE8 or IE9
+    :param request: 
+    :return: 
+    """
+    try:
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.request import urlopen
+
+    api_bus = get_config('ml', 'api')+'/Kb/findSoftwareUsage?software='+request.POST['software']
+    try:
+        res_data = urlopen(api_bus)
+        res = res_data.read()
+        return HttpResponse(res)
+    except Exception as e:
+        return error(api_bus)
 
 
 @login_required
