@@ -9,7 +9,7 @@ from tools import error, success, delete_file, check_user_existence, handle_uplo
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info, build_json_reference
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
-    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm
+    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, FetchRemoteProtocolForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
@@ -365,6 +365,7 @@ def download(file_path):
     except Exception as e:
         return error(e)
 
+
 @login_required
 def download_upload_file(request, f):
     import base64
@@ -526,6 +527,98 @@ def import_learning(request):
             return error('Can not import records!')
     else:
         return error('Error')
+
+
+@login_required
+def import_protocol_by_fetch(request):
+    if request.method == 'POST':
+        form = FetchRemoteProtocolForm(request.POST)
+        if form.is_valid():
+            try:
+                try:
+                    from urllib2 import urlopen
+                except ImportError:
+                    from urllib.request import urlopen
+
+                api_bus = get_config('ml', 'api') + '/Protocol/exportProtocolStdout?sig=' + request.POST['uid']
+                try:
+                    res_data = urlopen(api_bus)
+                    protocol_raw = res_data.read()
+                    import json
+                    import hashlib
+                    protocol_json = json.loads(protocol_raw)
+                    if ProtocolList.objects.filter(name=protocol_json['name'], user_id=request.user.id).exists():
+                        return error('Duplicate record!')
+                    protocol = ProtocolList(name=protocol_json['name'], user_id=request.user.id)
+                    protocol.save()
+                    steps = []
+                    predictions = []
+                    try:
+                        protocol_id_trace = ProtocolList.objects.get(id=protocol.id)
+                    except Exception as e:
+                        return error(e)
+                    for step in protocol_json['step']:
+                        m = hashlib.md5()
+                        m.update(step['software'] + ' ' + step['parameter'].strip())
+                        steps.append(Protocol(software=step['software'],
+                                              parameter=step['parameter'],
+                                              parent=protocol_id_trace,
+                                              hash=m.hexdigest(),
+                                              user_id=request.user.id))
+                        if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=3).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['cpu_a'],
+                                                              b=step['cpu_b'],
+                                                              r=step['cpu_r'],
+                                                              type=3,
+                                                              step_hash=m.hexdigest()))
+                        if 'mem_a' in step.keys() and 'mem_b' in step.keys() and 'mem_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['cpu_a'],
+                                                              b=step['cpu_b'],
+                                                              r=step['cpu_r'],
+                                                              type=2,
+                                                              step_hash=m.hexdigest()))
+                        if 'disk_a' in step.keys() and 'disk_b' in step.keys() and 'disk_r' in step.keys():
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=1).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['disk_a'],
+                                                              b=step['disk_b'],
+                                                              r=step['disk_r'],
+                                                              type=1,
+                                                              step_hash=m.hexdigest()))
+
+                    Protocol.objects.bulk_create(steps)
+                    if len(predictions):
+                        Prediction.objects.bulk_create(predictions)
+                    ref_list = list()
+                    for key, value in enumerate(protocol_json['reference']):
+                        try:
+                            _ = References.objects.get(name=value['name'], user_id=request.user.id)
+                            ref_list.append({'name': value['name'],
+                                             'description': value['description'],
+                                             'status': 0, })
+                        except:
+                            ref_list.append({'name': value['name'],
+                                             'description': value['description'],
+                                             'status': 1, })
+                    from django.template import RequestContext, loader
+                    print(ref_list)
+                    template = loader.get_template('ui/import_protocol.html')
+                    return success(template.render({'ref_list': ref_list}))
+                except Exception as e:
+                    return error(api_bus)
+            except Exception as e:
+                return render(request, 'ui/error.html', {'error_msg': e})
+        else:
+            return render(request, 'ui/error.html', {'error_msg': str(form.errors)})
+    else:
+        return render(request, 'ui/error.html', {'error_msg': 'Error method'})
 
 
 @login_required
