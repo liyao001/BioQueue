@@ -33,6 +33,13 @@ class SingleJobForm(forms.Form):
     )
 
 
+class FetchRemoteProtocolForm(forms.Form):
+    uid = forms.CharField(
+        required=True,
+        max_length=36,
+    )
+
+
 class JobManipulateForm(forms.Form):
     job = forms.IntegerField(
         required=True

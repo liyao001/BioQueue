@@ -11,16 +11,37 @@
             </div>
             <div id="importCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="importHeading">
                 <div class="panel-body">
+                    <h4>To import a protocol</h4>
+                    <p>You can fetch the procotol from BioQueue Open Platform by providing the ID of the protocol.</p>
+                    <form class="form" method="post" action="{% url 'ui:import_protocol_by_fetch' %}" enctype="multipart/form-data">
+                        <fieldset>
+                            <div class="form-group">
+                                <label class="control-label" for="name">Protocol ID in BioQueue Open Platform</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control input-xlarge" id="uid" name="uid" required />
+                                    <span class="input-group-btn"><button type="button" class="btn btn-default" onclick="importProtocolByFetch(this);">Import</button></span>
+                                </div>
+                                <p class="help-block">For example, 01269439-28F0-F1BD-3B4A-38604657DBD3</p>
+                                <div class="ref-hints" style="display: none;">
+                                    <a class="close" onclick="$(this).parent().hide();" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></a>
+                                    <div class="ref-hints-container"></div>
+                                </div>
+                            </div>
+                            {% csrf_token %}
+                        </fieldset>
+                    </form>
+                    <h4>Alternatively</h4>
+                    <p>You can upload a protocol file to import it.</p>
                     <form class="form" method="post" action="{% url 'ui:import_protocol' %}" enctype="multipart/form-data">
                         <fieldset>
                             <div class="form-group">
                                 <label for="parameter">Protocol file</label>
-                                <input type="file" id="protocol_list" name="job_list">
+                                <div class="input-group">
+                                    <input type="file" id="protocol_list" name="job_list">
+                                    <span class="input-group-btn"><button type="submit" class="btn btn-default" >Upload and import</button></span>
+                                </div>
                             </div>
                             {% csrf_token %}
-                            <div class="form-group" style="margin-bottom: 9px;">
-                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and import</button>
-                            </div>
                         </fieldset>
                     </form>
                 </div>
@@ -77,6 +98,7 @@
 {% endblock %}
 {% block script %}
     var before_software = "";
+    var before_uid = "";
     $("#add-protocol").addClass("active");
     $(document).ready(function(){
         var oTextbox = new AutoSuggestControl("parameter");
@@ -111,7 +133,18 @@
             before_software = this_software;
             self.attr("disabled", true);
             var api_bus = "{{ api_bus }}/Kb/findSoftwareUsage";
-            if (document.all && !window.atob){
+            var opera_tag = 0;
+            var old_ie_tag = 0;
+            if(window.opera){
+                var version_arr = opera.version().split(".");
+                if (version_arr [0] <= 12){
+                    opera_tag = 1;
+                }
+            }
+            if(document.all && !window.atob){
+                old_ie_tag = 1;
+            }
+            if (old_ie_tag || opera_tag){
                 api_bus = "{% url 'ui:query_usage' %}";
                 var csrftoken = $.cookie('csrftoken');
                 $.ajaxSetup({
@@ -123,6 +156,33 @@
             $.post(api_bus, {software: this_software}, function(data){
                 if (data.status){
                     hint_panel.children('.hints-container').html(data.content);
+                    hint_panel.show();
+                }
+                self.attr("disabled", false);
+            }, 'json').error(function(){
+                self.attr("disabled", false);
+            });
+        }else{
+            hint_panel.show();
+        }
+
+    }
+    function importProtocolByFetch(obj){
+        var self = $(obj);
+        var this_uid = self.parent().parent().children("#uid").val();
+        var hint_panel = self.parent().parent().parent().children(".ref-hints");
+        if (before_uid != this_uid){
+            before_uid = this_uid;
+            self.attr("disabled", true);
+            var csrftoken = $.cookie('csrftoken');
+            $.ajaxSetup({
+                beforeSend: function(xhr, settings){
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            });
+            $.post('{% url 'ui:import_protocol_by_fetch' %}', {uid: this_uid}, function(data){
+                if (data.status){
+                    hint_panel.children('.ref-hints-container').html(data.info);
                     hint_panel.show();
                 }
                 self.attr("disabled", false);
