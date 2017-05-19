@@ -602,11 +602,11 @@ def import_protocol_by_fetch(request):
                             _ = References.objects.get(name=value['name'], user_id=request.user.id)
                             ref_list.append({'name': value['name'],
                                              'description': value['description'],
-                                             'status': 0, })
+                                             'status': 1, })
                         except:
                             ref_list.append({'name': value['name'],
                                              'description': value['description'],
-                                             'status': 1, })
+                                             'status': 0, })
                     from django.template import RequestContext, loader
                     print(ref_list)
                     template = loader.get_template('ui/import_protocol.html')
