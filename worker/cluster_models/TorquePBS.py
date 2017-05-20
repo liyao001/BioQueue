@@ -202,7 +202,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
         .replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
     if mem != '' and vrt_mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',pmem='+mem+',')
+        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',vmem='+mem+',')
     elif mem != '':
         pbs_script_content = pbs_script_content.replace('{MEM}', 'mem=' + mem + ',')
     elif vrt_mem != '':
