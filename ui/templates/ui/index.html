@@ -119,7 +119,7 @@
 </div>
 <hr/>
 {% include 'ui/foot.html' %}
-<div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cp" style="width:276px;">
+<div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cp">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -129,15 +129,20 @@
       <div class="modal-body">
       <form action="{% url 'accounts:password_change' %}" method="post">
           <div class="Validform_checktip alert" style="display: none;"></div>
-          <fieldset>
+          <div class="form-group">
               <label>Old Password</label>
-              <input type="password" name="old_password" id="old_password" placeholder="Old password" required>
+              <input type="password" class="form-control" name="old_password" id="old_password" placeholder="Old password" required>
+		  </div>
+		  <div class="form-group">
               <label>New Password</label>
-              <input type="password" name="new_password_1" id="new_password_1" placeholder="New password" required>
+              <input type="password" class="form-control" name="new_password_1" id="new_password_1" placeholder="New password" required>
+		  </div>
+		  <div class="form-group">
               <label>Enter Your New Password Again</label>
-              <input type="password" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
+              <input type="password" class="form-control" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
+		  </div>
               {% csrf_token %}
-              <div><button type="submit" class="btn">Submit</button></div>
+              <div><button type="submit" class="btn btn-info">Change password</button></div>
           </fieldset>
 	  </form>
       </div>

@@ -35,6 +35,7 @@ def register(request):
             new_user.set_password(
                 user_form.cleaned_data['password']
             )
+            new_user.is_active = False
             new_user.save()
             return success('Your account has been successfully created.', '/accounts/login')
         else:
@@ -59,7 +60,7 @@ def change_password(request):
                 update_session_auth_hash(request, username)
                 return success('Your password had been updated.', 'accounts:login')
             else:
-                return error('Password don\'t match.')
+                return error('Password doesn\'t match.')
         else:
             return error('Your form is illegal.')
     else:
