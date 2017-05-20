@@ -566,6 +566,9 @@ def import_protocol_by_fetch(request):
                                               hash=m.hexdigest(),
                                               user_id=request.user.id))
                         if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
+                            if 'cpu' in step.keys():
+                                if step['cpu'] != get_config('env', 'cpu'):
+                                    continue
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=3).exists():
                                 continue
                             else:
@@ -575,6 +578,9 @@ def import_protocol_by_fetch(request):
                                                               type=3,
                                                               step_hash=m.hexdigest()))
                         if 'mem_a' in step.keys() and 'mem_b' in step.keys() and 'mem_r' in step.keys():
+                            if 'mem' in step.keys():
+                                if step['mem'] != get_config('env', 'mem'):
+                                    continue
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
                                 continue
                             else:
@@ -608,17 +614,16 @@ def import_protocol_by_fetch(request):
                                              'description': value['description'],
                                              'status': 0, })
                     from django.template import RequestContext, loader
-                    print(ref_list)
                     template = loader.get_template('ui/import_protocol.html')
                     return success(template.render({'ref_list': ref_list}))
                 except Exception as e:
-                    return error(api_bus)
+                    return error(e)
             except Exception as e:
-                return render(request, 'ui/error.html', {'error_msg': e})
+                return error(e)
         else:
-            return render(request, 'ui/error.html', {'error_msg': str(form.errors)})
+            return error(form.errors)
     else:
-        return render(request, 'ui/error.html', {'error_msg': 'Error method'})
+        return error('Error method')
 
 
 @login_required
@@ -1001,7 +1006,8 @@ def share_with_peer(request):
                     for step in steps:
                         new_step = deepcopy(step)
                         new_step.id = None
-                        new_step.parent = new_protocol.id
+                        new_step.user_id = to_user
+                        new_step.parent = new_protocol
                         new_step.save()
                     return success('You have successfully shared a protocol with a peer(%s).' % cd['peer'])
                 else:

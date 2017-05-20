@@ -55,6 +55,7 @@ class ProtocolManipulateForm(forms.Form):
 class CreateProtocolForm(forms.Form):
     name = forms.CharField(
         required=False,
+        max_length=500,
         widget=forms.TextInput(
             attrs={
                 'class': u'input-block-level',
@@ -66,6 +67,7 @@ class CreateProtocolForm(forms.Form):
 class CreateStepForm(forms.Form):
     software = forms.CharField(
         required=False,
+        max_length=50,
         widget=forms.TextInput(
             attrs={
                 'class': u'input-block-level',
@@ -87,11 +89,11 @@ class CreateStepForm(forms.Form):
 
 
 class StepManipulateForm(forms.Form):
-    '''
+    """
     parent = forms.IntegerField(
         required=True,
     )
-    '''
+    """
     id = forms.IntegerField(
         required=True,
     )
@@ -121,9 +123,11 @@ class QueryLearningForm(forms.Form):
 class CreateReferenceForm(forms.Form):
     name = forms.CharField(
         required=True,
+        max_length=255,
     )
     path = forms.CharField(
         required=True,
+        max_length=500,
     )
     description = forms.CharField(
     )
