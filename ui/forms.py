@@ -130,6 +130,7 @@ class CreateReferenceForm(forms.Form):
         max_length=500,
     )
     description = forms.CharField(
+        required=False,
     )
 
 
