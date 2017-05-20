@@ -211,9 +211,13 @@ class Training(models.Model):
 
     def step_name(self):
         steps = Protocol.objects.filter(hash=self.step)
+        step_key = None
         if steps:
             step_key = steps[0]
-        return step_key.software+' '+step_key.parameter
+        if step_key:
+            return step_key.software+' '+step_key.parameter
+        else:
+            return ''
 
     def update_cpu_mem(self, cpu, mem, vrt_mem):
         self.mem = mem
@@ -222,15 +226,20 @@ class Training(models.Model):
         self.save()
 
     def mem_in_gb(self):
-        #return self.mem
         if self.mem:
-            return str(round(float(self.mem) / 1024 / 1024 /1024, 2))+'GB'
+            try:
+                return str(round(float(self.mem) / 1024 / 1024 / 1024, 2))+'GB'
+            except:
+                return ''
         else:
             return '-'
 
     def vrt_mem_in_gb(self):
         if self.vrt_mem:
-            return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024, 2)) + 'GB'
+            try:
+                return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024, 2)) + 'GB'
+            except:
+                return ''
         else:
             return '-'
 

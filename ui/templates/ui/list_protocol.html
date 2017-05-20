@@ -22,7 +22,7 @@
                     <span class="user-actions">
                         <span data-pid="{{ protocol.id }}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-danger">Delete</span>
                         <span style="display: inline-block; cursor:pointer;" class="label label-warning" onclick="showNewStep({{ protocol.id }});">Add Step</span>
-                        <span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({{ protocol.id }});">Check Steps</span>
+                        <span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({{ protocol.id }});">Edit Protocol</span>
                         <span data-pid="{$hit.id}" style="cursor:pointer;" onclick="showShare({{ protocol.id }});" class="label label-info">Share</span>
                     </span>
                 </td>
@@ -104,7 +104,7 @@
           <hr>
           <legend>Share with public</legend>
           <p>
-          By clicking the following button you can build a flattened protocol file which can be uploaded to our open platform or any other place on the Internet. And other people can use the import function to cite your protocol.
+              By clicking the following button you can build a flattened protocol file which can be uploaded to <a href="http://bioqueue.nefu.edu.cn" target="_blank">our open platform</a> or any other place on the Internet. And other people can use the import function to cite your protocol.
           </p>
           <a class="btn btn-default btn-block" id="export-protocol-link" data-traceid="0" href="">Build a sharable protocol</a>
       </div>

@@ -184,6 +184,13 @@
                 if (data.status){
                     hint_panel.children('.ref-hints-container').html(data.info);
                     hint_panel.show();
+                    $("#uid").val("");
+                }else{
+                    Messenger().post({
+                        message: data.info,
+                        type: 'error',
+                        showCloseButton: true
+                    });
                 }
                 self.attr("disabled", false);
             }, 'json').error(function(){
