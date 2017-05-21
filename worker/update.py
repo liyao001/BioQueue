@@ -6,7 +6,7 @@
 # @File    : update.py
 
 from __future__ import print_function
-from worker.baseDriver import get_config, get_bioqueue_version
+from baseDriver import get_config, get_bioqueue_version
 import subprocess, sys, os
 
 def check_version():
@@ -57,61 +57,59 @@ def main():
     If git is not installed or the program failed to update dependant packages, the program will raise an error.
     :return: None
     """
-    if check_version():
-        # backup settings
-        prerequisite_file = os.path.split(os.path.realpath(__file__))[0] + '/deploy/prerequisites.txt'
-        prerequisite_md5_before = calc_md5_for_file(prerequisite_file)
-        config_file = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
-        settings_file = os.path.split(os.path.realpath(__file__))[0] + '/BioQueue/settings.py'
-        os.rename(config_file, config_file+'.back')
-        os.rename(settings_file, settings_file+'.back')
-        # update
-        try:
-            git_back = subprocess.Popen(('git', 'pull'))
-            git_back.wait()
-            return_code = git_back.returncode
+    root_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0]
+    # backup settings
+    prerequisite_file = root_path + '/deploy/prerequisites.txt'
+    prerequisite_md5_before = calc_md5_for_file(prerequisite_file)
+    config_file = root_path + '/worker/config.conf'
+    settings_file = root_path + '/BioQueue/settings.py'
+    os.rename(config_file, config_file+'.back')
+    os.rename(settings_file, settings_file+'.back')
+    # update
+    try:
+        git_back = subprocess.Popen(('git', 'pull'), cwd=root_path)
+        git_back.wait()
+        return_code = git_back.returncode
 
+        if return_code:
+            # force
+            step_1 = os.system('git fetch --all')
+            if step_1:
+                sys.exit(3)
+            step_2 = os.system('git reset --hard origin/master')
+            if step_2:
+                sys.exit(3)
+            return_code = os.system('git pull')
             if return_code:
-                # force
-                step_1 = os.system('git fetch --all')
-                if step_1:
-                    sys.exit(3)
-                step_2 = os.system('git reset --hard origin/master')
-                if step_2:
-                    sys.exit(3)
-                return_code = os.system('git pull')
-                if return_code:
-                    sys.exit(3)
+                sys.exit(3)
 
-        except OSError:
-            print("===========================================")
-            print("|Please install git before update BioQueue|")
-            print("===========================================")
-            sys.exit(1)
-        # restore settings
-        os.rename(config_file + '.back', config_file)
-        os.rename(settings_file + '.back', settings_file)
+    except OSError:
+        print("===========================================")
+        print("|Please install git before update BioQueue|")
+        print("===========================================")
+        sys.exit(1)
+    # restore settings
+    os.rename(config_file + '.back', config_file)
+    os.rename(settings_file + '.back', settings_file)
 
-        # update dependant packages
-        prerequisite_md5_after = calc_md5_for_file(prerequisite_file)
-        if prerequisite_md5_before == prerequisite_md5_after:
-            print('===================================')
-            print('|Dependent packages are up-to-date|')
-            print('===================================')
-        else:
-            print('===================================')
-            print('|Updating dependent packages......|')
-            print('===================================')
-
-            from install import install_package
-            if not install_package():
-                sys.exit(2)
-
-        # migrate model
-        # manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
-        # os.system('python %s migrate' % manage_file)
+    # update dependant packages
+    prerequisite_md5_after = calc_md5_for_file(prerequisite_file)
+    if prerequisite_md5_before == prerequisite_md5_after:
+        print('===================================')
+        print('|Dependent packages are up-to-date|')
+        print('===================================')
     else:
-        print("Your instance is already up-to-date.")
+        print('===================================')
+        print('|Updating dependent packages......|')
+        print('===================================')
+
+        from install import install_package
+        if not install_package():
+            sys.exit(2)
+
+    # migrate model
+    # manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
+    # os.system('python %s migrate' % manage_file)
 
 
 if __name__ == '__main__':
