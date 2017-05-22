@@ -175,8 +175,6 @@
                         <p><b>Latest version:</b> <span id="github-version">Fetching...</span></p>
                         <p><b>Current version:</b> <span id="local-version">{{ cv }}</span></p>
                         <p><button type="button" id="update-trigger" class="btn btn-default" disabled="disabled" onclick="update(this);">Update</button></p>
-                        <p>It's strongly recommended that you update BioQueue by running command:</p>
-                        <pre>python update.py</pre>
                         <p>If the jobs have indeed finished, but BioQueue still shows the jobs are running, you can click this button to reset the status of the jobs.</p>
                         <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
                     </div>
