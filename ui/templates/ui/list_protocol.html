@@ -236,6 +236,7 @@
                 }
                 $('#stepsContainer').html(data.info);
                 $('#stepsContainer').show("slow");
+                $("html,body").animate({scrollTop:$("#stepsContainer").offset().top},1000)
 		    }else{
                 Messenger().post({
                     message: data.info,
