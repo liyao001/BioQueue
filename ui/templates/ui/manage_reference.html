@@ -39,7 +39,7 @@
             <tr class="pending-user">
                 <td>{{ ref.id }}</td>
                 <td>{{ ref.name }}</td>
-                <td>{{ ref.path }}</td>
+                <td class="editble" onclick="edit(this);" data-sid="{{ ref.id }}">{{ ref.path }}</td>
                 <td>{{ ref.description }}</td>
                 <td><span class="user-actions"><span onclick="delReference(this);" data-rid="{{ ref.id }}" class="label label-danger" style="cursor:pointer;">Delete</span></span></td>
             </tr>
@@ -79,10 +79,43 @@
         var table1 = $('#rtable');
         var firstTr = table1.find('tbody>tr:first');
         var row = $("<tr class='pending-user'></tr>");
-var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td><td>"+description+"</td><td><span class='user-actions'><span onclick='delReference(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
+        var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td><td>"+description+"</td><td><span class='user-actions'><span onclick='delReference(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
         row.append(td);
         table1.append(row);
     }
+    function edit(obj){
+        var new_id = "parameter" + Math.random();
+        var self = $(obj);
+        var txt = $.trim(self.text());
+        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
+        input.attr("value", txt);
+        self.html(input);
+        var oTextbox = new AutoSuggestControl(new_id);
+        input.click(function(){return false;});
+        input.trigger("focus");
+        input.blur(function(){
+            var newTxt = input.val();
+            if (newTxt != txt){
+                self.html(newTxt);
+                $.get("{% url 'ui:update_reference' %}", {id:self.attr("data-sid"), path:encodeURI(newTxt)}, function(data){
+                    if (data.status){
+                        Messenger().post({
+                            message: data.info,
+                            showCloseButton: true
+				        });
+                    }else{
+                        Messenger().post({
+                            message: data.info,
+                            type: 'error',
+                            showCloseButton: true
+				        });
+                    }
+                });
+            }else{
+              self.html(newTxt);
+            }
+        });
+    };
     function delReference(obj){
 	    var self = $(obj);
         $.get("{% url 'ui:delete_reference' %}", {ref: self.attr("data-rid")}, function(data){

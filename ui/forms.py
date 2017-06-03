@@ -52,6 +52,16 @@ class ProtocolManipulateForm(forms.Form):
     )
 
 
+class RefManipulateForm(forms.Form):
+    id = forms.IntegerField(
+        required=True,
+    )
+    path = forms.CharField(
+        required=True,
+        max_length=500,
+    )
+
+
 class CreateProtocolForm(forms.Form):
     name = forms.CharField(
         required=False,

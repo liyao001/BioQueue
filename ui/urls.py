@@ -44,4 +44,5 @@ urlpatterns = [
     url(r'^terminate-job/$', views.terminate_job, name='terminate_job'),
     url(r'^update-bioqueue/$', views.update_bioqueue, name='update_bioqueue'),
     url(r'^update-parameter/$', views.update_parameter, name='update_parameter'),
+    url(r'^update-reference/$', views.update_reference, name='update_reference'),
 ]
