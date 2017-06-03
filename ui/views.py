@@ -9,7 +9,8 @@ from tools import error, success, delete_file, check_user_existence, handle_uplo
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info, build_json_reference
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
-    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, FetchRemoteProtocolForm
+    StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, \
+    FetchRemoteProtocolForm, RefManipulateForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
@@ -1219,5 +1220,25 @@ def update_parameter(request):
                 return error('Your are not owner of the step.')
         else:
             return error(str(update_parameter_form.errors))
+    else:
+        return error('Method error')
+
+
+@login_required
+def update_reference(request):
+    if request.method == 'GET':
+        from urllib import unquote
+        update_ref_form = RefManipulateForm(request.GET)
+        if update_ref_form.is_valid():
+            cd = update_ref_form.cleaned_data
+            ref = References.objects.get(id=cd['id'])
+            if (ref.check_owner(request.user.id) or request.user.is_superuser):
+                ref.path = unquote(cd['path'])
+                ref.save()
+                return success('Your reference has been updated.')
+            else:
+                return error('Your are not owner of the step.')
+        else:
+            return error(str(update_ref_form.errors))
     else:
         return error('Method error')

@@ -16,7 +16,7 @@
         <div class="panel panel-default">
             <div class="panel-heading" role="tab" id="single">
                 <h4 class="panel-title">
-                    <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true" aria-controls="collapseOne">
+                    <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true" aria-controls="single-job">
                         <i class="icon-tag"></i> Single Job
                     </a>
                 </h4>
@@ -25,7 +25,7 @@
                 <div class="panel-body">
                     <form class="form" id="single-job-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
-                            <label for="protocol">Choose a protocol</label>
+                            <label for="protocol-selector">Choose a protocol</label>
                             <select class="form-control input-xlarge" id="protocol-selector" name="protocol" required>
                                 <option value="">Please choose a protocol</option>
                                 {% for protocol in user_protocols %}
@@ -34,12 +34,12 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="inputFile">Input files <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button></label>
+                            <label for="lf-trigger">Input files <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button></label>
                             <input type="text" class="form-control" id="input_files" name="input_files" />
                             <p class="help-block">Please use semicolons (";") to separate multiple files. <a href="http://bioqueue.readthedocs.io/en/latest/faq.html#upload-file"><i class=" icon-question-sign"></i>How to upload files to BioQueue?</a></p>
                         </div>
                         <div id="lf-container" class="form-group alert alert-info alert-dismissable" role="alert" style="display: none;">
-                            <label for="inputFile">Uploaded files:</label>
+                            <label>Uploaded files:</label>
                             <div class="checkbox" id="lf-list">
                             </div>
                         </div>
@@ -63,7 +63,7 @@
                     </a>
                 </h4>
             </div>
-            <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+            <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
                 <div class="panel-body">
                     <form class="form" method="post" action="{% url 'ui:batch_job' %}" enctype="multipart/form-data">
                         <fieldset>

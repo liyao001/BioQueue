@@ -119,12 +119,12 @@
 </div>
 <hr/>
 {% include 'ui/foot.html' %}
-<div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cp">
+<div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cyp">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="myModalLabel">Change your password</h4>
+        <h4 class="modal-title" id="cyp">Change your password</h4>
       </div>
       <div class="modal-body">
       <form action="{% url 'accounts:password_change' %}" method="post">
@@ -141,9 +141,8 @@
               <label>Enter Your New Password Again</label>
               <input type="password" class="form-control" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
 		  </div>
-              {% csrf_token %}
-              <div><button type="submit" class="btn btn-info">Change password</button></div>
-          </fieldset>
+		  {% csrf_token %}
+		  <div><button type="submit" class="btn btn-info">Change password</button></div>
 	  </form>
       </div>
       <div class="modal-footer">
@@ -152,12 +151,12 @@
     </div>
   </div>
 </div>
-<div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="showLog">
+<div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="uf">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="myModalLabel">Upload Files</h4>
+                <h4 class="modal-title" id="uf">Upload Files</h4>
             </div>
             <div class="modal-body"> </div>
         </div>
