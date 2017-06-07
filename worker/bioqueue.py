@@ -545,17 +545,18 @@ def bytes_to_readable(bytes_value):
     :param bytes_value: int, bytes
     :return: string, readable value, like 1GB
     """
+    from math import ceil
     if bytes_value > 1073741824:
         # 1073741824 = 1024 * 1024 * 1024
         # bytes to gigabytes
-        readable_value = str(int(round(bytes_value / 1073741824) * 1.1)) + 'GB'
+        readable_value = str(int(ceil(bytes_value * 1.1 / 1073741824))) + 'GB'
     elif bytes_value > 1048576:
         # 1048576 = 1024 * 1024
         # bytes to megabytes
-        readable_value = str(int(round(bytes_value / 1048576) * 1.1)) + 'MB'
+        readable_value = str(int(ceil(bytes_value * 1.1 / 1048576))) + 'MB'
     else:
         # bytes to kilobytes
-        readable_value = str(int(round(bytes_value / 1024) * 1.1)) + 'KB'
+        readable_value = str(int(ceil(bytes_value * 1.1 / 1024))) + 'KB'
     return readable_value
 
 
@@ -592,7 +593,8 @@ def run_step(job_desc, resources):
         if resources['cpu'] is None:
             allocate_cpu = settings['cluster']['cpu']
         else:
-            predict_cpu = int(round(resources['cpu']) / 100)
+            from math import ceil
+            predict_cpu = int(ceil(round(resources['cpu']) / 100))
             if predict_cpu > settings['cluster']['cpu'] or predict_cpu == 0:
                 allocate_cpu = settings['cluster']['cpu']
             else:
