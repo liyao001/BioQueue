@@ -32,6 +32,21 @@ def feedback(software, parameter, hash):
         pass
 
 
+def get_error_log(file_path):
+    """
+    Get error log of a job
+    :param file_path: string, path to the log
+    :return: string, log
+    """
+    error_log = ''
+    try:
+        with open(file_path, 'r') as file_handler:
+            error_log = file_handler.read(10240)
+    except:
+        pass
+    return error_log
+
+
 def feedback_error(software, parameter, error_message):
     """
     Feedback error
