@@ -98,6 +98,7 @@ def main():
         print('===================================')
         print('|Dependent packages are up-to-date|')
         print('===================================')
+        sys.exit(0)
     else:
         print('===================================')
         print('|Updating dependent packages......|')
@@ -106,6 +107,8 @@ def main():
         from install import install_package
         if not install_package():
             sys.exit(2)
+        else:
+            sys.exit(0)
 
     # migrate model
     # manage_file = os.path.split(os.path.realpath(__file__))[0] + '/manage.py'
