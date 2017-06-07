@@ -40,7 +40,7 @@ class Prediction(models.Model):
         step = Protocol.objects.filter(hash=self.step_hash)
         return step[0].software+' '+step[0].parameter
         """
-        steps = Protocol.objects.filter(hash=self.step)
+        steps = Protocol.objects.filter(hash=self.step_hash)
         step_key = None
         if steps:
             step_key = steps[0]
