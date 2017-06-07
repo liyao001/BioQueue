@@ -40,8 +40,14 @@ class Prediction(models.Model):
         step = Protocol.objects.filter(hash=self.step_hash)
         return step[0].software+' '+step[0].parameter
         """
-        step = Protocol.objects.get(hash=self.step_hash)
-        return step.software + ' ' + step.parameter
+        steps = Protocol.objects.filter(hash=self.step)
+        step_key = None
+        if steps:
+            step_key = steps[0]
+        if step_key:
+            return step_key.software + ' ' + step_key.parameter
+        else:
+            return ''
 
     step_name.admin_order_field = 'step_hash'
 
