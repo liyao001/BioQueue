@@ -1196,7 +1196,7 @@ def update_bioqueue(request):
     try:
         update_py_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/worker/update.py'
         update_command = 'python %s' % update_py_path
-        if os.system(update_command):
+        if not os.system(update_command):
             return success('Your instance has been updated, please restart the web server and queue service to apply the changes.')
         else:
             return error('An error occurred during the update process, please run update.py manually.')
