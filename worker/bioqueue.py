@@ -693,10 +693,10 @@ def run_step(job_desc, resources):
         except Exception as e:
             print(e)
             try:
-                from feedback import feedback_error
+                from feedback import feedback_error, get_error_log
                 feedback_error(JOB_COMMAND[job_id][0],
                                ' '.join(JOB_COMMAND[job_id][1:]),
-                               str(e))
+                               get_error_log(log_file))
             except:
                 pass
             RUNNING_JOBS -= 1
