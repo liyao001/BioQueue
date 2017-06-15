@@ -229,7 +229,7 @@ def create_protocol(request):
         else:
             return error(str(protocol_form.errors))
     else:
-        context = {'api_bus': get_config('ml', 'api')}
+        context = {'api_bus': get_config('program', 'api', 1)}
         return render(request, 'ui/add_protocol.html', context)
 
 
@@ -473,7 +473,7 @@ def fetch_learning(request):
     import json
     query_string = request.GET['hash'] + ',' + request.GET['type'] + ',' + str(get_config('env', 'cpu'))\
                    + ',' + str(get_config('env', 'memory')) + ',' + str(os_to_int())
-    api_bus = get_config('ml', 'api')+'/Index/share/q/' + query_string
+    api_bus = get_config('program', 'api', 1)+'/Index/share/q/' + query_string
     try:
         res_data = urlopen(api_bus)
         res = json.loads(res_data.read())
@@ -541,7 +541,7 @@ def import_protocol_by_fetch(request):
                 except ImportError:
                     from urllib.request import urlopen
 
-                api_bus = get_config('ml', 'api') + '/Protocol/exportProtocolStdout?sig=' + request.POST['uid']
+                api_bus = get_config('program', 'api', 1) + '/Protocol/exportProtocolStdout?sig=' + request.POST['uid']
                 try:
                     res_data = urlopen(api_bus)
                     protocol_raw = res_data.read()
@@ -849,7 +849,7 @@ def query_usage(request):
     except ImportError:
         from urllib.request import urlopen
 
-    api_bus = get_config('ml', 'api')+'/Kb/findSoftwareUsage?software='+request.POST['software']
+    api_bus = get_config('program', 'api', 1)+'/Kb/findSoftwareUsage?software='+request.POST['software']
     try:
         res_data = urlopen(api_bus)
         res = res_data.read()
@@ -976,7 +976,7 @@ def settings(request):
                 'job_mem': get_config('cluster', 'mem'),
                 'job_vrt': get_config('cluster', 'vrt'),
                 'job_wt': get_config('cluster', 'walltime'),
-                'rv': get_config('program', 'latest_version'),
+                'rv': get_config('program', 'latest_version', 1),
                 'cv': get_bioqueue_version(),
             }
         except Exception as e:

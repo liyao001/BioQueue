@@ -61,7 +61,7 @@ def main():
     # backup settings
     prerequisite_file = root_path + '/deploy/prerequisites.txt'
     prerequisite_md5_before = calc_md5_for_file(prerequisite_file)
-    config_file = root_path + '/worker/config.conf'
+    config_file = root_path + '/config/custom.conf'
     settings_file = root_path + '/BioQueue/settings.py'
     os.rename(config_file, config_file+'.back')
     os.rename(settings_file, settings_file+'.back')

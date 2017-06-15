@@ -16,8 +16,10 @@ byte_to_gigabyte = 1073741824
 
 def set_config(section, key, value):
     config = ConfigParser()
-    path = os.path.split(os.path.realpath(__file__))[0] + '/worker/config.conf'
+    path = os.path.split(os.path.realpath(__file__))[0] + '/config/custom.conf'
     config.read(path)
+    print(path)
+    print(config.sections())
     config.set(section, key, value)
     config.write(open(path, "w"))
 
@@ -55,18 +57,18 @@ def install_package():
     pip_install_fallback = 'pip install -r %s' % pip_import_fallback_path
     if os.system(pip_install):
         print('=======================================================')
-        print('|Fetal error occured when installing python packages  |')
+        print('|Fetal error occurred when installing python packages |')
         print('|Now BioQueue will try to install alternative packages|')
         print('=======================================================')
         mydb_to_pymy_script = os.path.split(os.path.realpath(__file__))[0] + '/deploy/switch_from_MySQLdb_to_PyMySQL.py'
         os.system('python %s' % mydb_to_pymy_script)
         if os.system(pip_install_fallback):
             print('=======================================================')
-            print('|Fetal error occured when installing python packages  |')
+            print('|Fetal error occurred when installing python packages |')
             print('|Installation will be terminated now                  |')
             print('|You can visit:                                       |')
             print('|https://github.com/liyao001/BioQueue/issues          |')
-            print('|to post the problem that you have encontered.        |')
+            print('|to post the problem that you have encountered.       |')
             print('=======================================================')
             sys.exit(1)
 
@@ -92,10 +94,14 @@ def setup():
     train_path = os.path.join(workspace_path, 'training')
     upload_path = os.path.join(workspace_path, 'batch_job')
     try:
-        os.mkdir(log_path)
-        os.mkdir(output_path)
-        os.mkdir(train_path)
-        os.mkdir(upload_path)
+        if not os.path.exists(log_path):
+            os.mkdir(log_path)
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        if not os.path.exists(train_path):
+            os.mkdir(train_path)
+        if not os.path.exists(upload_path):
+            os.mkdir(upload_path)
     except Exception as e:
         print('Doesn\'t have the permission to write your workspace!', e)
         sys.exit(1)
@@ -119,7 +125,7 @@ def setup():
     setting_file = setting_handler.read()
     apache_file = apache_handler.read()
     secret_key = get_random_secret_key()
-    set_config('program', 'secret_key', secret_key)
+    set_config('env', 'secret_key', secret_key)
     setting_file = setting_file.replace('{SECRET_KEY}', secret_key)
 
     print('')
@@ -147,7 +153,7 @@ def setup():
     set_config('env', 'disk_quota', disk_size)
 
     print('=======================================')
-    print('Do you want to use BioQueue with MySQL? ')
+    print('Do you want to use BioQueue with MySQL?')
     print('=======================================')
     mysql_fb = input('y/n (By default: y)')
 
@@ -193,9 +199,9 @@ def setup():
     fb = input('y/n (By default: y)')
 
     if fb == 'n':
-        set_config('program', 'feedback', 'no')
+        set_config('env', 'feedback', 'no')
     else:
-        set_config('program', 'feedback', 'yes')
+        set_config('env', 'feedback', 'yes')
 
     setting_handler.close()
     setting_handler_new.write(setting_file)
