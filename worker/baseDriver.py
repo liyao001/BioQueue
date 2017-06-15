@@ -11,15 +11,23 @@ import psutil
 from multiprocessing import cpu_count
 
 
-def config_init():
+def config_init(const = 0):
+    """
+    Initial configuration file
+    :param const: int, 0 means load user's conf, 1 means load bioqueue's conf
+    :return:
+    """
     config = ConfigParser()
-    path = os.path.split(os.path.realpath(__file__))[0] + '/config.conf'
+    if const:
+        path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
+    else:
+        path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
     config.read(path)
     return config
 
 
-def get_all_config():
-    config = config_init()
+def get_all_config(const = 0):
+    config = config_init(const)
     configurations = {}
     for section in config.sections():
         tmp = config.items(section)
@@ -30,18 +38,23 @@ def get_all_config():
     return configurations
 
 
-def get_config(section, key):
+def get_config(section, key, const = 0):
     try:
-        config = config_init()
+        config = config_init(const)
         return config.get(section, key)
     except:
         return None
 
 
-def set_config(section, key, value):
-    config = config_init()
+def set_config(section, key, value, const = 0):
+    config = config_init(const)
     config.set(section, key, value)
-    config.write(open(os.path.split(os.path.realpath(__file__))[0] + '/config.conf', "w"))
+    if const:
+        file_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
+    else:
+        file_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
+
+    config.write(open(file_path, "w"))
 
 
 def rand_sig():

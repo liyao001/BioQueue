@@ -577,8 +577,7 @@ def run_step(job_desc, resources):
 
     if recheck is not True:
         return
-
-    if settings['program']['feedback'] == 'yes':
+    if 'feedback' in settings['env'].keys() and settings['env']['feedback'] == 'yes':
         try:
             from feedback import feedback
             feedback(JOB_COMMAND[job_id][0],
