@@ -18,8 +18,6 @@ def set_config(section, key, value):
     config = ConfigParser()
     path = os.path.split(os.path.realpath(__file__))[0] + '/config/custom.conf'
     config.read(path)
-    print(path)
-    print(config.sections())
     config.set(section, key, value)
     config.write(open(path, "w"))
 
@@ -178,12 +176,13 @@ def setup():
         print('====================================')
         print('Configuring database, please wait...')
         print('====================================')
-
+        """
         set_config('db', 'host', database_configure['host'])
         set_config('db', 'user', database_configure['user'])
         set_config('db', 'db_name', database_configure['db_name'])
         set_config('db', 'password', database_configure['password'])
         set_config('db', 'port', database_configure['port'])
+        """
         db_file = db_file.replace('{DB_NAME}', database_configure['db_name']) \
             .replace('{DB_USER}', database_configure['user']) \
             .replace('{DB_PASSWORD}', database_configure['password']) \
