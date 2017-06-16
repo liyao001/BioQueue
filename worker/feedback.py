@@ -26,7 +26,7 @@ def feedback(software, parameter, hash):
                      'software': software,
                      'parameter': parameter}
     try:
-        fb_url = get_config('ml', 'api', 1) + '/Gate/feedback'
+        fb_url = get_config('program', 'api', 1) + '/Gate/feedback'
         _ = requests.get(fb_url, params=get_data_dict, timeout=3)
     except:
         pass
@@ -62,7 +62,7 @@ def feedback_error(software, parameter, error_message):
         'error': error_message,
     }
     try:
-        fb_url = get_config('ml', 'api', 1) + '/Gate/error_feedback'
+        fb_url = get_config('program', 'api', 1) + '/Gate/error_feedback'
         _ = requests.post(fb_url, data=post_data_dict, timeout=3)
     except:
         pass
