@@ -626,6 +626,13 @@ def run_step(job_desc, resources):
                                               log_file, settings['cluster']['walltime'])
 
         if return_code != 0:
+            try:
+                from feedback import feedback_error, get_error_log
+                feedback_error(JOB_COMMAND[job_id][0],
+                               ' '.join(JOB_COMMAND[job_id][1:]),
+                               get_error_log(log_file))
+            except:
+                pass
             error_job(job_id, resources)
         else:
             # RUNNING_JOBS -= 1
