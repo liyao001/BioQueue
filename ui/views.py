@@ -187,6 +187,91 @@ def batch_operation(request):
         return success('abc')
 
 
+def build_plain_protocol(request, protocol_id):
+    """
+    Convert protocol into a plain format
+    :param request:
+    :param protocol_id: int, protocol id
+    :return: int or string, 1 means no such a protocol, 2 means no permission to access the protocol
+    """
+    protocol_data = dict()
+    try:
+        protocol_parent = ProtocolList.objects.get(id=protocol_id)
+    except ProtocolList.DoesNotExist:
+        # protocol doesn't exist
+        return 1
+    protocol_data['name'] = protocol_parent.name
+    protocol_data['step'] = []
+    references = {}
+    reference_list = References.objects.filter(user_id=request.user.id).all()
+    protocol_ref = {}
+    # references.extend([reference.name for reference in reference_list])
+    for reference in reference_list:
+        references[reference.name] = reference.description
+
+    wildcard_pattern = re.compile("\\{(.*?)\\}", re.IGNORECASE | re.DOTALL)
+    if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
+        steps = Protocol.objects.filter(parent=int(request.GET['id']))
+        for step in steps:
+            try:
+                for wildcard in re.findall(wildcard_pattern, step.parameter):
+                    wildcard = wildcard.split(':')[0]
+                    if wildcard in references.keys() and wildcard not in protocol_ref.keys():
+                        protocol_ref[wildcard] = references[wildcard]
+                    equations = Prediction.objects.filter(step_hash=step.hash)
+                    cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = vrt_a = vrt_b = vrt_r = 0
+                    for equation in equations:
+                        if equation.type == 1:
+                            disk_a = equation.a
+                            disk_b = equation.b
+                            disk_r = equation.r
+                        elif equation.type == 2:
+                            mem_a = equation.a
+                            mem_b = equation.b
+                            mem_r = equation.r
+                        elif equation.type == 3:
+                            cpu_a = equation.a
+                            cpu_b = equation.b
+                            cpu_r = equation.r
+                        elif equation.type == 4:
+                            vrt_a = equation.a
+                            vrt_b = equation.b
+                            vrt_r = equation.r
+                    tmp = {
+                        'software': step.software,
+                        'parameter': step.parameter,
+                        'hash': step.hash,
+                        'cpu': get_config('env', 'cpu'),
+                        'mem': get_config('env', 'memory'),
+                        'os': os_to_int(),
+                        'cpu_a': cpu_a,
+                        'cpu_b': cpu_b,
+                        'cpu_r': cpu_r,
+                        'mem_a': mem_a,
+                        'mem_b': mem_b,
+                        'mem_r': mem_r,
+                        'vrt_a': vrt_a,
+                        'vrt_b': vrt_b,
+                        'vrt_r': vrt_r,
+                        'disk_a': disk_a,
+                        'disk_b': disk_b,
+                        'disk_r': disk_r,
+                    }
+            except Exception as e:
+                print(e)
+                tmp = {
+                    'software': step.software,
+                    'parameter': step.parameter,
+                    'hash': step.hash,
+                }
+            protocol_data['step'].append(tmp)
+            protocol_data['reference'] = protocol_ref
+        return build_json_protocol(protocol_data)
+    else:
+        # no permission
+        return 2
+
+
 @staff_member_required
 def clean_dead_lock(request):
     Queue.objects.filter(status__gt=0).update(status=-3)
@@ -389,74 +474,18 @@ def download_upload_file(request, f):
 def export_protocol(request):
     if request.method == 'GET':
         if 'id' in request.GET:
-            protocol_data = dict()
-            try:
-                protocol_parent = ProtocolList.objects.get(id=int(request.GET['id']))
-            except ProtocolList.DoesNotExist:
-                from django.http import Http404
-                raise Http404("Protocol does not exist")
-            protocol_data['name'] = protocol_parent.name
-            protocol_data['step'] = []
-            references = {}
-            reference_list = References.objects.filter(user_id=request.user.id).all()
-            protocol_ref = {}
-            # references.extend([reference.name for reference in reference_list])
-            for reference in reference_list:
-                references[reference.name] = reference.description
-
-            wildcard_pattern = re.compile("\\{(.*?)\\}", re.IGNORECASE | re.DOTALL)
-            if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
-                steps = Protocol.objects.filter(parent=int(request.GET['id']))
-                for step in steps:
-                    try:
-                        for wildcard in re.findall(wildcard_pattern, step.parameter):
-                            wildcard = wildcard.split(':')[0]
-                            if wildcard in references.keys() and wildcard not in protocol_ref.keys():
-                                protocol_ref[wildcard] = references[wildcard]
-                        equations = Prediction.objects.filter(step_hash=step.hash)
-                        cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = 0
-                        for equation in equations:
-                            if equation.type == 1:
-                                disk_a = equation.a
-                                disk_b = equation.b
-                                disk_r = equation.r
-                            elif equation.type == 2:
-                                mem_a = equation.a
-                                mem_b = equation.b
-                                mem_r = equation.r
-                            elif equation.type == 3:
-                                cpu_a = equation.a
-                                cpu_b = equation.b
-                                cpu_r = equation.r
-                        tmp = {
-                            'software': step.software,
-                            'parameter': step.parameter,
-                            'hash': step.hash,
-                            'cpu': get_config('env', 'cpu'),
-                            'mem': get_config('env', 'memory'),
-                            'os': os_to_int(),
-                            'cpu_a': cpu_a,
-                            'cpu_b': cpu_b,
-                            'cpu_r': cpu_r,
-                            'mem_a': mem_a,
-                            'mem_b': mem_b,
-                            'mem_r': mem_r,
-                            'disk_a': disk_a,
-                            'disk_b': disk_b,
-                            'disk_r': disk_r,
-                        }
-                    except Exception as e:
-                        print(e)
-                        tmp = {
-                            'software': step.software,
-                            'parameter': step.parameter,
-                            'hash': step.hash,
-                        }
-                    protocol_data['step'].append(tmp)
-                    protocol_data['reference'] = protocol_ref
-                return build_json_protocol(protocol_data)
-            else:
+            protocol_text = build_plain_protocol(request, request.GET['id'])
+            if protocol_text == 1:
+                return error('Cannot find the protocol.')
+            elif protocol_text == 2:
                 return error('You are not owner of the protocol.')
+            else:
+                from django.http import StreamingHttpResponse
+                response = StreamingHttpResponse(protocol_text)
+                response['Content-Type'] = 'application/octet-stream'
+                response['Content-Disposition'] = 'attachment;filename="{0}"'.format(request.user.username +
+                                                                                 str(request.GET['id']) + '.txt')
+                return response
         else:
             return error('Unknown parameter.')
     else:
@@ -1242,3 +1271,29 @@ def update_reference(request):
             return error(str(update_ref_form.errors))
     else:
         return error('Method error')
+
+
+@login_required
+def upload_protocol(request):
+    if request.method == 'GET':
+        if 'id' in request.GET:
+            protocol_text = build_plain_protocol(request, request.GET['id'])
+            if protocol_text == 1:
+                return error('Cannot find the protocol.')
+            elif protocol_text == 2:
+                return error('You are not owner of the protocol.')
+            else:
+                from worker.feedback import feedback_protocol
+                ret = feedback_protocol(request.user.email, protocol_text)
+                if ret is not None:
+                    if ret['status']:
+                        return success(ret['info'])
+                    else:
+                        return error(ret['info'])
+
+        else:
+            return error('Unknown parameter.')
+    else:
+        return error('Method error.')
+
+

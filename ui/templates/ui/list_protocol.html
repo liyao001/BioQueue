@@ -107,10 +107,11 @@
           </form>
           <hr>
           <h3>Share with public</h3>
+          <a class="btn btn-default btn-block" id="upload-protocol-link" onclick="uploadProtocol(this);">Upload to BioQueue Open Platform</a>
           <p>
-              By clicking the following button you can build a flattened protocol file which can be uploaded to <a href="http://bioqueue.nefu.edu.cn" target="_blank">our open platform</a> or any other place on the Internet. And other people can use the import function to cite your protocol.
+              Or, you can click the following button you can build a flattened protocol file which can be uploaded to <a href="http://bioqueue.nefu.edu.cn" target="_blank">our open platform</a> or any other place on the Internet. And other people can use the import function to cite your protocol.
           </p>
-          <a class="btn btn-default btn-block" id="export-protocol-link" data-traceid="0" href="">Build a sharable protocol</a>
+          <a class="btn btn-default btn-block" id="export-protocol-link" href="">Build a sharable protocol</a>
       </div>
       <div class="modal-footer">
         <button type="submit" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -219,9 +220,26 @@
     }
     function showShare(proId){
         $('#share #pro').val(proId);
-        $('#export-protocol').attr("data-traceid", proId);
+        $('#upload-protocol-link').attr("data-pid", proId);
         $('#export-protocol-link').attr("href", "/ui/export-protocol?id="+proId);
         $('#share').modal();
+    }
+    function uploadProtocol(obj){
+        var self = $(obj);
+        $.get('{% url 'ui:upload_protocol' %}', {id: self.attr('data-pid')}, function(data){
+            if (data.status){
+                Messenger().post({
+                    message: data.info,
+                    showCloseButton: true
+                });
+            }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+                });
+            }
+        });
     }
     function showSteps(recId){
         $('#stepsContainer').html('');
