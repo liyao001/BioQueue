@@ -24,11 +24,13 @@ def error(message, jump_url='.', msg_title="error", status=0, wait_second=3):
 
 def build_json_protocol(protocol):
     import json
+    """
     response = StreamingHttpResponse(json.dumps(protocol))
     response['Content-Type'] = 'application/octet-stream'
     response['Content-Disposition'] = 'attachment;filename="{0}"'.format(protocol['name']+'.txt')
-
     return response
+    """
+    return json.dumps(protocol)
 
 
 def build_json_reference(ref):

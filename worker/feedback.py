@@ -47,6 +47,30 @@ def get_error_log(file_path):
     return error_log
 
 
+def feedback_protocol(user_mail, formatted_protocol):
+    """
+    Feedback protocol
+    :param user_mail:
+    :param formatted_protocol:
+    :return:
+    """
+    import json
+    post_data_dict = {
+        'email': user_mail,
+        'pro': formatted_protocol,
+    }
+
+    try:
+        fb_url = get_config('program', 'api', 1) + '/Protocol/protocol_feedback'
+        # _ = requests.post(fb_url, data=post_data_dict, timeout=5)
+        data = requests.post(fb_url, data=post_data_dict, timeout=5)
+        protocol_json = json.loads(data.text)
+        return protocol_json
+    except Exception as e:
+        print(e)
+        return None
+
+
 def feedback_error(software, parameter, error_message):
     """
     Feedback error
