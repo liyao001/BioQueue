@@ -112,6 +112,15 @@ class StepManipulateForm(forms.Form):
     )
 
 
+class StepOrderManipulateForm(forms.Form):
+    protocol = forms.IntegerField(
+        required=True,
+    )
+    step_order = forms.CharField(
+        required=True,
+    )
+
+
 class ShareProtocolForm(forms.Form):
     peer = forms.CharField(
         required=True,

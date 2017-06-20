@@ -63,6 +63,7 @@ class Protocol(models.Model):
     parent = models.ForeignKey('ProtocolList')
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
+    step_order = models.SmallIntegerField(default=1)
 
     def __str__(self):
         return self.software+' '+self.parameter
@@ -78,6 +79,10 @@ class Protocol(models.Model):
             return 1
         else:
             return 0
+
+    def update_order(self, new_order):
+        self.step_order = new_order
+        return 1
 
     def update_parameter(self, new_parameter):
         import hashlib

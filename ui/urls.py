@@ -45,5 +45,6 @@ urlpatterns = [
     url(r'^update-bioqueue/$', views.update_bioqueue, name='update_bioqueue'),
     url(r'^update-parameter/$', views.update_parameter, name='update_parameter'),
     url(r'^update-reference/$', views.update_reference, name='update_reference'),
+    url(r'^update-step-order/$', views.update_step_order, name='update_step_order'),
     url(r'^upload-protocol/$', views.upload_protocol, name='upload_protocol'),
 ]

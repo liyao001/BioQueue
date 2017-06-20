@@ -10,7 +10,7 @@ from tools import error, success, delete_file, check_user_existence, handle_uplo
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, \
-    FetchRemoteProtocolForm, RefManipulateForm
+    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
@@ -73,10 +73,12 @@ def add_step(request):
                 if protocol.check_owner(request.user.id) or request.user.is_superuser:
                     m = hashlib.md5()
                     m.update(cd['software'] + ' ' + cd['parameter'].strip())
+                    step_amount = Protocol.objects.filter(parent=cd['parent']).count() + 1
                     step = Protocol(software=cd['software'],
                                     parameter=cd['parameter'],
                                     parent=protocol,
                                     user_id=request.user.id,
+                                    step_order=step_amount,
                                     hash=m.hexdigest())
                     step.save()
                     return success('Your step have been created.')
@@ -213,50 +215,52 @@ def build_plain_protocol(request, protocol_id):
     if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
         steps = Protocol.objects.filter(parent=int(request.GET['id']))
         for step in steps:
+            print(step)
             try:
                 for wildcard in re.findall(wildcard_pattern, step.parameter):
                     wildcard = wildcard.split(':')[0]
                     if wildcard in references.keys() and wildcard not in protocol_ref.keys():
                         protocol_ref[wildcard] = references[wildcard]
-                    equations = Prediction.objects.filter(step_hash=step.hash)
-                    cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = vrt_a = vrt_b = vrt_r = 0
-                    for equation in equations:
-                        if equation.type == 1:
-                            disk_a = equation.a
-                            disk_b = equation.b
-                            disk_r = equation.r
-                        elif equation.type == 2:
-                            mem_a = equation.a
-                            mem_b = equation.b
-                            mem_r = equation.r
-                        elif equation.type == 3:
-                            cpu_a = equation.a
-                            cpu_b = equation.b
-                            cpu_r = equation.r
-                        elif equation.type == 4:
-                            vrt_a = equation.a
-                            vrt_b = equation.b
-                            vrt_r = equation.r
-                    tmp = {
-                        'software': step.software,
-                        'parameter': step.parameter,
-                        'hash': step.hash,
-                        'cpu': get_config('env', 'cpu'),
-                        'mem': get_config('env', 'memory'),
-                        'os': os_to_int(),
-                        'cpu_a': cpu_a,
-                        'cpu_b': cpu_b,
-                        'cpu_r': cpu_r,
-                        'mem_a': mem_a,
-                        'mem_b': mem_b,
-                        'mem_r': mem_r,
-                        'vrt_a': vrt_a,
-                        'vrt_b': vrt_b,
-                        'vrt_r': vrt_r,
-                        'disk_a': disk_a,
-                        'disk_b': disk_b,
-                        'disk_r': disk_r,
-                    }
+                equations = Prediction.objects.filter(step_hash=step.hash)
+                cpu_a = cpu_b = cpu_r = mem_a = mem_b = mem_r = disk_a = disk_b = disk_r = vrt_a = vrt_b = vrt_r = 0
+                for equation in equations:
+                    if equation.type == 1:
+                        disk_a = equation.a
+                        disk_b = equation.b
+                        disk_r = equation.r
+                    elif equation.type == 2:
+                        mem_a = equation.a
+                        mem_b = equation.b
+                        mem_r = equation.r
+                    elif equation.type == 3:
+                        cpu_a = equation.a
+                        cpu_b = equation.b
+                        cpu_r = equation.r
+                    elif equation.type == 4:
+                        vrt_a = equation.a
+                        vrt_b = equation.b
+                        vrt_r = equation.r
+                tmp = {
+                    'software': step.software,
+                    'parameter': step.parameter,
+                    'hash': step.hash,
+                    'step_order': step.step_order,
+                    'cpu': get_config('env', 'cpu'),
+                    'mem': get_config('env', 'memory'),
+                    'os': os_to_int(),
+                    'cpu_a': cpu_a,
+                    'cpu_b': cpu_b,
+                    'cpu_r': cpu_r,
+                    'mem_a': mem_a,
+                    'mem_b': mem_b,
+                    'mem_r': mem_r,
+                    'vrt_a': vrt_a,
+                    'vrt_b': vrt_b,
+                    'vrt_r': vrt_r,
+                    'disk_a': disk_a,
+                    'disk_b': disk_b,
+                    'disk_r': disk_r,
+                }
             except Exception as e:
                 print(e)
                 tmp = {
@@ -306,6 +310,7 @@ def create_protocol(request):
                                               parameter=parameters[index],
                                               parent=protocol_id_trace,
                                               hash=m.hexdigest(),
+                                              step_order=index+1,
                                               user_id=request.user.id))
                 Protocol.objects.bulk_create(steps)
                 return success('Your protocol have been created!')
@@ -429,16 +434,6 @@ def download_job_file(request, f):
     file_path = os.path.join(get_config('env', 'workspace'),
                              str(request.user.id), base64.b64decode(f.replace('f/', '')))
     return download(file_path)
-    '''
-    try:
-        response = FileResponse(open(file_path, 'rb'))
-        response['Content-Type'] = 'application/octet-stream'
-        response['Content-Disposition'] = 'attachment;filename="{0}"'.format(os.path.basename(file_path))
-        response['Content-Length'] = os.path.getsize(file_path)
-        return response
-    except Exception as e:
-        return error(e)
-    '''
 
 
 def download(file_path):
@@ -458,16 +453,6 @@ def download_upload_file(request, f):
     file_path = os.path.join(get_config('env', 'workspace'),
                              str(request.user.id), 'uploads', base64.b64decode(f.replace('f/', '')))
     return download(file_path)
-    '''
-    try:
-        response = FileResponse(open(file_path, 'rb'))
-        response['Content-Type'] = 'application/octet-stream'
-        response['Content-Disposition'] = 'attachment;filename="{0}"'.format(os.path.basename(file_path))
-        response['Content-Length'] = os.path.getsize(file_path)
-        return response
-    except Exception as e:
-        return error(e)
-    '''
 
 
 @login_required
@@ -594,6 +579,7 @@ def import_protocol_by_fetch(request):
                                               parameter=step['parameter'],
                                               parent=protocol_id_trace,
                                               hash=m.hexdigest(),
+                                              step_order=step['step_order'],
                                               user_id=request.user.id))
                         if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
                             if 'cpu' in step.keys():
@@ -614,10 +600,22 @@ def import_protocol_by_fetch(request):
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
                                 continue
                             else:
-                                predictions.append(Prediction(a=step['cpu_a'],
-                                                              b=step['cpu_b'],
-                                                              r=step['cpu_r'],
+                                predictions.append(Prediction(a=step['mem_a'],
+                                                              b=step['mem_b'],
+                                                              r=step['mem_r'],
                                                               type=2,
+                                                              step_hash=m.hexdigest()))
+                        if 'vrt_a' in step.keys() and 'vrt_b' in step.keys() and 'vrt_r' in step.keys():
+                            if 'mem' in step.keys():
+                                if step['mem'] != get_config('env', 'mem'):
+                                    continue
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['vrt_a'],
+                                                              b=step['vrt_b'],
+                                                              r=step['vrt_r'],
+                                                              type=4,
                                                               step_hash=m.hexdigest()))
                         if 'disk_a' in step.keys() and 'disk_b' in step.keys() and 'disk_r' in step.keys():
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=1).exists():
@@ -685,6 +683,7 @@ def import_protocol(request):
                                               parameter=step['parameter'],
                                               parent=protocol_id_trace,
                                               hash=m.hexdigest(),
+                                              step_order=step['step_order'],
                                               user_id=request.user.id))
                         if 'cpu_a' in step.keys() and 'cpu_b' in step.keys() and 'cpu_r' in step.keys():
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=3).exists():
@@ -699,10 +698,22 @@ def import_protocol(request):
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
                                 continue
                             else:
-                                predictions.append(Prediction(a=step['cpu_a'],
-                                                              b=step['cpu_b'],
-                                                              r=step['cpu_r'],
+                                predictions.append(Prediction(a=step['mem_a'],
+                                                              b=step['mem_b'],
+                                                              r=step['mem_r'],
                                                               type=2,
+                                                              step_hash=m.hexdigest()))
+                        if 'vrt_a' in step.keys() and 'vrt_b' in step.keys() and 'vrt_r' in step.keys():
+                            if 'mem' in step.keys():
+                                if step['mem'] != get_config('env', 'mem'):
+                                    continue
+                            if Prediction.objects.filter(step_hash=m.hexdigest(), type=2).exists():
+                                continue
+                            else:
+                                predictions.append(Prediction(a=step['vrt_a'],
+                                                              b=step['vrt_b'],
+                                                              r=step['vrt_r'],
+                                                              type=4,
                                                               step_hash=m.hexdigest()))
                         if 'disk_a' in step.keys() and 'disk_b' in step.keys() and 'disk_r' in step.keys():
                             if Prediction.objects.filter(step_hash=m.hexdigest(), type=1).exists():
@@ -1148,12 +1159,13 @@ def show_step(request):
         if query_protocol_form.is_valid():
             cd = query_protocol_form.cleaned_data
             if request.user.is_superuser:
-                step_list = Protocol.objects.filter(parent=cd['parent']).all()
+                step_list = Protocol.objects.filter(parent=cd['parent']).all().order_by('step_order')
             else:
-                step_list = Protocol.objects.filter(parent=cd['parent']).filter(user_id=request.user.id).all()
+                step_list = Protocol.objects.filter(parent=cd['parent']).filter(user_id=request.user.id).all().order_by('step_order')
             template = loader.get_template('ui/show_steps.html')
             context = {
                 'step_list': step_list,
+                'parent': cd['parent'],
             }
             return success(template.render(context))
         else:
@@ -1269,6 +1281,31 @@ def update_reference(request):
                 return error('Your are not owner of the step.')
         else:
             return error(str(update_ref_form.errors))
+    else:
+        return error('Method error')
+
+
+@login_required
+def update_step_order(request):
+    if request.method == 'GET':
+        from urllib import unquote
+        update_order_form = StepOrderManipulateForm(request.GET)
+        if update_order_form.is_valid():
+            cd = update_order_form.cleaned_data
+            relations = list(filter(None, cd['step_order'].split(';')))
+            error_tag = 0
+            for relation in relations:
+                step_id, new_order = relation.split('=')
+                step = Protocol.objects.get(id=int(step_id), parent=int(cd['protocol']))
+                if (step.check_owner(request.user.id) or request.user.is_superuser):
+                    step.update_order(int(new_order))
+                    step.save()
+                else:
+                    return error('Your are not owner of the step.')
+            if not error_tag:
+                return success('Your step has been updated.')
+        else:
+            return error(str(update_order_form.errors))
     else:
         return error('Method error')
 

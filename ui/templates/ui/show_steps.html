@@ -1,7 +1,7 @@
 <table class="table table-bordered">
     <thead>
         <tr>
-            <th>ID</th>
+            <th>Order</th>
             <th>Software</th>
             <th>Parameter</th>
             <th>Check point</th>
@@ -11,7 +11,13 @@
     <tbody>
     {% for step in step_list %}
         <tr class="pending-user">
-            <td>{{ step.id }}</td>
+            <td>
+            <select class="step-order" id="step-order-{{ step.step_order}}" data-sid="{{ step.id }}" data-raw="{{ step.step_order }}">
+                {% for s in step_list %}
+                <option value ="{{ forloop.counter }}" {% if forloop.counter == step.step_order %}selected{% endif %}>{{ forloop.counter }}</option>
+                {% endfor %}
+            </select>
+            </td>
             <td>{{ step.software }}</td>
             <td class="editble" onclick="edit(this);" data-sid="{{ step.id }}" data-pid="{{ step.parent }}">{{ step.parameter }}</td>
             <td>
@@ -27,6 +33,7 @@
 	{% endfor %}
     </tbody>
 </table>
+<button class="btn btn-default" id="update-order" role="button">Update Order</button>
 <script type="text/javascript">
 $("table td .dels").click(function(){
 	var self = $(this);
@@ -35,5 +42,36 @@ $("table td .dels").click(function(){
 			self.parent().parent().parent().remove();
 		}
 	});
+});
+$("#update-order").click(function () {
+    var order_chain = "";
+    $.each($('.step-order'), function (key, ele) {
+        if($(ele).val()!=$(ele).attr("data-raw")){
+            order_chain += $(ele).attr("data-sid") + "=" + $(ele).val() + ";";
+        }
+    });
+    if (order_chain == ""){
+        Messenger().post({
+            message: "The order is identical to the former one.",
+            type: 'error',
+            showCloseButton: true
+        });
+    }else{
+        $.get('{% url 'ui:update_step_order' %}', {step_order: order_chain, protocol: {{ parent }} }, function(data){
+            if (data.status){
+                Messenger().post({
+                    message: data.info,
+                    showCloseButton: true
+                });
+                showSteps({{ parent }});
+            }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+                });
+            }
+        });
+    }
 });
 </script>
