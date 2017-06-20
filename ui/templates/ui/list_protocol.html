@@ -46,7 +46,7 @@
     <div id="stepsContainer" style="display:none;"></div>
 </div>
 <div class="modal fade" id="newStep" tabindex="-1" role="dialog" aria-labelledby="newStep">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -56,7 +56,14 @@
                 <form class="form" method="post" id="new-step-form" action="{% url 'ui:add_step' %}">
                     <div class="form-group">
                         <label for="software">Software*:</label>
-                        <input type="text" class="form-control" id="software" name="software" required />
+                        <div class="input-group">
+                            <input type="text" class="form-control input-xlarge" id="software" name="software" required />
+                            <span class="input-group-btn"><button type="button" onclick="fetchKB(this);" class="btn btn-default">How to use the software?</button></span>
+                        </div>
+                    </div>
+                    <div class="hints" style="display: none;">
+                        <a class="close" onclick="$(this).parent().hide();" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></a>
+                        <div class="hints-container"></div>
                     </div>
                     <div class="form-group">
                         <label for="parameter">Parameters*:</label>
@@ -121,6 +128,7 @@
 </div>
 {% endblock %}
 {% block script %}
+    var before_software = "";
     $("#edit-job").addClass("active");
     var csrftoken = $.cookie('csrftoken');
     $.ajaxSetup({
@@ -128,6 +136,7 @@
             xhr.setRequestHeader("X-CSRFToken", csrftoken);
         }
     });
+    var oTextbox = new AutoSuggestControl("parameter");
     $("form").submit(function(){
 		var self = $(this);
 		$.post(self.attr("action"), self.serialize(), success, "json");
@@ -259,5 +268,27 @@
 				});
             };
         });
+    }
+    function fetchKB(obj){
+        var self = $(obj);
+        var this_software = self.parent().parent().children("#software").val();
+        //self.parent().parent().parent().parent()
+        var hint_panel = $("#new-step-form").children(".hints");
+        if (before_software != this_software){
+            before_software = this_software;
+            self.attr("disabled", true);
+            var api_bus = "{% url 'ui:query_usage' %}";
+            $.post(api_bus, {software: this_software}, function(data){
+                if (data.status){
+                    hint_panel.children('.hints-container').html(data.content);
+                    hint_panel.show();
+                }
+                self.attr("disabled", false);
+            }, 'json').error(function(){
+                self.attr("disabled", false);
+            });
+        }else{
+            hint_panel.show();
+        }
     }
 {% endblock %}
