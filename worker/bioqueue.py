@@ -54,7 +54,7 @@ def get_steps(protocol_id):
     """
     step_list = []
 
-    steps = Protocol.objects.filter(parent=protocol_id)
+    steps = Protocol.objects.filter(parent=protocol_id).order_by('step_order')
     html_parser = HTMLParser()
 
     for index, step in enumerate(steps):
