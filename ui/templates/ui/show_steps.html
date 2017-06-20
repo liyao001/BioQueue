@@ -12,7 +12,7 @@
     {% for step in step_list %}
         <tr class="pending-user">
             <td>
-            <select class="step-order" id="step-order-{{ step.step_order}}" data-sid="{{ step.id }}" data-raw="{{ step.step_order }}">
+            <select class="step-order form-control" id="step-order-{{ step.step_order}}" data-sid="{{ step.id }}" data-raw="{{ step.step_order }}">
                 {% for s in step_list %}
                 <option value ="{{ forloop.counter }}" {% if forloop.counter == step.step_order %}selected{% endif %}>{{ forloop.counter }}</option>
                 {% endfor %}
