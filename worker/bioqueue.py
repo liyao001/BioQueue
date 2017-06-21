@@ -591,6 +591,7 @@ def run_step(job_desc, resources):
     items = job_desc.split('_')
     job_id = int(items[0])
     step_order = int(items[1])
+    user_id = JOB_TABLE[job_id]['user_id']
     recheck = forecast_step(job_id, step_order, resources)
 
     log_file = os.path.join(settings["env"]["log"], str(job_id))
@@ -649,7 +650,7 @@ def run_step(job_desc, resources):
                 from feedback import feedback_error, get_error_log
                 feedback_error(JOB_COMMAND[job_id][0],
                                ' '.join(JOB_COMMAND[job_id][1:]),
-                               get_error_log(log_file), get_user_mail(JOB_TABLE[job_id]['user_id']))
+                               get_error_log(log_file), get_user_mail(user_id))
             except:
                 pass
             error_job(job_id, resources)
@@ -723,7 +724,7 @@ def run_step(job_desc, resources):
                 from feedback import feedback_error, get_error_log
                 feedback_error(JOB_COMMAND[job_id][0],
                                ' '.join(JOB_COMMAND[job_id][1:]),
-                               get_error_log(log_file), get_user_mail(JOB_TABLE[job_id]['user_id']))
+                               get_error_log(log_file), get_user_mail(user_id))
             except:
                 pass
             RUNNING_JOBS -= 1
