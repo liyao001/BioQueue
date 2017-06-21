@@ -39,6 +39,7 @@ INPUT_SIZE = dict()
 OUTPUT_SIZE = dict()
 FOLDER_SIZE_BEFORE = dict()
 CUMULATIVE_OUTPUT_SIZE = dict()
+USER_MAIL_DICT = dict()
 RESOURCES = dict()
 LATEST_JOB_ID = 0
 LATEST_JOB_STEP = 0
@@ -65,6 +66,25 @@ def get_steps(protocol_id):
             'hash': step.hash,
         })
     return step_list
+
+
+def get_user_mail(user):
+    """
+    Get user email address
+    :param user: int, user id
+    :return: string, email address, return '' when no record was found
+    """
+    global USER_MAIL_DICT
+    if user in USER_MAIL_DICT.keys():
+        return USER_MAIL_DICT[user]
+    else:
+        try:
+            from django.contrib.auth.models import User
+            user_obj = User.objects.get(id=int(user))
+            USER_MAIL_DICT[user] = user_obj.email
+            return user_obj.email
+        except:
+            return ''
 
 
 def get_user_reference(user):
@@ -581,8 +601,7 @@ def run_step(job_desc, resources):
         try:
             from feedback import feedback
             feedback(JOB_COMMAND[job_id][0],
-                     ' '.join(JOB_COMMAND[job_id][1:]),
-                     JOB_TABLE[job_id]['steps'][step_order]['hash'])
+                     ' '.join(JOB_COMMAND[job_id][1:]), get_user_mail(JOB_TABLE[job_id]['user_id']))
         except:
             pass
 
@@ -630,7 +649,7 @@ def run_step(job_desc, resources):
                 from feedback import feedback_error, get_error_log
                 feedback_error(JOB_COMMAND[job_id][0],
                                ' '.join(JOB_COMMAND[job_id][1:]),
-                               get_error_log(log_file))
+                               get_error_log(log_file), get_user_mail(JOB_TABLE[job_id]['user_id']))
             except:
                 pass
             error_job(job_id, resources)
@@ -704,7 +723,7 @@ def run_step(job_desc, resources):
                 from feedback import feedback_error, get_error_log
                 feedback_error(JOB_COMMAND[job_id][0],
                                ' '.join(JOB_COMMAND[job_id][1:]),
-                               get_error_log(log_file))
+                               get_error_log(log_file), get_user_mail(JOB_TABLE[job_id]['user_id']))
             except:
                 pass
             RUNNING_JOBS -= 1

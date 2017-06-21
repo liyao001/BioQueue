@@ -11,7 +11,7 @@ import base64
 from baseDriver import get_config, get_bioqueue_version
 
 
-def feedback(software, parameter, hash):
+def feedback(software, parameter, mail):
     """
     Usage feedback
     :param software:
@@ -24,7 +24,9 @@ def feedback(software, parameter, hash):
     parameter = base64.b64encode(parameter)
     get_data_dict = {'ver': base64.b64encode(get_bioqueue_version()),
                      'software': software,
-                     'parameter': parameter}
+                     'parameter': parameter,
+                     'email': mail,
+                     }
     try:
         fb_url = get_config('program', 'api', 1) + '/Gate/feedback'
         _ = requests.get(fb_url, params=get_data_dict, timeout=3)
@@ -71,7 +73,7 @@ def feedback_protocol(user_mail, formatted_protocol):
         return None
 
 
-def feedback_error(software, parameter, error_message):
+def feedback_error(software, parameter, error_message, mail=''):
     """
     Feedback error
     :param software: string, software name
@@ -84,6 +86,7 @@ def feedback_error(software, parameter, error_message):
         'software': software,
         'parameter': parameter,
         'error': error_message,
+        'email': mail,
     }
     try:
         fb_url = get_config('program', 'api', 1) + '/Gate/error_feedback'
@@ -92,7 +95,7 @@ def feedback_error(software, parameter, error_message):
         pass
 
 
-def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, mem_b, mem_r, disk_a, disk_b, disk_r):
+def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, mem_b, mem_r, disk_a, disk_b, disk_r, mail=''):
     """
     Feedback checkpoint
     :param software: string, software name
