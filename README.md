@@ -66,7 +66,7 @@ This step is optional, if you run command above, the FTP server will listen **20
 python worker/ftp_daemon.py start
 ```
 
-## Useful informations
+## Useful information
 * To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running. If you run the queue or FTP server in background, hit
 ```
 python worker/bioqueue_daemon.py stop
@@ -75,4 +75,7 @@ python worker/ftp_daemon.py stop
 
 * To get a better performance, moving the webserver to [Apache](http://bioqueue.readthedocs.io/en/latest/faq.html#use-bioqueue-with-apache-in-production-environment) or [nginx](https://nginx.org) is a good idea.
 
-With the generous help from [BrowserStack](https://www.browserstack.com), we are able to carefully test the cross-browser performance of BioQueue. So if you need to test the cross-browser performance, BrowserStack is worthy of a try.[![BrowserStack](https://d3but80xmlhqzj.cloudfront.net/production/images/static/header/header-logo.svg "BrowserStack")](https://www.browserstack.com)
+## Citation
+1.	Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* (2017). doi:10.1093/bioinformatics/btx403
+
+With the generous help from [BrowserStack](https://www.browserstack.com), we are able to carefully test the cross-browser performance of BioQueue. So if you need to test the cross-browser performance, BrowserStack is worthy of a try.
