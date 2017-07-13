@@ -1069,14 +1069,8 @@ def show_job_log(request):
             cd = query_job_form.cleaned_data
             log_path = os.path.join(get_config('env', 'log'), str(cd['job']))
             try:
-                log_file = open(log_path, mode='r')
-                log = log_file.readlines()
-                log.reverse()
-                log = log[:100]
-                # log_content = [line+'<br />' for line in log]
-                log_content = '<br />'.join(log)
-                log_file.close()
-                return success(log_content)
+                from worker.baseDriver import get_job_log
+                return success(get_job_log(log_path))
             except Exception as e:
                 return error(e)
         else:
