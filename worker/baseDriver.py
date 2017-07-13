@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import division
 from __future__ import print_function
 
 try:
@@ -366,7 +367,6 @@ def is_text(s, threshold=0.3):
     :return: 
     """
     import string
-    from __future__ import division
     text_characters = "".join(map(chr, range(32, 127)))+"\n\r\t\b"
     _null_trans = string.maketrans("", "")
     if "\0" in s:
