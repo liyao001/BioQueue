@@ -355,3 +355,63 @@ def get_folder_content(folder_path):
             file_full_path = os.path.join(root, file_name)
             folder_content.append(file_full_path)
     return folder_content
+
+
+def is_text(s, threshold=0.3):
+    """
+    Determine whether a certain string is text or arbitrary bytes.
+    This is derived from Python Cookbook
+    :param s: string, input string
+    :param threshold: float, threshold for the max proportion in a string which can be null translates
+    :return: 
+    """
+    import string
+    from __future__ import division
+    text_characters = "".join(map(chr, range(32, 127)))+"\n\r\t\b"
+    _null_trans = string.maketrans("", "")
+    if "\0" in s:
+        return False
+    if not s:
+        return True
+    t = s.translate(_null_trans, text_characters)
+    return len(t)/len(s) <= threshold
+
+
+def is_text_file(filename, block_size=512):
+    """
+    Determine whether a file is a text file or binary file.
+    :param filename: string, path to the file
+    :param block_size: int
+    :return: bool
+    """
+    return is_text(open(filename).read(block_size))
+
+
+def get_job_log(file_path):
+    """
+    Get job log
+    :param file_path: string
+    :return: string, If size of the file is less than 1MB, it will return the last 100 lines, or it will return the last 10 KB.
+    """
+    _1_mb_in_bytes = 1024000
+    try:
+        if is_text_file(file_path):
+            with open(file_path, 'r') as file_handler:
+                if os.path.getsize(file_path) > _1_mb_in_bytes:
+                    off = -10240
+                    file_handler.seek(off, 2)
+                    log = file_handler.readlines()
+                    log.reverse()
+                else:
+                    log = file_handler.readlines()
+                    log.reverse()
+                    len_log = len(log)
+                    read_lines = 100 if len_log > 100 else len_log
+                    log = log[:read_lines]
+            log_content = '<br />'.join(log)
+            return log_content
+        else:
+            return 'This is a binary file.'
+    except Exception as e:
+        print(e)
+        return ''

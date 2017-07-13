@@ -42,8 +42,8 @@ def get_error_log(file_path):
     """
     error_log = ''
     try:
-        with open(file_path, 'r') as file_handler:
-            error_log = file_handler.read(10240)
+        from baseDriver import get_job_log
+        error_log = get_job_log(file_path)
     except:
         pass
     return error_log
