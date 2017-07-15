@@ -9,7 +9,14 @@ try:
 except ImportError:
     from configparser import ConfigParser
 
-from six.moves import input
+try:
+    from six.moves import input
+except ImportError:
+    if os.system('pip install six'):
+        print('============================================')
+        print('To install BioQueue, please setup pip first.')
+        print('============================================')
+        from six.moves import input
 
 byte_to_gigabyte = 1073741824
 
