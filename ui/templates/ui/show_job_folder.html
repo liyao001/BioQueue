@@ -14,9 +14,16 @@
             <td>{{ file_item.name }}</td>
             <td>{{ file_item.file_size | filesizeformat }}</td>
             <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i></span> <a class='label label-success' href='/ui/download-job-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i></a></td>
+            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a> <span class='label label-info' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span></td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
+<script type="text/javascript">
+    function showQuickRef(obj) {
+    var self = $(obj);
+    $('.ref-form #path').val(self.attr("data-path"));
+    $('.ref-form').show('fast');
+}
+</script>
 {% endif %}

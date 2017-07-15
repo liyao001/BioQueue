@@ -64,7 +64,7 @@
 		    </a>
 		</div>
 		<div class="metro-nav-block nav-block-green">
-		    <a data-original-title="" href="#" onclick="showFolder();">
+		    <a data-original-title="" href="{% url 'ui:show_workspace' %}">
 		        <i class="icon-folder-open"></i>
 		        <div class="info"></div>
 		        <div class="status">Sample Pool</div>
@@ -151,17 +151,6 @@
     </div>
   </div>
 </div>
-<div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="uf">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="uf">Upload Files</h4>
-            </div>
-            <div class="modal-body"> </div>
-        </div>
-    </div>
-</div>
 <script src="{% static "ui/js/jquery.js" %}"></script>
 <script src="{% static "ui/js/bootstrap.min.js" %}"></script>
 <script>
@@ -179,20 +168,6 @@ $("form").submit(function(){
         }
     }
 });
-function showFolder(){
-    $.get("{% url 'ui:show_workspace' %}", function(result){
-      $('#showFd .modal-body').html(result);
-      $('#showFd').modal();
-    });
-}
-function delFile(obj){
-	var self = $(obj);
-	$.get("/ui/delete-upload-file/"+self.attr("data-path"), function(data){
-		if(data.status){
-			self.parent().parent().hide('fast');
-		};
-	});
-};
 </script>
 </body>
 </html>
