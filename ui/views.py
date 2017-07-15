@@ -215,7 +215,6 @@ def build_plain_protocol(request, protocol_id):
     if protocol_parent.check_owner(request.user.id) or request.user.is_superuser:
         steps = Protocol.objects.filter(parent=int(request.GET['id']))
         for step in steps:
-            print(step)
             try:
                 for wildcard in re.findall(wildcard_pattern, step.parameter):
                     wildcard = wildcard.split(':')[0]
@@ -324,6 +323,26 @@ def create_protocol(request):
 
 
 @login_required
+def create_reference_shortcut(request):
+    reference_form = CreateReferenceForm(request.POST)
+    if reference_form.is_valid():
+        cd = reference_form.cleaned_data
+        import base64
+        if cd['source'] == 'upload' or cd['source'] == 'job':
+            file_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), base64.b64decode(cd['path']))
+            ref = References(
+                name=cd['name'],
+                path=file_path,
+                description=cd['description'],
+                user_id=request.user.id,
+            )
+            ref.save()
+            return success(ref.id)
+    else:
+        return error(str(reference_form.errors))
+
+
+@login_required
 def delete_job(request):
     if request.method == 'POST':
         terminate_form = JobManipulateForm(request.POST)
@@ -422,14 +441,14 @@ def delete_step(request):
 @login_required
 def delete_upload_file(request, f):
     import base64
-    file_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads', base64.b64decode(f))
+    file_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), base64.b64decode(f))
     delete_file(file_path)
 
     return success('Deleted')
 
 
 @login_required
-def download_job_file(request, f):
+def download_file(request, f):
     import base64
     file_path = os.path.join(get_config('env', 'workspace'),
                              str(request.user.id), base64.b64decode(f.replace('f/', '')))
@@ -445,14 +464,6 @@ def download(file_path):
         return response
     except Exception as e:
         return error(e)
-
-
-@login_required
-def download_upload_file(request, f):
-    import base64
-    file_path = os.path.join(get_config('env', 'workspace'),
-                             str(request.user.id), 'uploads', base64.b64decode(f.replace('f/', '')))
-    return download(file_path)
 
 
 @login_required
@@ -859,15 +870,6 @@ def query_protocol_atom(is_superuser, user_id, page):
         protocol_list = ProtocolList.objects.filter(user_id=user_id).all()
 
     paginator = Paginator(protocol_list, 25)
-    '''
-    try:
-        protocols = paginator.page(page)
-    except PageNotAnInteger:
-        protocols = paginator.page(1)
-    except EmptyPage:
-        protocols = paginator.page(paginator.num_pages)
-    return protocols
-    '''
     return page_info(paginator, page)
 
 
@@ -939,6 +941,27 @@ def resume_job(request):
             return error(str(terminate_form.errors))
     else:
         return error('Method error')
+
+
+@login_required
+def send_file_as_reference(request, f):
+    import base64
+    user_workspace = os.path.join(get_config('env', 'workspace'),
+                             str(request.user.id))
+    file_path = os.path.join(user_workspace, base64.b64decode(f.replace('f/', '')))
+    ref_folder = os.path.join(user_workspace, 'refs')
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return error('Cannot find the file.')
+
+    if not os.path.exists(ref_folder) or not os.path.isdir(ref_folder):
+        try:
+            os.makedirs(ref_folder)
+        except Exception as e:
+            return error(e)
+
+    import shutil
+    shutil.move(file_path, ref_folder)
+    return success("")
 
 
 @staff_member_required
@@ -1181,13 +1204,12 @@ def show_upload_files(request):
     return render(request, 'ui/show_uploads.html', context)
 
 
-@login_required
-def show_workspace(request):
+def show_workspace_files(user_id, special_type='uploads'):
     import time
     import base64
 
     user_files = []
-    user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads')
+    user_path = os.path.join(get_config('env', 'workspace'), str(user_id), special_type)
 
     if not os.path.exists(user_path):
         os.makedirs(user_path)
@@ -1198,9 +1220,17 @@ def show_workspace(request):
         tmp['name'] = file_name
         tmp['file_size'] = os.path.getsize(file_path)
         tmp['file_create'] = time.ctime(os.path.getctime(file_path))
-        tmp['trace'] = base64.b64encode(file_name)
+        tmp['trace'] = base64.b64encode(os.path.join(special_type, file_name))
+        tmp['raw'] = os.path.join(special_type, file_name)
         user_files.append(tmp)
-    context = {'user_files': sorted(user_files, key=lambda user_files : user_files['name']),}
+    user_files = sorted(user_files, key=lambda user_files: user_files['name'])
+    return user_files
+
+
+@login_required
+def show_workspace(request):
+    context = {'user_files': show_workspace_files(request.user.id, 'uploads'),
+               'user_ref_files': show_workspace_files(request.user.id, 'refs'), }
 
     return render(request, 'ui/show_workspace.html', context)
 

@@ -106,13 +106,32 @@
     </div>
 </div>
 <div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="showFd">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="show-fd-head">Result</h4>
+                <h4 class="modal-title" id="show-fd-head">Output Files</h4>
             </div>
-            <div class="modal-body"> </div>
+            <div class="modal-body">
+                <div class="file-list"></div>
+                <div class="ref-form" style="display: none;">
+                    <button type="button" class="close" onclick="$('.ref-form').hide('fast');"><span aria-hidden="true">&times;</span></button>
+                    <form class="form" id="cf-form" method="post" action="/ui/create-reference-shortcut/">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Reference Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required />
+                            <p class="help-block">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="name">Description (optional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" class="form-control" id="path" name="path" maxlength="255" required />
+                        <input type="hidden" class="form-control" id="source" name="source" value="job" required />
+                        <input type="button" onclick="scReference();" class="btn btn-success btn-block btn-large" value="Add" />
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -214,7 +233,7 @@
     function showFolder(recId){
         $.post("{% url 'ui:show_job_folder' %}", {job: recId}, function(data){
             if(data.status){
-                $('#showFd .modal-body').html(data.info);
+                $('#showFd .modal-body .file-list').html(data.info);
                 $('#showFd').modal();
 		    }else{
                 Messenger().post({
@@ -230,6 +249,24 @@
         $.get("/ui/delete-job-file/"+self.attr("data-path"), function(data){
             if(data.status){
                 self.parent().parent().hide('fast');
+            };
+        });
+    };
+    function scReference(){
+        var self = $("#cf-form");
+        $.post(self.attr("action"), self.serialize(), function(data){
+            if(data.status){
+                Messenger().post({
+                    message: "Created.",
+                    showCloseButton: true,
+				});
+                $('#showFd').modal('hide');
+		    }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+				});
             };
         });
     };
