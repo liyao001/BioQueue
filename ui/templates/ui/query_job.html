@@ -24,6 +24,7 @@
                     <option value="r">Rerun</option>
                 </select>
             </div>
+            <button type="button" id="click-all" data-checked="0" class="btn btn-default">Select All</button>
             <button type="button" class="btn btn-default" onclick="batchOperation()">Go</button>
         </form>
         <div class="row job-container">
@@ -267,10 +268,12 @@
         });
     };
     $("#click-all").click(function(){
-        if(this.checked){
+        if($("#click-all").attr("data-checked") == 0){
             $(".batch_operation").prop("checked", true);
+            $("#click-all").attr("data-checked", 1);
         }else{
 	        $(".batch_operation").prop("checked", false);
+            $("#click-all").attr("data-checked", 0);
         }
     });
     function batchOperation(){
