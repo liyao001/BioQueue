@@ -26,64 +26,60 @@
             </div>
             <button type="button" class="btn btn-default" onclick="batchOperation()">Go</button>
         </form>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="click-all"></th>
-                    <th>ID</th>
-                    <th>Protocol</th>
-                    <th>Input files</th>
-                    <th>Job parameters</th>
-                    <th>Output folder</th>
-                    <th>Status</th>
-                    <th>Create time</th>
-                    <th>Last update</th>
-                    <th>Operation</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="row job-container">
             {% if job_list %}
             {% for job in job_list %}
-                <tr class="pending-user">
-                    <td class="no-leak-table"><input type="checkbox" class="batch_operation" name="batch_operation" value="{{ job.id }}"></td>
-                    <td class="no-leak-table">{{ job.id }}</td>
-                    <td class="no-leak-table">{{ job.protocol }}</td>
-                    <td class="no-leak-table limited-table-25em">{{ job.input_file }}</td>
-                    <td class="no-leak-table limited-table-25em">{{ job.parameter }}</td>
-                    <td class="no-leak-table"><span href="__MODULE__/Job/showFolder/job/{{ job.id }}" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});">{{ job.result }}</span></td>
-                    <td class="no-leak-table status">
-                        {% if job.status == -1 %}
-                            <i class="icon-ok"></i>
+            <div class="col-sm-6 col-md-4">
+                <div class="thumbnail">
+                    <div class="caption">
+                        <div class="text-center">{% if job.status == -1 %}
+                            <i class="icon-ok icon-3x"></i>
                         {% elif job.status == -2 %}
-                            <i class="icon-pause"></i>Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} ({{ job.resume|add:1 }})
+                            <i class="icon-pause icon-3x"></i>
                         {% elif job.status == -3 %}
-                            <i class="icon-remove"></i><span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
+                            <i class="icon-remove icon-3x"></i>
                         {% elif job.status == 0 %}
-                            <i class="icon-time"></i>Waiting
+                            <i class="icon-time icon-3x"></i>
                         {% else %}
-                            <i class="icon-play"></i>Running ({{ job.status }})
-                        {% endif %}
-                    </td>
-                    <td class="no-leak-table">{{ job.create_time }}</td>
-                    <td class="no-leak-table">{{ job.update_time }}</td>
-                    <td class="no-leak-table">
-                        {% if job.status == -1 %}
-                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                        {% elif job.status == 0 %}
-                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                        {% elif job.status == -3 %}
-                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</span> <span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</span></span>
-                        {% elif job.status > 0 %}
-                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
+                            <i class="icon-play icon-3x"></i>
+                        {% endif %}</div>
+                        <h3 style="margin-top: 0;">{{ job.protocol }}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
+                        <p><ul class="list-unstyled">
+                        <li><b>ID:</b> {{ job.id }}</li>
+                        <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
+                        <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
+                        <li><b>Status:</b> {% if job.status == -1 %}
+                            Finished
                         {% elif job.status == -2 %}
-                            <span class="user-actions"><span data-jid="{{ job.id }}" style="cursor:pointer;" class="label label-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</span></span>
-                        {% endif %}
-                    </td>
-                </tr>
+                            Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} ({{ job.resume|add:1 }})
+                        {% elif job.status == -3 %}
+                            <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
+                        {% elif job.status == 0 %}
+                            Waiting
+                        {% else %}
+                            Running ({{ job.status }})
+                        {% endif %}</li>
+                        <li><b>Create time:</b> {{ job.create_time }}</li>
+                        <li><b>Last update:</b> {{ job.update_time }}</li>
+                        <li><span class="label label-info" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});"><i class="icon-folder-open"></i> Show output files</span></li>
+                    </ul></p>
+                        <p class="text-center">{% if job.status == -1 %}
+                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                        {% elif job.status == 0 %}
+                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                        {% elif job.status == -3 %}
+                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                        {% elif job.status > 0 %}
+                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</button>
+                        {% elif job.status == -2 %}
+                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</button>
+                        {% endif %}</p>
+                    </div>
+                </div>
+            </div>
             {% endfor %}
             {% endif %}
-            </tbody>
-        </table>
+        </div>
         <ul class="pager">
             {% if job_list.has_previous %}
                 <li><a href="?page={{ job_list.previous_page_number }}">&lt;</a></li>
@@ -279,7 +275,7 @@
     });
     function batchOperation(){
         var valArr = new Array;
-        $("tbody :checkbox").each(function(i){
+        $(":checkbox").each(function(i){
             if($(this).prop("checked")){
                 valArr[i] = $(this).val();
             }
