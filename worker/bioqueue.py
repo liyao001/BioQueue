@@ -750,8 +750,21 @@ def set_checkpoint_info(job_id, cause):
         pass
 
 
+def reset_status():
+    """
+    Reset dead jobs
+    :return: 0/1
+    """
+    try:
+        Queue.objects.filter(status__gt=0).update(status=-3)
+        return 1
+    except:
+        return 0
+
+
 def main():
     global LATEST_JOB_ID, LATEST_JOB_STEP, RESOURCES
+    reset_status()
     while True:
         try:
             cpu_indeed = baseDriver.get_cpu_available()
