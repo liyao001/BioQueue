@@ -77,5 +77,3 @@ python worker/ftp_daemon.py stop
 
 ## Citation
 1.	Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* (2017). doi:10.1093/bioinformatics/btx403
-
-With the generous help from [BrowserStack](https://www.browserstack.com), we are able to carefully test the cross-browser performance of BioQueue. So if you need to test the cross-browser performance, BrowserStack is worthy of a try.
