@@ -76,4 +76,4 @@ python worker/ftp_daemon.py stop
 * To get a better performance, moving the webserver to [Apache](http://bioqueue.readthedocs.io/en/latest/faq.html#use-bioqueue-with-apache-in-production-environment) or [nginx](https://nginx.org) is a good idea.
 
 ## Citation
-1.	Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* (2017). doi:10.1093/bioinformatics/btx403
+1. Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* 33, 3286–3288 (2017). [doi:10.1093/bioinformatics/btx403](https://doi.org/doi:10.1093/bioinformatics/btx403)
