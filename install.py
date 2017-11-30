@@ -8,17 +8,21 @@ from getpass import getpass
 # check python version
 if sys.version_info[0] == 2 and sys.version_info[1] < 7:
     print('')
-    print('=======================================================================')
-    print('|BioQueue requires Python 2.7 or 3.3 or above                         |')
-    print('|For Linux/Unix users, you can enter following commands to install it:|')
-    print('-----------------------------------------------------------------------')
-    print('|chmod +x deploy/python_pip_non_root.sh                               |')
-    print('|./deploy/python_pip_non_root.sh                                      |')
-    print('-----------------------------------------------------------------------')
-    print('|For more information, please visit:                                  |')
-    print('|https://tinyurl.com/oldpython                                        |')
-    print('=======================================================================')
+    print('========================================================================')
+    print('|BioQueue requires Python 2.7 or 3.3 or above                          |')
+    print('|For Linux/Unix users, package managers make the installation easy     |')
+    print('|If you don\'t have root privilege, you can enter following commands to |')
+    print('|install it:                                                           |')
+    print('------------------------------------------------------------------------')
+    print('|chmod +x deploy/python_pip_non_root.sh                                |')
+    print('|./deploy/python_pip_non_root.sh                                       |')
+    print('------------------------------------------------------------------------')
+    print('|For more information, please visit:                                   |')
+    print('|https://tinyurl.com/oldpython                                         |')
+    print('|Please rerun install.py script after you have installed the new python|')
+    print('========================================================================')
     print('')
+    exit()
 
 try:
     from ConfigParser import ConfigParser
