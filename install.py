@@ -4,19 +4,32 @@ import os
 import sys
 from multiprocessing import cpu_count
 from getpass import getpass
+
+# check python version
+if sys.version_info[0] == 2 and sys.version_info[1] < 7:
+    print('')
+    print('=======================================================================')
+    print('|BioQueue requires Python 2.7 or 3.3 or above                         |')
+    print('|For Linux/Unix users, you can enter following commands to install it:|')
+    print('-----------------------------------------------------------------------')
+    print('|chmod +x deploy/python_pip_non_root.sh                               |')
+    print('|./deploy/python_pip_non_root.sh                                      |')
+    print('-----------------------------------------------------------------------')
+    print('|For more information, please visit:                                  |')
+    print('|https://tinyurl.com/oldpython                                        |')
+    print('=======================================================================')
+    print('')
+
 try:
     from ConfigParser import ConfigParser
 except ImportError:
     from configparser import ConfigParser
 
+# pylint: disable
 try:
-    from six.moves import input
-except ImportError:
-    if os.system('pip install six'):
-        print('============================================')
-        print('To install BioQueue, please setup pip first.')
-        print('============================================')
-        from six.moves import input
+   input = raw_input
+except NameError:
+   pass
 
 byte_to_gigabyte = 1073741824
 
@@ -61,13 +74,16 @@ def install_package():
     pip_install = 'pip install -r %s' % pip_import_path
     pip_install_fallback = 'pip install -r %s' % pip_import_fallback_path
     if os.system(pip_install):
+        print('')
         print('=======================================================')
         print('|Fetal error occurred when installing python packages |')
         print('|Now BioQueue will try to install alternative packages|')
         print('=======================================================')
+        print('')
         mydb_to_pymy_script = os.path.split(os.path.realpath(__file__))[0] + '/deploy/switch_from_MySQLdb_to_PyMySQL.py'
         os.system('python %s' % mydb_to_pymy_script)
         if os.system(pip_install_fallback):
+            print('')
             print('=======================================================')
             print('|Fetal error occurred when installing python packages |')
             print('|Installation will be terminated now                  |')
@@ -75,6 +91,7 @@ def install_package():
             print('|https://github.com/liyao001/BioQueue/issues          |')
             print('|to post the problem that you have encountered.       |')
             print('=======================================================')
+            print('')
             sys.exit(1)
 
 
@@ -85,12 +102,16 @@ def setup():
             os.makedirs(workspace_path)
             break
         except Exception as e:
+            print('')
             print('The path you input doesn\'t exist! Please reassign it.', e)
+            print('')
             workspace_path = input('Path of workspace: ')
 
-    print('====================================================')
-    print('Installing dependent python packages, please wait...')
-    print('====================================================')
+    print('')
+    print('======================================================')
+    print('|Installing dependent python packages, please wait...|')
+    print('======================================================')
+    print('')
 
     install_package()
 
@@ -108,7 +129,9 @@ def setup():
         if not os.path.exists(upload_path):
             os.mkdir(upload_path)
     except Exception as e:
+        print('')
         print('Doesn\'t have the permission to write your workspace!', e)
+        print('')
         sys.exit(1)
 
     set_config('env', 'workspace', workspace_path)
@@ -134,9 +157,9 @@ def setup():
     setting_file = setting_file.replace('{SECRET_KEY}', secret_key)
 
     print('')
-    print('===================')
-    print('Basic configuration')
-    print('===================')
+    print('=====================')
+    print('|Basic configuration|')
+    print('=====================')
     print('')
 
     cpu_cores = str(cpu_count())
@@ -157,9 +180,11 @@ def setup():
         disk_size = user_disk_size
     set_config('env', 'disk_quota', disk_size)
 
-    print('=======================================')
-    print('Do you want to use BioQueue with MySQL?')
-    print('=======================================')
+    print('')
+    print('=========================================')
+    print('|Do you want to use BioQueue with MySQL?|')
+    print('=========================================')
+    print('')
     mysql_fb = input('y/n (By default: y)')
 
     if mysql_fb == 'n':
@@ -180,9 +205,11 @@ def setup():
             db_port = '3306'
         database_configure['port'] = db_port
 
-        print('====================================')
-        print('Configuring database, please wait...')
-        print('====================================')
+        print('')
+        print('======================================')
+        print('|Configuring database, please wait...|')
+        print('======================================')
+        print('')
         """
         set_config('db', 'host', database_configure['host'])
         set_config('db', 'user', database_configure['user'])
@@ -198,10 +225,12 @@ def setup():
 
     setting_file = setting_file.replace('{DATABASE_BACKEND}', db_file)
 
-    print('=====================================================================================')
-    print('Do you agree to provide us diagnostic and usage information to help improve BioQueue?')
-    print('We collect this information anonymously.')
-    print('=====================================================================================')
+    print()
+    print('=======================================================================================')
+    print('|Do you agree to provide us diagnostic and usage information to help improve BioQueue?|')
+    print('|We collect this information anonymously.                                             |')
+    print('=======================================================================================')
+    print()
     fb = input('y/n (By default: y)')
 
     if fb == 'n':
@@ -220,21 +249,27 @@ def setup():
 
     init_data_path = os.path.split(os.path.realpath(__file__))[0] + '/init_resource.json'
 
-    print('===============================')
-    print('Creating tables, please wait...')
-    print('===============================')
+    print('')
+    print('=================================')
+    print('|Creating tables, please wait...|')
+    print('=================================')
+    print('')
 
     os.system('python %s migrate' % django_manage_path)
 
-    print('============================')
-    print('Loading data, please wait...')
-    print('============================')
+    print('')
+    print('==============================')
+    print('|Loading data, please wait...|')
+    print('==============================')
+    print('')
 
     os.system('python %s loaddata %s' % (django_manage_path, init_data_path))
 
-    print('=====================================')
-    print('Now we\'ll create a superuser account')
-    print('=====================================')
+    print('')
+    print('=======================================')
+    print('|Now we\'ll create a superuser account|')
+    print('=======================================')
+    print('')
 
     os.system('python %s createsuperuser' % django_manage_path)
 
