@@ -26,7 +26,7 @@ def main(pf, wd, output_file):
         from parameterParser import parameter_string_to_list
         parameters = parameter_string_to_list(step)
         true_shell = 0
-        redirect_tags = ('>', '<')
+        redirect_tags = ('>', '<', '|')
 
         for rt in redirect_tags:
             if rt in parameters:

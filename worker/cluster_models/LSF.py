@@ -4,30 +4,9 @@
 # @Project : BioQueue
 # @Author  : Li Yao
 # @File    : LSF.py
+# @Description: Minimal support for IBM LSF
 
 from __future__ import print_function
-
-
-def alter_attribute(job_id, attribute):
-    """
-    Change job attribute
-    :param job_id: int, job id
-    :param attribute: string, job attribute
-    :return: if success, return 1, else return 0
-    """
-    import subprocess
-    try:
-        parameter = ['qalter']
-        parameter.extend(attribute)
-        parameter.append(str(job_id))
-
-        step_process = subprocess.Popen(parameter, shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.STDOUT)
-        stdout, stderr = step_process.communicate()
-        return 1
-    except Exception as e:
-        print(e)
-        return 0
 
 
 def cancel_job(job_id):
@@ -47,63 +26,13 @@ def cancel_job(job_id):
         return 0
 
 
-def get_cluster_status():
-    """
-    Get cluster status
-    :return: dict, node status (load, memav, memtol)
-    """
-    import subprocess
-    import re
-    cluster_status = dict()
-    try:
-        step_process = subprocess.Popen(('pbsnodes',), shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, stderr = step_process.communicate()
-        nodes = stdout.split('\n\n')
-        load_pattern = re.compile('loadave=([+-]?\\d*\\.\\d+)(?![-+0-9\\.]),', re.IGNORECASE | re.DOTALL)
-        memory_pattern = re.compile('availmem=(\\d+)kb,', re.IGNORECASE | re.DOTALL)
-        total_memory_pattern = re.compile('totmem=(\\d+)kb,', re.IGNORECASE | re.DOTALL)
-        for node in nodes:
-            node_status = dict()
-            load_m = load_pattern.search(node)
-            if load_m:
-                node_status['load'] = float(load_m.group(1))
-            mem_m = memory_pattern.search(node)
-            if mem_m:
-                node_status['memav'] = int(mem_m.group(1)) * 1024
-            totmem_m = total_memory_pattern.search(node)
-            if totmem_m:
-                node_status['memtol'] = int(totmem_m.group(1)) * 1024
-            node_name = node.split('\n')[0]
-            cluster_status[node_name] = node_status
-    except Exception as e:
-        print(e)
-    return cluster_status
-
-
-def hold_job(job_id):
-    """
-    Hold job
-    :param job_id: int, job id
-    :return: if success, return 1, else return 0
-    """
-    import subprocess
-    try:
-        step_process = subprocess.Popen(('qhold', str(job_id)), shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.STDOUT)
-        stdout, stderr = step_process.communicate()
-        return 1
-    except Exception as e:
-        print(e)
-        return 0
-
-
 def load_template():
     """
     Load template
     :return: string, script template
     """
     import os
-    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'TorquePBS.tpl'), 'r') as file_handler:
+    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'LSF.tpl'), 'r') as file_handler:
         template = file_handler.read()
     return template
 
@@ -115,66 +44,57 @@ def query_job_status(job_id):
     :return: int, job status
     """
     import subprocess
-    import re
-    step_process = subprocess.Popen(('qstat', '-f', str(job_id)), shell=False, stdout=subprocess.PIPE,
+    step_process = subprocess.Popen(('bjobs', str(job_id)), shell=False, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
     stdout, stderr = step_process.communicate()
-    status_pattern = re.compile('job_state\\s+=\\s+(.)', re.IGNORECASE | re.DOTALL)
-    exit_pattern = re.compile('exit_status\\s+=\\s+(.)', re.IGNORECASE | re.DOTALL)
-    status_m = status_pattern.search(stdout)
-    '''
-    TORQUE Supplied Exit Codes
-    JOB_EXEC_OK 0
-    JOB_EXEC_FAIL1 -1 job exec failed, before files, no retry
-    JOB_EXEC_FAIL2 -2 job exec failed, after files, no retry
-    JOB_EXEC_RETRY -3 job execution failed, do retry
-    JOB_EXEC_INITABT -4 job aborted on MOM initialization
-    JOB_EXEC_INITRST -5 job aborted on MOM init, chkpt, no migrate
-    JOB_EXEC_INITRMG -6 job aborted on MOM init, chkpt, ok migrate
-    JOB_EXEC_BADRESRT -7 job restart failed
-    JOB_EXEC_CMDFAIL -8 exec() of user command failed
-    '''
-    if status_m:
-        raw_code = status_m.group(1)
-        if raw_code == 'R':
-            # running
-            return 1
-        elif raw_code == 'Q':
-            # queueing
-            return 2
-        elif raw_code == 'C':
-            # completed
-            try:
-                exit_m = exit_pattern.search(stdout)
-                if exit_m:
-                    exit_code = exit_m.group(1)
-                    exit_code = int(exit_code)
-                    if exit_code == 1 or exit_code == 2:
-                        exit_code = -8
-                else:
-                    exit_code = 0
-                return int(exit_code)
-            except:
-                return 0
+    stdout += stderr
+    raw_code = stdout.split('\n')[1].split()[2]
+    if raw_code == 'RUN':
+        # The job is currently running.
+        return 1
+    elif raw_code == 'PROV':
+        # The job has been dispatched to a power-saved host that is waking up. Before the job can be sent to the sbatchd, it is in a PROV state.
+        return 2
+    elif raw_code == 'PEND':
+        # The job is pending. That is, it has not yet been started.
+        return 2
+    elif raw_code == 'WAIT':
+        # For jobs submitted to a chunk job queue, members of a chunk job that are waiting to run.
+        return 2
+    elif raw_code == 'PSUSP':
+        # The job has been suspended, either by its owner or the LSF administrator, while pending.
+        return 2
+    elif raw_code == 'USUSP':
+        # The job has been suspended, either by its owner or the LSF administrator, while running.
+        return 2
+    elif raw_code == 'SSUSP':
+        return 2
+    elif raw_code == 'DONE':
+        # The job has terminated with status of 0.
+        return 0
+    elif raw_code == 'EXIT':
+        # The job has terminated with a non-zero status.
+        return -8
     else:
+        # Unknown status
         return -3
 
 
-def release_job(job_id):
+def readable_to_kb(raw_value):
     """
-    Release a job
-    :param job_id: int, job id
-    :return: if success, return 1, else return 0
+    Convert readable value to integer in kb
+    :param raw_value: string
+    :return: int
     """
-    import subprocess
-    try:
-        step_process = subprocess.Popen(('qrls', str(job_id)), shell=False, stdout=subprocess.PIPE,
-                                        stderr=subprocess.STDOUT)
-        stdout, stderr = step_process.communicate()
-        return 1
-    except Exception as e:
-        print(e)
-        return 0
+    # from math import ceil
+    value_in_kb = 0
+    if raw_value.find('KB') != -1:
+        value_in_kb = int(raw_value.replace('KB', ''))
+    elif raw_value.find('MB') != -1:
+        value_in_kb = int(raw_value.replace('KB', '')) * 1024
+    elif raw_value.find('GB') != -1:
+        value_in_kb = int(raw_value.replace('KB', '')) * 1024 * 1024
+    return value_in_kb
 
 
 def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
@@ -193,6 +113,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     """
     import subprocess
     import os
+    import re
     template = load_template()
 
     if not os.path.exists(workspace):
@@ -201,36 +122,47 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         except:
             pass
 
-    job_name = str(job_id)+'-'+str(job_step)+'.pbs'
-    pbs_script_content = template.replace('{PROTOCOL}', protocol)\
+    job_name = str(job_id)+'-'+str(job_step)+'.xsd'
+    lsf_script_content = template.replace('{PROTOCOL}', protocol)\
         .replace('{JOBNAME}', job_name).replace('{GLOBAL_MAX_CPU_FOR_CLUSTER}', str(cpu))\
         .replace('{DEFAULT_QUEUE}', queue).replace('{WORKSPACE}', workspace)
-    if mem != '' and vrt_mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem='+mem+',vmem='+mem+',')
-    elif mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'mem=' + mem + ',')
-    elif vrt_mem != '':
-        pbs_script_content = pbs_script_content.replace('{MEM}', 'vmem=' + vrt_mem + ',')
+    if mem != '':
+        # By default, the limit is specified in KB.
+        # Use LSF_UNIT_FOR_LIMITS in lsf.conf to specify a larger unit for the limit (MB, GB, TB, PB, or EB).
+        converted_mem = readable_to_kb(mem)
+        if converted_mem != 0:
+            lsf_script_content = lsf_script_content.replace('{MEM}', '#BSUB -M ' + mem)
+        else:
+            lsf_script_content = lsf_script_content.replace('{MEM}', '')
     else:
-        pbs_script_content = pbs_script_content.replace('{MEM}', '')
+        lsf_script_content = lsf_script_content.replace('{MEM}', '')
     if wall_time != '':
-        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '#PBS -l walltime='+wall_time)
+        # in minutes by default
+        lsf_script_content = lsf_script_content.replace('{WALLTIME}', '#BSUB -W '+str(wall_time))
     else:
         # no limit
-        pbs_script_content = pbs_script_content.replace('{WALLTIME}', '')
+        lsf_script_content = lsf_script_content.replace('{WALLTIME}', '')
     if log_file != '':
-        pbs_script_content = pbs_script_content.replace('{STDERR}', log_file).replace('{STDOUT}', log_file)
+        lsf_script_content = lsf_script_content.replace('{STDERR}', log_file).replace('{STDOUT}', log_file)
     else:
-        pbs_script_content = pbs_script_content.replace('{STDERR}', workspace).replace('{STDOUT}', workspace)
+        lsf_script_content = lsf_script_content.replace('{STDERR}', workspace).replace('{STDOUT}', workspace)
     try:
         job_file_path = os.path.join(workspace, job_name)
         with open(job_file_path, 'w') as pbs_handler:
-            pbs_handler.write(pbs_script_content)
-        step_process = subprocess.Popen(('qsub', job_file_path), shell=False, stdout=subprocess.PIPE,
+            pbs_handler.write(lsf_script_content)
+        step_process = subprocess.Popen('bsub < %s' % job_file_path, shell=True, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, cwd=workspace)
         stdout, stderr = step_process.communicate()
-        pbs_trace_id = stdout.split('\n')[0]
-        return pbs_trace_id
+        # Job <6449> is submitted to queue <normal>.
+        if step_process.returncode != 0:
+            return 0
+        re_pattern_for_lsf_id = "Job <(\d+)\> is submitted"
+        status_m = re.search(re_pattern_for_lsf_id, stdout)
+        if status_m:
+            lsf_trace_id = status_m.group(1)
+            return lsf_trace_id
+        else:
+            return 0
     except Exception as e:
         print(e)
         return 0
