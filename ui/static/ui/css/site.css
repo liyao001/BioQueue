@@ -805,14 +805,24 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff89cdef', endColorstr='#ff81bfde', GradientType=0);
   opacity: 1;
 }
-
 .user-actions span {
   display: inline-block;
 }
-
 .admin-sidebar #content-related {
 	float: none;
 	width: auto;
 	position: inherit;
 	margin-right: 0;
+}
+.job-panel{
+	height: 330px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+.show-folder {
+	display: block;
+	padding: 0.5em;
+	font-size: 1em;
+	cursor:pointer;
+	margin-top: 6px;
 }

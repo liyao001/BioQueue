@@ -31,7 +31,7 @@
             {% if job_list %}
             {% for job in job_list %}
             <div class="col-sm-6 col-md-4">
-                <div class="thumbnail">
+                <div class="thumbnail job-panel">
                     <div class="caption">
                         <div class="text-center">{% if job.status == -1 %}
                             <i class="icon-ok icon-3x"></i>
@@ -62,7 +62,7 @@
                         {% endif %}</li>
                         <li><b>Create time:</b> {{ job.create_time }}</li>
                         <li><b>Last update:</b> {{ job.update_time }}</li>
-                        <li><span class="label label-info" style="display: inline-block;margin-right:5px;cursor:pointer;" onclick="showFolder({{ job.id }});"><i class="icon-folder-open"></i> Show output files</span></li>
+                        <li><span class="label label-info show-folder" onclick="showFolder({{ job.id }});"><i class="icon-folder-open"></i> Show output files</span></li>
                     </ul></p>
                         <p class="text-center">{% if job.status == -1 %}
                             <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
