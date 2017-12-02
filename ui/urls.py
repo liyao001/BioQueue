@@ -23,6 +23,7 @@ urlpatterns = [
     url(r'^import-learning/$', views.import_learning, name='import_learning'),
     url(r'^import-protocol-by-fetch/$', views.import_protocol_by_fetch, name='import_protocol_by_fetch'),
     url(r'^import-protocol/$', views.import_protocol, name='import_protocol'),
+    url(r'^install-tool', views.install_tool, name='install_tool'),
     url(r'^manage-reference', views.manage_reference, name='manage_reference'),
     url(r'^user-reference', views.print_user_reference, name='print_user_reference'),
     url(r'^query-job/$', views.query_job, name='query_job'),

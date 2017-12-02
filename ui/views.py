@@ -761,6 +761,88 @@ def index(request):
 
 
 @login_required
+def install_tool(request):
+    if request.method == 'POST':
+        from json import loads
+        from tools import get_maintenance_protocols
+        import hashlib
+        tool_info = loads(request.POST['tool'])
+        # print(tool_info)
+        protocol_name = tool_info['how_get']+'_'+tool_info['compression']+'_'+tool_info['compile_method']
+        try:
+            protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=0)
+        except ProtocolList.DoesNotExist:
+            # build protocol
+            protocol_parent = ProtocolList(name=protocol_name, user_id=0)
+            protocol_parent.save()
+            steps = list()
+            maintenance_protocols = get_maintenance_protocols()
+            step_order = 1
+            # download
+            if tool_info["how_get"] not in maintenance_protocols and tool_info["how_get"] != "n":
+                protocol_parent.delete()
+                return error("No protocol to fetch the data")
+            else:
+                model = __import__("maintenance_protocols."+tool_info["how_get"], fromlist=[tool_info["how_get"]])
+                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                print('download', sub_steps)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # decompress
+            if tool_info["compression"] not in maintenance_protocols and tool_info["compression"] != "n":
+                protocol_parent.delete()
+                return error("No protocol to decompress the data")
+            else:
+                model = __import__("maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
+                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                print('compression', sub_steps)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # compile
+            if tool_info["compile_method"] not in get_maintenance_protocols() and tool_info["is_binary"] != "y":
+                protocol_parent.delete()
+                return error('No protocol to compile this tool.')
+            else:
+                model = __import__("maintenance_protocols." + tool_info["compile_method"],
+                                   fromlist=[tool_info["compile_method"]])
+                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                print('compile', sub_steps)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # move to user's bin folder
+            steps.append(Protocol(software="mv",
+                                  parameter="{LastOutput} {UserBin}",
+                                  parent=protocol_parent,
+                                  user_id=0,
+                                  hash='e6f31db5777dc687329b7390d4366676',
+                                  step=step_order))
+            try:
+                Protocol.objects.bulk_create(steps)
+                protocol_record = protocol_parent
+            except Exception as e:
+                print(e)
+                protocol_parent.delete()
+                return error('Fail to save the protocol.')
+        user_bin_dir = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)), 'bin')
+        job = Queue(
+            protocol_id=protocol_record.id,
+            parameter='UserBin=%s'%user_bin_dir,
+            run_dir=get_config('env', 'workspace'),
+            user_id=request.user.id,
+            input_file=tool_info["url"],
+        )
+        try:
+            job.save()
+            return success('Push the task into job queue.')
+        except:
+            return error('Fail to save the job.')
+    else:
+        api_bus = get_config('program', 'tool_repo_search_api', 1)
+        tool_addr = get_config('program', 'tool_repo', 1)
+        return render(request, 'ui/install_tool.html', {'ab': api_bus, 'ta': tool_addr})
+
+
+@login_required
 def manage_reference(request):
     if request.method == 'POST':
         reference_form = CreateReferenceForm(request.POST)

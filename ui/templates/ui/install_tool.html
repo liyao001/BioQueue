@@ -1,0 +1,113 @@
+{% extends "ui/base.html" %}
+{% block title %}Install Tools | BioQueue{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Install tools</h1>
+</div>
+    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="single">
+                <h4 class="panel-title">
+                    <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true" aria-controls="single-job">
+                        <i class="glyphicon glyphicon-cloud"></i> Search BioQueue's Repository
+                    </a>
+                </h4>
+            </div>
+            <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
+                <div class="panel-body">
+                    <form class="form" id="fetch-tool-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
+                        <div class="form-group">
+                            <label for="parameter">Software </label>
+                            <input type="text" class="form-control" id="software" name="software" />
+                        </div>
+                        <div class="form-group" style="margin-bottom: 9px;">
+                            <button type="button" class="btn btn-success btn-large btn-block" onclick="install_from_bioqueue()">Search</button>
+                        </div>
+                    {% csrf_token %}
+                    </form>
+                    <div class="search-result" style="display: none;">
+                        <table class="table table-hover table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Software</th>
+                                    <th>Version</th>
+                                    <th>Need Compile</th>
+                                    <th>OS</th>
+                                    <th>Install</th>
+                                </tr>
+                            </thead>
+                            <tbody id="repo-tbody">
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="batch">
+                <h4 class="panel-title">
+                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#batch-job" aria-expanded="false" aria-controls="batch-job">
+                        <i class="glyphicon glyphicon-heart"></i> Contribute to the Repository
+                    </a>
+                </h4>
+            </div>
+            <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
+                <div class="panel-body">
+
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+var csrftoken = $.cookie('csrftoken');
+function install_tool(obj){
+    var self = $(obj);
+    $.post("#", {tool: self.attr('data-json'), csrfmiddlewaretoken: csrftoken}, function(result){
+        if(result.status){
+            Messenger().post({
+                message: result.info,
+                showCloseButton: true
+            });
+        }else{
+            Messenger().post({
+                message: result.info,
+                type: 'error',
+                showCloseButton: true
+            });
+        }
+    });
+}
+function parse_tool(file_name){
+    var tool_bus = '{{ ta }}';
+    $.getJSON(tool_bus.replace('{query}', file_name),function(result){
+        var new_row = "<tr><td>"+result["software"]+"</td><td>"+result["version"]+"</td>";
+        if (result["is_binary"]=="n"){
+            new_row += "<td class='warning'>Need Compile</td>";
+        }else{
+            new_row += "<td class='success'>Directly Use</td>";
+        }
+        new_row += "<td>"+result["os"]+"</td><td><button class='btn btn-default' onclick='install_tool(this);' data-json='"+JSON.stringify(result)+"'><i class='glyphicon glyphicon-download-alt'></i></button></td></tr>";
+        $("#repo-tbody").append(new_row);
+    });
+}
+function install_from_bioqueue(){
+    $("#repo-tbody").html('');
+    $(".search-result").show("slow");
+    var api_bus = '{{ ab }}';
+    $.get(api_bus.replace('{query}', $("#software").val()),function(result){
+        if(result.total_count>=1){
+            for(var key in result.items){
+                parse_tool(result.items[key].name);
+            }
+        }else{
+            Messenger().post({
+                message: "No record",
+                type: 'error',
+                showCloseButton: true
+            });
+        }
+    });
+}
+{% endblock %}

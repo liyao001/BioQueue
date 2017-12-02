@@ -1,5 +1,6 @@
 from django.http import JsonResponse, StreamingHttpResponse
 from worker.baseDriver import get_config, rand_sig, get_user_folder_size
+import os
 
 
 def success(message, jump_url='.', msg_title="success", status=1, wait_second=1):
@@ -99,3 +100,17 @@ def os_to_int():
         return 3
     else:
         return 2
+
+
+def get_maintenance_protocols():
+    """
+    Get maintenance protocols
+    :return: list, module names
+    """
+    protocols = []
+    protocols_path = os.path.join(os.path.split(os.path.realpath(__file__))[0], 'maintenance_protocols')
+    for model_name in os.listdir(protocols_path):
+        if not model_name.endswith('.py') or model_name.startswith('_') or model_name.startswith('maintenance'):
+            continue
+        protocols.append(model_name.replace('.py', ''))
+    return protocols
