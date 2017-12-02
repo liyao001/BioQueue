@@ -785,7 +785,6 @@ def install_tool(request):
             else:
                 model = __import__("ui.maintenance_protocols."+tool_info["how_get"], fromlist=[tool_info["how_get"]])
                 step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
-                print('download', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # decompress
@@ -795,7 +794,6 @@ def install_tool(request):
             else:
                 model = __import__("ui.maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
                 step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
-                print('compression', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # compile
@@ -806,7 +804,6 @@ def install_tool(request):
                 model = __import__("ui.maintenance_protocols." + tool_info["compile_method"],
                                    fromlist=[tool_info["compile_method"]])
                 step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
-                print('compile', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # move to user's bin folder
@@ -819,11 +816,15 @@ def install_tool(request):
             try:
                 Protocol.objects.bulk_create(steps)
                 protocol_record = protocol_parent
-            except Exception as e:
-                print(e)
+            except:
                 protocol_parent.delete()
                 return error('Fail to save the protocol.')
         user_bin_dir = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)), 'bin')
+        if not os.path.exists(user_bin_dir):
+            try:
+                os.makedirs(user_bin_dir)
+            except:
+                return error('Fail to create your bin folder')
         job = Queue(
             protocol_id=protocol_record.id,
             parameter='UserBin=%s'%user_bin_dir,
