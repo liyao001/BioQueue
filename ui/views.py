@@ -783,29 +783,29 @@ def install_tool(request):
                 protocol_parent.delete()
                 return error("No protocol to fetch the data")
             else:
-                model = __import__("maintenance_protocols."+tool_info["how_get"], fromlist=[tool_info["how_get"]])
-                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                model = __import__("ui.maintenance_protocols."+tool_info["how_get"], fromlist=[tool_info["how_get"]])
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
                 print('download', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # decompress
             if tool_info["compression"] not in maintenance_protocols and tool_info["compression"] != "n":
                 protocol_parent.delete()
-                return error("No protocol to decompress the data")
+                return error("No protocol to decompress (%s) the data" % tool_info["compression"])
             else:
-                model = __import__("maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
-                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                model = __import__("ui.maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
                 print('compression', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # compile
             if tool_info["compile_method"] not in get_maintenance_protocols() and tool_info["is_binary"] != "y":
                 protocol_parent.delete()
-                return error('No protocol to compile this tool.')
+                return error("No protocol to compile (%s) this tool." % tool_info["compile_method"])
             else:
-                model = __import__("maintenance_protocols." + tool_info["compile_method"],
+                model = __import__("ui.maintenance_protocols." + tool_info["compile_method"],
                                    fromlist=[tool_info["compile_method"]])
-                step_order, sub_steps = model.get_sub_protocol(protocol_parent, step_order)
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
                 print('compile', sub_steps)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
@@ -815,7 +815,7 @@ def install_tool(request):
                                   parent=protocol_parent,
                                   user_id=0,
                                   hash='e6f31db5777dc687329b7390d4366676',
-                                  step=step_order))
+                                  step_order=step_order))
             try:
                 Protocol.objects.bulk_create(steps)
                 protocol_record = protocol_parent
