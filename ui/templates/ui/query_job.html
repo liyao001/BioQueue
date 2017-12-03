@@ -47,8 +47,6 @@
                         <h3 style="margin-top: 0;">{{ job.protocol }}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
                         <p><ul class="list-unstyled">
                         <li><b>ID:</b> {{ job.id }}</li>
-                        <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
-                        <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
                         <li><b>Status:</b> {% if job.status == -1 %}
                             Finished
                         {% elif job.status == -2 %}
@@ -60,6 +58,8 @@
                         {% else %}
                             Running ({{ job.status }})
                         {% endif %}</li>
+                        <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
+                        <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
                         <li><b>Create time:</b> {{ job.create_time }}</li>
                         <li><b>Last update:</b> {{ job.update_time }}</li>
                         <li><span class="label label-info show-folder" onclick="showFolder({{ job.id }});"><i class="icon-folder-open"></i> Show output files</span></li>
