@@ -801,11 +801,18 @@ def install_tool(request):
                 protocol_parent.delete()
                 return error("No protocol to compile (%s) this tool." % tool_info["compile_method"])
             else:
-                model = __import__("ui.maintenance_protocols." + tool_info["compile_method"],
-                                   fromlist=[tool_info["compile_method"]])
-                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
-                for sub_step in sub_steps:
-                    steps.append(sub_step)
+                worker_root = os.path.join(os.path.split(os.path.split(os.path.realpath(__file__))[0])[0], 'worker')
+                m = hashlib.md5()
+                compile_tool_command = '%s/compileTool.py -c %s -w {Workspace} -u {UserBin} -s %s' % \
+                                       (worker_root, tool_info["compile_method"], tool_info["sub_folder"])
+                m.update('python ' + compile_tool_command.strip())
+                steps.append(Protocol(software='python',
+                                      parameter=compile_tool_command,
+                                      hash=m.hexdigest(),
+                                      parent=protocol_parent,
+                                      user_id=0,
+                                      step_order=step_order))
+                step_order += 1
             # move to user's bin folder
             steps.append(Protocol(software="mv",
                                   parameter="{LastOutput} {UserBin}",
@@ -827,7 +834,7 @@ def install_tool(request):
                 return error('Fail to create your bin folder')
         job = Queue(
             protocol_id=protocol_record.id,
-            parameter='UserBin=%s'%user_bin_dir,
+            parameter='UserBin=%s' % user_bin_dir,
             run_dir=get_config('env', 'workspace'),
             user_id=request.user.id,
             input_file=tool_info["url"],
