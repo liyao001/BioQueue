@@ -356,6 +356,13 @@ def run_prepare(job_id, job, no_new_learn=0):
     step, outside_size_upload = parameterParser.upload_file_map(step, job['user_folder'])
     outside_size += outside_size_upload
     step = step.replace('{Workspace}', job['job_folder'])
+    user_bin_dir = os.path.join(os.path.join(settings['env']['workspace'], job['user_id'], 'bin'))
+    if not os.path.exists(user_bin_dir):
+        try:
+            os.makedirs(user_bin_dir)
+        except:
+            pass
+    step = step.replace('{UserBin}', user_bin_dir)
     step = step.replace('{ThreadN}', str(settings['env']['cpu']))
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
     LAST_OUTPUT[job_id] = baseDriver.get_folder_content(job['job_folder'])
@@ -665,7 +672,7 @@ def run_step(job_desc, resources):
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
             true_shell = 0
-            redirect_tags = ('>', '<', '|')
+            redirect_tags = ('>', '<', '|', ';')
 
             for rt in redirect_tags:
                 if rt in JOB_COMMAND[job_id]:
