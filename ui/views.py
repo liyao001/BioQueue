@@ -801,18 +801,19 @@ def install_tool(request):
                 protocol_parent.delete()
                 return error("No protocol to compile (%s) this tool." % tool_info["compile_method"])
             else:
-                worker_root = os.path.join(os.path.split(os.path.split(os.path.realpath(__file__))[0])[0], 'worker')
-                m = hashlib.md5()
-                compile_tool_command = '%s/compileTool.py -c %s -w {Workspace} -u {UserBin} -s %s' % \
-                                       (worker_root, tool_info["compile_method"], tool_info["sub_folder"])
-                m.update('python ' + compile_tool_command.strip())
-                steps.append(Protocol(software='python',
-                                      parameter=compile_tool_command,
-                                      hash=m.hexdigest(),
-                                      parent=protocol_parent,
-                                      user_id=0,
-                                      step_order=step_order))
-                step_order += 1
+                if tool_info["is_binary"] != "y":
+                    worker_root = os.path.join(os.path.split(os.path.split(os.path.realpath(__file__))[0])[0], 'worker')
+                    m = hashlib.md5()
+                    compile_tool_command = '%s/compileTool.py -c %s -w {Workspace} -u {UserBin} -s %s' % \
+                                           (worker_root, tool_info["compile_method"], tool_info["sub_folder"])
+                    m.update('python ' + compile_tool_command.strip())
+                    steps.append(Protocol(software='python',
+                                          parameter=compile_tool_command,
+                                          hash=m.hexdigest(),
+                                          parent=protocol_parent,
+                                          user_id=0,
+                                          step_order=step_order))
+                    step_order += 1
             # move to user's bin folder
             steps.append(Protocol(software="mv",
                                   parameter="{CompileTargets} {UserBin}",
