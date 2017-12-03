@@ -374,9 +374,9 @@ def delete_job_file(request, f):
 
 
 def delete_job_file_tree(request, f):
-    job_path = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)),
-                            f)
     try:
+        job_path = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)),
+                                f)
         import shutil
         if os.path.exists(job_path):
             shutil.rmtree(job_path, ignore_errors=True)
@@ -815,7 +815,7 @@ def install_tool(request):
                 step_order += 1
             # move to user's bin folder
             steps.append(Protocol(software="mv",
-                                  parameter="{LastOutput} {UserBin}",
+                                  parameter="{CompileTargets} {UserBin}",
                                   parent=protocol_parent,
                                   user_id=0,
                                   hash='e6f31db5777dc687329b7390d4366676',
@@ -832,9 +832,13 @@ def install_tool(request):
                 os.makedirs(user_bin_dir)
             except:
                 return error('Fail to create your bin folder')
+        if "compile_targets" in tool_info.keys():
+            mv_parameter = " ".join(tool_info["compile_targets"].split(";"))
+        else:
+            mv_parameter = "{LastOutput}"
         job = Queue(
             protocol_id=protocol_record.id,
-            parameter='UserBin=%s' % user_bin_dir,
+            parameter='UserBin=%s;CompileTargets=%s' % (user_bin_dir, mv_parameter),
             run_dir=get_config('env', 'workspace'),
             user_id=request.user.id,
             input_file=tool_info["url"],
