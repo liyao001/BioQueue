@@ -15,13 +15,13 @@
             </div>
             <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
                 <div class="panel-body">
-                    <form class="form" id="fetch-tool-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
+                    <form class="form" id="fetch-tool-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="parameter">Software </label>
                             <input type="text" class="form-control" id="software" name="software" />
                         </div>
                         <div class="form-group" style="margin-bottom: 9px;">
-                            <button type="button" class="btn btn-success btn-large btn-block" onclick="install_from_bioqueue()">Search</button>
+                            <button type="submit" class="btn btn-success btn-large btn-block">Search</button>
                         </div>
                     {% csrf_token %}
                     </form>
@@ -54,7 +54,93 @@
             </div>
             <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
                 <div class="panel-body">
-
+                    <form class="form" id="share-tool-form" style="margin-top:9px; margin-bottom:0;">
+                        <div class="form-group">
+                            <label for="software">Software </label>
+                            <input type="text" class="form-control" id="sftw" name="software" />
+                        </div>
+                        <div class="form-group">
+                            <label for="version">Version </label>
+                            <input type="text" class="form-control" id="version" name="version" />
+                        </div>
+                        <div class="form-group">
+                            <label for="how_get">Tool type </label>
+                            <div>
+                                <label class="radio-inline">
+                                    <input type="radio" name="is_binary" id="pbb" value="y"> Pre-build binary
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="is_binary" id="sc" value="n"> Source code
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="os">OS </label>
+                            <div>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_l86" value="Linux_x86"> Linux_x86
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_l64" value="Linux_x64"> Linux_x86
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_l86_l64" value="Linux_x86_x64"> Linux_x86_x64
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_osx" value="OSX_x86_x64"> MacOS_x86_x64
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_w86" value="Windows_x86"> Windows_x86
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_w64" value="Windows_x64"> Windows_x64
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_w86_w64" value="Windows_x86_x64"> Windows_x86_x64
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="os" id="os_all" value="-"> All
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="version">Compression method </label>
+                            <input type="text" class="form-control" id="compression" name="compression" />
+                        </div>
+                        <div class="form-group">
+                            <label for="compile_method">Compile method </label>
+                            <input type="text" class="form-control" id="compile_method" name="compile_method" />
+                        </div>
+                        <div class="form-group">
+                            <label for="compile_method">URL </label>
+                            <input type="text" class="form-control" id="url" name="url" />
+                        </div>
+                        <div class="form-group">
+                            <label for="how_get">How to get? </label>
+                            <div>
+                                <label class="radio-inline">
+                                    <input type="radio" name="how_get" id="how_get_d" value="download"> Download
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="how_get" id="how_get_g" value="git"> git
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" name="how_get" id="how_get_s" value="svn"> svn
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="compile_method">Output folder </label>
+                            <input type="text" class="form-control" id="sub_folder" name="sub_folder" />
+                        </div>
+                        <div class="form-group">
+                            <label for="compile_method">Compiled files (separated by semi-colons) </label>
+                            <input type="text" class="form-control" id="compile_targets" name="compile_targets" />
+                        </div>
+                        <div class="form-group" style="margin-bottom: 9px;">
+                            <button type="button" class="btn btn-success btn-large btn-block" onclick="share_tool()">Share</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -92,7 +178,7 @@ function parse_tool(file_name){
         $("#repo-tbody").append(new_row);
     });
 }
-function install_from_bioqueue(){
+$("#fetch-tool-form").submit(function(){
     $("#repo-tbody").html('');
     $(".search-result").show("slow");
     var api_bus = '{{ ab }}';
@@ -109,5 +195,40 @@ function install_from_bioqueue(){
             });
         }
     });
+    return false;
+});
+function build_json(){
+    var o = {};
+    var a = $("#share-tool-form").serializeArray();
+    $.each(a, function () {
+        if (o[this.name] !== undefined) {
+            if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+            }
+            o[this.name].push(this.value || '');
+        } else {
+            o[this.name] = this.value || '';
+        }
+    });
+    return JSON.stringify(o);
+}
+function share_tool(){
+    if($("input[name='is_binary']:checked").val()=="n"){
+        filename=$("#sftw").val()+"-"+$("#version").val()+"-source_code"
+    }else{
+        filename=$("#sftw").val()+"-"+$("#version").val()+"-"+$("input[name='os']:checked").val();
+    }
+    var eleLink = document.createElement('a');
+    eleLink.download = filename;
+    eleLink.style.display = 'none';
+    // convert string to blob
+    content = build_json();
+    var blob = new Blob([content]);
+    eleLink.href = URL.createObjectURL(blob);
+    // activate
+    document.body.appendChild(eleLink);
+    eleLink.click();
+    // remove
+    document.body.removeChild(eleLink);
 }
 {% endblock %}
