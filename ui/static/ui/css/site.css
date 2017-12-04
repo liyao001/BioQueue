@@ -826,3 +826,6 @@ tr.pending-user:hover span.user-actions, tr.list-users:hover td div.btn-group, t
 	cursor:pointer;
 	margin-top: 6px;
 }
+#rtable td{
+	word-break: break-all;
+}
