@@ -47,6 +47,8 @@ def query_job_status(job_id):
     step_process = subprocess.Popen(('bjobs', str(job_id)), shell=False, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
     stdout, stderr = step_process.communicate()
+    stdout = str(stdout)
+    stderr = str(stderr)
     stdout += stderr
     raw_code = stdout.split('\n')[1].split()[2]
     if raw_code == 'RUN':
