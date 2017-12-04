@@ -1,7 +1,6 @@
 {% extends "ui/base.html" %}
 {% block title %}Job Status | BioQueue{% endblock %}
 {% block content %}
-<meta http-equiv="refresh" content="30">
     <div class="row-fluid">
         <div class="page-header">
             <h1 id="task">Job Status</h1>
@@ -134,6 +133,15 @@
 </div>
 {% endblock %}
 {% block script %}
+    function refreshJob(){
+        location.reload();
+    }
+    var refT = window.setInterval(refreshJob, 30000);
+    $('.modal').on('shown.bs.modal', function (e) {
+        clearInterval(refT);
+    }).on('hidden.bs.modal', function (e) {
+        refT = window.setInterval(refreshJob, 30000);
+    });
     $("#query-job").addClass("active");
     var csrftoken = $.cookie('csrftoken');
     $.ajaxSetup({

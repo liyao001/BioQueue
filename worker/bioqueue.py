@@ -368,7 +368,13 @@ def run_prepare(job_id, job, no_new_learn=0):
         except:
             pass
     step = step.replace('{UserBin}', user_bin_dir)
-    step = step.replace('{ThreadN}', str(settings['env']['cpu']))
+    if settings['cluster']['type']:
+        if 'cpu' in settings['cluster'].keys() and settings['cluster']['cpu']:
+            step = step.replace('{ThreadN}', str(settings['cluster']['cpu']))
+        else:
+            step = step.replace('{ThreadN}', str(settings['env']['cpu']))
+    else:
+        step = step.replace('{ThreadN}', str(settings['env']['cpu']))
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
     LAST_OUTPUT[job_id] = baseDriver.get_folder_content(job['job_folder'])
     training_num = get_training_items(job['steps'][job['resume'] + 1]['hash'])
