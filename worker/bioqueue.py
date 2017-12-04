@@ -57,8 +57,13 @@ def get_steps(protocol_id):
 
     steps = Protocol.objects.filter(parent=protocol_id).order_by('step_order')
     html_parser = HTMLParser()
-
+    workspace_path = settings['env']['workspace']
     for index, step in enumerate(steps):
+        # priority for self-compiled tool
+        software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(step.user_id)), 'bin'),
+                                     str(step.software))
+        if os.path.exists(software_path) and os.path.isfile(software_path):
+            step.software = software_path
         step_list.append({
             'id': index,
             'parameter': html_parser.unescape(str(step.software).rstrip() + " " + str(step.parameter)),
