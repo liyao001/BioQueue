@@ -792,10 +792,11 @@ def install_tool(request):
                 protocol_parent.delete()
                 return error("No protocol to decompress (%s) the data" % tool_info["compression"])
             else:
-                model = __import__("ui.maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
-                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
-                for sub_step in sub_steps:
-                    steps.append(sub_step)
+                if tool_info["compression"] != "n":
+                    model = __import__("ui.maintenance_protocols."+tool_info["compression"], fromlist=[tool_info["compression"]])
+                    step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                    for sub_step in sub_steps:
+                        steps.append(sub_step)
             # compile
             if tool_info["compile_method"] not in get_maintenance_protocols() and tool_info["is_binary"] != "y":
                 protocol_parent.delete()
