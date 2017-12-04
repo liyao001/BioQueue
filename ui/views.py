@@ -910,7 +910,7 @@ def query_job(request):
         job_list = Queue.objects.order_by('-create_time').all()
     else:
         job_list = Queue.objects.filter(user_id=request.user.id).order_by('-create_time').all()
-    paginator = Paginator(job_list, 25)
+    paginator = Paginator(job_list, 12)
 
     page = request.GET.get('page')
     '''
