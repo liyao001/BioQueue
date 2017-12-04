@@ -93,9 +93,9 @@ def readable_to_kb(raw_value):
     if raw_value.find('KB') != -1:
         value_in_kb = int(raw_value.replace('KB', ''))
     elif raw_value.find('MB') != -1:
-        value_in_kb = int(raw_value.replace('KB', '')) * 1024
+        value_in_kb = int(raw_value.replace('MB', '')) * 1024
     elif raw_value.find('GB') != -1:
-        value_in_kb = int(raw_value.replace('KB', '')) * 1024 * 1024
+        value_in_kb = int(raw_value.replace('GB', '')) * 1024 * 1024
     return value_in_kb
 
 
