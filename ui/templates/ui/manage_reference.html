@@ -37,7 +37,7 @@
         </thead>
         <tbody>
         {% for ref in references %}
-            <tr>
+            <tr class="pending-user">
                 <td>{{ ref.id }}</td>
                 <td>{{ ref.name }}</td>
                 <td class="editble" onclick="edit(this);" data-sid="{{ ref.id }}">{{ ref.path }}</td>
