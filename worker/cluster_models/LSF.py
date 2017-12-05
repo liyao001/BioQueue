@@ -133,7 +133,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         # Use LSF_UNIT_FOR_LIMITS in lsf.conf to specify a larger unit for the limit (MB, GB, TB, PB, or EB).
         converted_mem = readable_to_kb(mem)
         if converted_mem != 0:
-            lsf_script_content = lsf_script_content.replace('{MEM}', '#BSUB -M ' + mem)
+            lsf_script_content = lsf_script_content.replace('{MEM}', '#BSUB -M ' + str(converted_mem))
         else:
             lsf_script_content = lsf_script_content.replace('{MEM}', '')
     else:
