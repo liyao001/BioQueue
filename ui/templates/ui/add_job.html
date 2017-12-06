@@ -34,6 +34,11 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="job_name">Job Name</label>
+                            <input type="text" class="form-control" id="job_name" name="job_name" />
+                            <p class="help-block">Optional, if you don't specify a job name, BioQueue will use protocol name as job name.</p>
+                        </div>
+                        <div class="form-group">
                             <label for="lf-trigger">Input files <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button></label>
                             <input type="text" class="form-control" id="input_files" name="input_files" />
                             <p class="help-block">Please use semicolons (";") to separate multiple files. <a href="http://bioqueue.readthedocs.io/en/latest/faq.html#upload-file"><i class=" icon-question-sign"></i>How to upload files to BioQueue?</a></p>

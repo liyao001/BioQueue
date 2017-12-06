@@ -32,6 +32,15 @@ class SingleJobForm(forms.Form):
         )
     )
 
+    job_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': u'input-block-level',
+            }
+        )
+    )
+
 
 class FetchRemoteProtocolForm(forms.Form):
     uid = forms.CharField(
