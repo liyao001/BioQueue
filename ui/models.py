@@ -115,6 +115,7 @@ class Queue(models.Model):
     Save tasks
     """
     protocol = models.ForeignKey('ProtocolList')
+    job_name = models.CharField(max_length=100, blank=True, null=True)
     input_file = models.TextField()
     parameter = models.TextField()
     run_dir = models.TextField(blank=True, null=True)

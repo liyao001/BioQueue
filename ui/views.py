@@ -30,6 +30,7 @@ def add_job(request):
                 if protocol.check_owner(request.user.id) or request.user.is_superuser:
                     job = Queue(
                         protocol_id=cd['protocol'],
+                        job_name=cd['job_name'],
                         parameter=cd['parameter'],
                         run_dir=get_config('env', 'workspace'),
                         user_id=request.user.id,

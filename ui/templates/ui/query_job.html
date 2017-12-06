@@ -43,19 +43,19 @@
                         {% else %}
                             <i class="icon-play icon-3x"></i>
                         {% endif %}</div>
-                        <h3 style="margin-top: 0;">{{ job.protocol }}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
+                        <h3 style="margin-top: 0;">{% if job.job_name %}{{ job.job_name }}{% else %}{{ job.protocol }}{% endif %}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
                         <p><ul class="list-unstyled">
                         <li><b>ID:</b> {{ job.id }}</li>
                         <li><b>Status:</b> {% if job.status == -1 %}
                             Finished
                         {% elif job.status == -2 %}
-                            Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} ({{ job.resume|add:1 }})
+                            Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} (Step {{ job.resume|add:1 }})
                         {% elif job.status == -3 %}
-                            <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs</span>
+                            <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs (Error when executing step {{ job.resume|add:1 }})</span>
                         {% elif job.status == 0 %}
-                            Waiting
+                            Waiting (Step {{ job.resume|add:1 }})
                         {% else %}
-                            Running ({{ job.status }})
+                            Running (Step {{ job.status }})
                         {% endif %}</li>
                         <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
                         <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
