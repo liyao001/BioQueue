@@ -636,11 +636,11 @@ def run_step(job_desc, resources):
                 allocate_cpu = settings['cluster']['cpu']
             else:
                 allocate_cpu = predict_cpu
-        if 'mem' not in resources.keys or resources['mem'] is None:
+        if 'mem' not in resources.keys() or resources['mem'] is None:
             allocate_mem = settings['cluster']['mem']
         else:
             allocate_mem = bytes_to_readable(resources['mem'])
-        if 'vrt_mem' not in resources.keys or resources['vrt_mem'] is None:
+        if 'vrt_mem' not in resources.keys() or resources['vrt_mem'] is None:
             allocate_vrt = settings['cluster']['vrt']
         else:
             allocate_vrt = bytes_to_readable(resources['vrt_mem'])
