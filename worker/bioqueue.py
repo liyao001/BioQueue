@@ -230,13 +230,13 @@ def create_machine_learning_item(step_hash, input_size):
 
 def update_resource_pool(resource_dict, direction=1):
     global CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL
-    if resource_dict['cpu'] is not None:
+    if 'cpu' in resource_dict.keys() and resource_dict['cpu'] is not None:
         CPU_POOL += direction * resource_dict['cpu']
-    if resource_dict['mem'] is not None:
+    if 'mem' in resource_dict.keys() and resource_dict['mem'] is not None:
         MEMORY_POOL += direction * resource_dict['mem']
-    if resource_dict['disk'] is not None:
+    if 'disk' in resource_dict.keys() and resource_dict['disk'] is not None:
         DISK_POOL += direction * resource_dict['disk']
-    if resource_dict['vrt_mem'] is not None:
+    if 'vrt_mem' in resource_dict.keys() and resource_dict['vrt_mem'] is not None:
         VRT_POOL += direction * resource_dict['vrt_mem']
 
     return CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL
