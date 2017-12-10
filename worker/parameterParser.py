@@ -44,8 +44,8 @@ def history_map(par, user_id, user_workspace, db):
 def special_parameter_map(par, sp_map):
     for keyword in sp_map.keys():
         if sp_map[keyword] in sp_map.keys():
-            par = par.replace('{' + keyword + '}', sp_map[sp_map[keyword]])
-        else:
+            sp_map[keyword] = sp_map[sp_map[keyword]]
+    for keyword in sp_map.keys:
             par = par.replace('{' + keyword + '}', sp_map[keyword])
     return par
 
