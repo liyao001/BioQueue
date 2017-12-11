@@ -54,64 +54,26 @@
                 <div class="panel-body">
                     <form class="form" id="share-tool-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
-                            <label for="software">Software </label>
-                            <input type="text" class="form-control" id="sftw" name="software" />
+                            <label for="name">Reference Name </label>
+                            <input type="text" class="form-control" id="name" name="name" required/>
                         </div>
                         <div class="form-group">
-                            <label for="version">Version </label>
-                            <input type="text" class="form-control" id="version" name="version" />
+                            <label for="name">Format </label>
+                            <input type="text" class="form-control" id="format" name="format" required/>
+                            <p class="help-block"><i>e.g. </i>fasta, vcf, gtf, bed.</p>
                         </div>
                         <div class="form-group">
-                            <label for="how_get">Tool type </label>
-                            <div>
-                                <label class="radio-inline">
-                                    <input type="radio" name="is_binary" id="pbb" value="y"> Pre-build binary
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="is_binary" id="sc" value="n"> Source code
-                                </label>
-                            </div>
+                            <label for="description">Description </label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="os">OS </label>
-                            <div>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_l86" value="Linux_x86"> Linux_x86
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_l64" value="Linux_x64"> Linux_x86
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_l86_l64" value="Linux_x86_x64"> Linux_x86_x64
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_osx" value="OSX_x86_x64"> MacOS_x86_x64
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_w86" value="Windows_x86"> Windows_x86
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_w64" value="Windows_x64"> Windows_x64
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_w86_w64" value="Windows_x86_x64"> Windows_x86_x64
-                                </label>
-                                <label class="radio-inline">
-                                    <input type="radio" name="os" id="os_all" value="-"> All
-                                </label>
-                            </div>
+                            <label for="compression">Compression method </label>
+                            <input type="text" class="form-control" id="compression" name="compression" required/>
+                            <p class="help-block"><i>e.g. </i>targz, tarbz2, zip. Enter "n" for uncompressed plain file.</p>
                         </div>
                         <div class="form-group">
-                            <label for="version">Compression method </label>
-                            <input type="text" class="form-control" id="compression" name="compression" />
-                        </div>
-                        <div class="form-group">
-                            <label for="compile_method">Compile method </label>
-                            <input type="text" class="form-control" id="compile_method" name="compile_method" />
-                        </div>
-                        <div class="form-group">
-                            <label for="compile_method">URL </label>
-                            <input type="text" class="form-control" id="url" name="url" />
+                            <label for="url">URL </label>
+                            <input type="text" class="form-control" id="url" name="url" required/>
                         </div>
                         <div class="form-group">
                             <label for="how_get">How to get? </label>
@@ -128,15 +90,25 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="compile_method">Output folder </label>
-                            <input type="text" class="form-control" id="sub_folder" name="sub_folder" />
+                            <label for="compile_method">Target files (separated by semi-colons) </label>
+                            <input type="text" class="form-control" id="target_files" name="target_files" />
                         </div>
-                        <div class="form-group">
-                            <label for="compile_method">Compiled files (separated by semi-colons) </label>
-                            <input type="text" class="form-control" id="compile_targets" name="compile_targets" />
+                        <h3>Operation after decompression <a class="btn btn-default" onclick="add_step();"><i class="glyphicon glyphicon-plus"></i>Add step</a></h3>
+                        <div class="step-container">
+                            <div class="protocol-step">
+                                <div class="form-group">
+                                    <label class="control-label" for="software">Software</label>
+                                    <input type="text" class="form-control input-xlarge" id="software" name="software" required />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label" for="parameter">Parameter</label>
+                                    <input type="text" class="form-control input-xlarge parameter-ac" id="parameter" name="parameter" required />
+                                </div>
+                                <hr>
+                            </div>
                         </div>
                         <div class="form-group" style="margin-bottom: 9px;">
-                            <button type="button" class="btn btn-success btn-large btn-block" onclick="share_tool()">Share</button>
+                            <button type="button" class="btn btn-success btn-large btn-block" onclick="share_ref()">Share</button>
                         </div>
                     </form>
                 </div>
@@ -210,12 +182,8 @@ function build_json(){
     });
     return JSON.stringify(o);
 }
-function share_tool(){
-    if($("input[name='is_binary']:checked").val()=="n"){
-        filename=$("#sftw").val()+"-"+$("#version").val()+"-source_code"
-    }else{
-        filename=$("#sftw").val()+"-"+$("#version").val()+"-"+$("input[name='os']:checked").val();
-    }
+function share_ref(){
+    var filename=$("#name").val()+"-"+$("#format").val();
     var eleLink = document.createElement('a');
     eleLink.download = filename;
     eleLink.style.display = 'none';
@@ -228,5 +196,16 @@ function share_tool(){
     eleLink.click();
     // remove
     document.body.removeChild(eleLink);
+}
+function add_step(){
+    var new_id = "parameter"+$(".parameter-ac").length
+    new_step = $(".protocol-step:eq(0)").clone();
+    new_step.find(":input").each(function(i){
+        $(this).val("");
+    });
+    new_step.find(".parameter-ac").each(function(i){
+        $(this).attr("id", new_id);
+    });
+    new_step.appendTo(".step-container");
 }
 {% endblock %}
