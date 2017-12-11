@@ -762,6 +762,66 @@ def index(request):
 
 
 @login_required
+def install_reference(request):
+    if request.method == 'POST':
+        import hashlib
+        from json import loads
+        from tools import get_maintenance_protocols
+        tool_info = loads(request.POST['tool'])
+        protocol_name = tool_info['how_get'] + '_' + tool_info['compression'] + '_' + tool_info['post_steps_overview']
+        try:
+            protocol_parent = ProtocolList.objects.get(name=protocol_name, user_id=0)
+        except ProtocolList.DoesNotExist:
+            protocol_parent = ProtocolList(name=protocol_name, user_id=0)
+            protocol_parent.save()
+            steps = list()
+            maintenance_protocols = get_maintenance_protocols()
+            step_order = 1
+            # download
+            if tool_info["how_get"] not in maintenance_protocols and tool_info["how_get"] != "n":
+                protocol_parent.delete()
+                return error("No protocol to fetch the data")
+            else:
+                model = __import__("ui.maintenance_protocols." + tool_info["how_get"], fromlist=[tool_info["how_get"]])
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # decompress
+            if tool_info["compression"] not in maintenance_protocols and tool_info["compression"] != "n":
+                protocol_parent.delete()
+                return error("No protocol to decompress (%s) the data" % tool_info["compression"])
+            else:
+                if tool_info["compression"] != "n":
+                    model = __import__("ui.maintenance_protocols." + tool_info["compression"],
+                                       fromlist=[tool_info["compression"]])
+                    for step in tool_info['step']:
+                        step_order += 1
+                        m = hashlib.md5()
+                        m.update(step['software'] + ' ' + step['parameter'].strip())
+                        steps.append(Protocol(software=step['software'],
+                                              parameter=step['parameter'],
+                                              parent=protocol_parent,
+                                              hash=m.hexdigest(),
+                                              step_order=step_order,
+                                              user_id=0))
+            Protocol.objects.bulk_create(steps)
+        job = Queue(
+            protocol_id=protocol_parent.id,
+            parameter='UserRef=%s' % user_ref,
+            run_dir=get_config('env', 'workspace'),
+            user_id=request.user.id,
+            input_file=tool_info["url"],
+        )
+        try:
+            job.save()
+            return success('Push the task into job queue.')
+        except:
+            return error('Fail to save the job.')
+    else:
+        return render(request, 'ui/install_ref.html', {})
+
+
+@login_required
 def install_tool(request):
     if request.method == 'POST':
         from json import loads
