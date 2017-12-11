@@ -767,8 +767,8 @@ def install_reference(request):
         import hashlib
         from json import loads
         from tools import get_maintenance_protocols
-        tool_info = loads(request.POST['tool'])
-        protocol_name = tool_info['how_get'] + '_' + tool_info['compression'] + '_' + tool_info['post_steps_overview']
+        ref_info = loads(request.POST['tool'])
+        protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + ref_info['post_steps_overview']
         try:
             protocol_parent = ProtocolList.objects.get(name=protocol_name, user_id=0)
         except ProtocolList.DoesNotExist:
@@ -778,39 +778,61 @@ def install_reference(request):
             maintenance_protocols = get_maintenance_protocols()
             step_order = 1
             # download
-            if tool_info["how_get"] not in maintenance_protocols and tool_info["how_get"] != "n":
+            if ref_info["how_get"] not in maintenance_protocols and ref_info["how_get"] != "n":
                 protocol_parent.delete()
                 return error("No protocol to fetch the data")
             else:
-                model = __import__("ui.maintenance_protocols." + tool_info["how_get"], fromlist=[tool_info["how_get"]])
+                model = __import__("ui.maintenance_protocols." + ref_info["how_get"], fromlist=[ref_info["how_get"]])
                 step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
                 for sub_step in sub_steps:
                     steps.append(sub_step)
             # decompress
-            if tool_info["compression"] not in maintenance_protocols and tool_info["compression"] != "n":
+            if ref_info["compression"] not in maintenance_protocols and ref_info["compression"] != "n":
                 protocol_parent.delete()
-                return error("No protocol to decompress (%s) the data" % tool_info["compression"])
+                return error("No protocol to decompress (%s) the data" % ref_info["compression"])
             else:
-                if tool_info["compression"] != "n":
-                    model = __import__("ui.maintenance_protocols." + tool_info["compression"],
-                                       fromlist=[tool_info["compression"]])
-                    for step in tool_info['step']:
-                        step_order += 1
-                        m = hashlib.md5()
-                        m.update(step['software'] + ' ' + step['parameter'].strip())
-                        steps.append(Protocol(software=step['software'],
-                                              parameter=step['parameter'],
-                                              parent=protocol_parent,
-                                              hash=m.hexdigest(),
-                                              step_order=step_order,
-                                              user_id=0))
+                if ref_info["compression"] != "n":
+                    model = __import__("ui.maintenance_protocols." + ref_info["compression"],
+                                       fromlist=[ref_info["compression"]])
+                    step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                    for sub_step in sub_steps:
+                        steps.append(sub_step)
+            # post-decompression
+            if len(ref_info['software']) == len(ref_info['parameter']) and len(ref_info['software']) >= 1:
+                for ind, software in enumerate(ref_info['software']):
+                    step_order += 1
+                    m = hashlib.md5()
+                    m.update(software + ' ' + ref_info['parameter'][ind].strip())
+                    steps.append(Protocol(software=software,
+                                          parameter=ref_info['parameter'][ind].strip(),
+                                          parent=protocol_parent,
+                                          hash=m.hexdigest(),
+                                          step_order=step_order,
+                                          user_id=0))
+            # move to user's ref folder
+            steps.append(Protocol(software="mv",
+                                  parameter="{CompileTargets} {UserRef}",
+                                  parent=protocol_parent,
+                                  user_id=0,
+                                  hash='d885188751fc204ad7bbdf63fc6564df',
+                                  step_order=step_order+1))
             Protocol.objects.bulk_create(steps)
+        user_ref_dir = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)), 'ref')
+        if not os.path.exists(user_ref_dir):
+            try:
+                os.makedirs(user_ref_dir)
+            except:
+                return error('Fail to create your reference folder')
+        if "target_files" in ref_info.keys():
+            mv_parameter = " ".join(ref_info["target_files"].split(";"))
+        else:
+            mv_parameter = "{LastOutput}"
         job = Queue(
             protocol_id=protocol_parent.id,
-            parameter='UserRef=%s' % user_ref,
+            parameter='UserRef=%s;CompileTargets=%s' % (user_ref_dir, mv_parameter),
             run_dir=get_config('env', 'workspace'),
             user_id=request.user.id,
-            input_file=tool_info["url"],
+            input_file=ref_info["url"],
         )
         try:
             job.save()
