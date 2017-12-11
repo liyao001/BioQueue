@@ -1,8 +1,8 @@
 {% extends "ui/base.html" %}
-{% block title %}Install Tools | BioQueue{% endblock %}
+{% block title %}Install Reference | BioQueue{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>Install tools</h1>
+    <h1>Install References</h1>
 </div>
     <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
         <div class="panel panel-default">
@@ -17,7 +17,7 @@
                 <div class="panel-body">
                     <form class="form" id="fetch-tool-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
-                            <label for="parameter">Software </label>
+                            <label for="parameter">Reference Name </label>
                             <input type="text" class="form-control" id="software" name="software" />
                         </div>
                         <div class="form-group" style="margin-bottom: 9px;">
@@ -29,10 +29,8 @@
                         <table class="table table-hover table-bordered table-striped">
                             <thead>
                                 <tr>
-                                    <th>Software</th>
-                                    <th>Version</th>
-                                    <th>Need Compile</th>
-                                    <th>OS</th>
+                                    <th>Reference Name</th>
+                                    <th>Description</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -166,8 +164,8 @@ function install_tool(obj){
     });
 }
 function parse_tool(file_name){
-    var tool_bus = '{{ ta }}';
-    $.getJSON(tool_bus.replace('{query}', file_name),function(result){
+    var ref_bus = '{{ ta }}';
+    $.getJSON(ref_bus.replace('{query}', file_name),function(result){
         var new_row = "<tr><td>"+result["software"]+"</td><td>"+result["version"]+"</td>";
         if (result["is_binary"]=="n"){
             new_row += "<td class='warning'>Need Compile</td>";
