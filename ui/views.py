@@ -801,7 +801,17 @@ def install_reference(request):
                     for sub_step in sub_steps:
                         steps.append(sub_step)
             # post-decompression
-            if len(ref_info['software']) == len(ref_info['parameter']) and len(ref_info['software']) >= 1:
+            if type(ref_info['software']) == str or type(ref_info['software']) == unicode:
+                step_order += 1
+                m = hashlib.md5()
+                m.update(ref_info['software'] + ' ' + ref_info['parameter'].strip())
+                steps.append(Protocol(software=ref_info['software'],
+                                      parameter=ref_info['parameter'].strip(),
+                                      parent=protocol_parent,
+                                      hash=m.hexdigest(),
+                                      step_order=step_order,
+                                      user_id=0))
+            elif len(ref_info['software']) == len(ref_info['parameter']) and len(ref_info['software']) >= 1:
                 for ind, software in enumerate(ref_info['software']):
                     step_order += 1
                     m = hashlib.md5()
