@@ -768,7 +768,10 @@ def install_reference(request):
         from json import loads
         from tools import get_maintenance_protocols
         ref_info = loads(request.POST['tool'])
-        protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + ref_info['post_steps_overview']
+        if type(ref_info['software']) == str:
+            protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + ref_info['software']
+        else:
+            protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + '_'.join(ref_info['software'])
         try:
             protocol_parent = ProtocolList.objects.get(name=protocol_name, user_id=0)
         except ProtocolList.DoesNotExist:
@@ -852,7 +855,9 @@ def install_reference(request):
         except:
             return error('Fail to save the job.')
     else:
-        return render(request, 'ui/install_ref.html', {})
+        api_bus = get_config('program', 'ref_repo_search_api', 1)
+        tool_addr = get_config('program', 'ref_repo', 1)
+        return render(request, 'ui/install_ref.html', {'ab': api_bus, 'ta': tool_addr})
 
 
 @login_required

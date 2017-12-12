@@ -15,10 +15,10 @@
             </div>
             <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
                 <div class="panel-body">
-                    <form class="form" id="fetch-tool-form" style="margin-top:9px; margin-bottom:0;">
+                    <form class="form" id="fetch-ref-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="parameter">Reference Name </label>
-                            <input type="text" class="form-control" id="software" name="software" />
+                            <input type="text" class="form-control" id="name" name="name" />
                         </div>
                         <div class="form-group" style="margin-bottom: 9px;">
                             <button type="submit" class="btn btn-success btn-large btn-block">Search</button>
@@ -30,7 +30,9 @@
                             <thead>
                                 <tr>
                                     <th>Reference Name</th>
+                                    <th>Format</th>
                                     <th>Description</th>
+                                    <th>Need Compile</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -52,7 +54,7 @@
             </div>
             <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
                 <div class="panel-body">
-                    <form class="form" id="share-tool-form" style="margin-top:9px; margin-bottom:0;">
+                    <form class="form" id="share-ref-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="name">Reference Name </label>
                             <input type="text" class="form-control" id="name" name="name" required/>
@@ -90,7 +92,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="compile_method">Target files (separated by semi-colons) </label>
+                            <label for="target_files">Target files (separated by semi-colons) </label>
                             <input type="text" class="form-control" id="target_files" name="target_files" />
                         </div>
                         <h3>Operation after decompression <a class="btn btn-default" onclick="add_step();"><i class="glyphicon glyphicon-plus"></i>Add step</a></h3>
@@ -135,27 +137,27 @@ function install_tool(obj){
         }
     });
 }
-function parse_tool(file_name){
+function parse_ref(file_name){
     var ref_bus = '{{ ta }}';
     $.getJSON(ref_bus.replace('{query}', file_name),function(result){
-        var new_row = "<tr><td>"+result["software"]+"</td><td>"+result["version"]+"</td>";
-        if (result["is_binary"]=="n"){
+var new_row = "<tr><td>"+result["name"]+"</td><td>"+result["format"]+"</td><td>"+result["description"]+"</td>";
+        if (result["software"]!=""){
             new_row += "<td class='warning'>Need Compile</td>";
         }else{
             new_row += "<td class='success'>Directly Use</td>";
         }
-        new_row += "<td>"+result["os"]+"</td><td><button class='btn btn-default' onclick='install_tool(this);' data-json='"+JSON.stringify(result)+"'><i class='glyphicon glyphicon-download-alt'></i></button></td></tr>";
+        new_row += "<td><button class='btn btn-default' onclick='install_tool(this);' data-json='"+JSON.stringify(result)+"'><i class='glyphicon glyphicon-download-alt'></i></button></td></tr>";
         $("#repo-tbody").append(new_row);
     });
 }
-$("#fetch-tool-form").submit(function(){
+$("#fetch-ref-form").submit(function(){
     $("#repo-tbody").html('');
     $(".search-result").show("slow");
     var api_bus = '{{ ab }}';
-    $.get(api_bus.replace('{query}', $("#software").val()),function(result){
+    $.get(api_bus.replace('{query}', $("#name").val()),function(result){
         if(result.total_count>=1){
             for(var key in result.items){
-                parse_tool(result.items[key].name);
+                parse_ref(result.items[key].name);
             }
         }else{
             Messenger().post({
@@ -169,7 +171,7 @@ $("#fetch-tool-form").submit(function(){
 });
 function build_json(){
     var o = {};
-    var a = $("#share-tool-form").serializeArray();
+    var a = $("#share-ref-form").serializeArray();
     $.each(a, function () {
         if (o[this.name] !== undefined) {
             if (!o[this.name].push) {
