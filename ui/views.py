@@ -834,6 +834,18 @@ def install_reference(request):
             user_id=request.user.id,
             input_file=ref_info["url"],
         )
+        target_files = ref_info["target_files"].split(";")
+        # create links to references
+        ref_list = list()
+        for target_file in target_files:
+            ref_list.append(References(
+                name=ref_info['name'],
+                path=os.path.join(user_ref_dir, target_file),
+                description=ref_info['description'],
+                user_id=request.user.id,
+            ))
+        if len(ref_list) > 0:
+            References.objects.bulk_create(ref_list)
         try:
             job.save()
             return success('Push the task into job queue.')
