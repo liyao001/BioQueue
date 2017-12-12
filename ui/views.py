@@ -768,7 +768,7 @@ def install_reference(request):
         from json import loads
         from tools import get_maintenance_protocols
         ref_info = loads(request.POST['tool'])
-        if type(ref_info['software']) == str:
+        if type(ref_info['software']) == str or type(ref_info['software']) == unicode:
             protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + ref_info['software']
         else:
             protocol_name = ref_info['how_get'] + '_' + ref_info['compression'] + '_' + '_'.join(ref_info['software'])
