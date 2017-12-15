@@ -160,6 +160,10 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
             return 0
         re_pattern_for_lsf_id = "Job <(\d+)\> is submitted"
         status_m = re.search(re_pattern_for_lsf_id, stdout)
+        try:
+            os.remove(job_file_path)
+        except:
+            pass
         if status_m:
             lsf_trace_id = status_m.group(1)
             return lsf_trace_id

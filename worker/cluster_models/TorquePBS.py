@@ -226,6 +226,10 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
                                         stderr=subprocess.STDOUT, cwd=workspace)
         stdout, stderr = step_process.communicate()
         pbs_trace_id = stdout.split('\n')[0]
+        try:
+            os.remove(job_file_path)
+        except:
+            pass
         return pbs_trace_id
     except Exception as e:
         print(e)
