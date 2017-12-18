@@ -175,6 +175,10 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         status_m = re.search(re_pattern_for_condor_id, stdout)
         if status_m:
             condor_trace_id = status_m.group(1)
+        try:
+            os.remove(job_file_path)
+        except:
+            pass
         return condor_trace_id
     except Exception as e:
         print(e)

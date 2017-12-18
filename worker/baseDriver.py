@@ -12,10 +12,10 @@ import psutil
 from multiprocessing import cpu_count
 
 
-def config_init(const = 0):
+def config_init(const=0):
     """
     Initial configuration file
-    :param const: int, 0 means load user's conf, 1 means load bioqueue's conf
+    :param const: int, 0 means to load user's conf, 1 means to load bioqueue's conf
     :return:
     """
     config = ConfigParser()
@@ -27,7 +27,12 @@ def config_init(const = 0):
     return config
 
 
-def get_all_config(const = 0):
+def get_all_config(const=0):
+    """
+    Get all configurations
+    :param const: int, 0 means to return user's conf, 1 means to return bioqueue's conf
+    :return:
+    """
     config = config_init(const)
     configurations = {}
     for section in config.sections():
@@ -39,7 +44,14 @@ def get_all_config(const = 0):
     return configurations
 
 
-def get_config(section, key, const = 0):
+def get_config(section, key, const=0):
+    """
+    Get a configuration
+    :param section: string, the config insides which section
+    :param key: string
+    :param const: int, 0 means to look up user's conf, 1 means to look up bioqueue's conf
+    :return:
+    """
     try:
         config = config_init(const)
         return config.get(section, key)
@@ -47,7 +59,15 @@ def get_config(section, key, const = 0):
         return None
 
 
-def set_config(section, key, value, const = 0):
+def set_config(section, key, value, const=0):
+    """
+    Write config
+    :param section: string, the config insides which section
+    :param key: string
+    :param value: string
+    :param const: int, 0 means to write into user's conf, 1 means to write into bioqueue's conf
+    :return:
+    """
     config = config_init(const)
     config.set(section, key, value)
     if const:
@@ -59,6 +79,10 @@ def set_config(section, key, value, const = 0):
 
 
 def rand_sig():
+    """
+    Generate a random signature
+    :return: string
+    """
     import datetime
     import hashlib
     sig = hashlib.md5()
@@ -67,6 +91,12 @@ def rand_sig():
 
 
 def record_job(job_id, logs):
+    """
+    Record job log
+    :param job_id: int, job id
+    :param logs: string
+    :return: None
+    """
     file_name = os.path.join(get_config("env", "log"), str(job_id))
     fo = open(file_name, "a")
     if isinstance(logs, list):
@@ -102,17 +132,10 @@ def get_disk_free(path='/'):
 
 def get_init_resource():
     cpu = cpu_count() * 100
-    # mem = list(psutil.virtual_memory())[0]
     psy_mem = psutil.virtual_memory()
     vrt_mem = psutil.swap_memory()
     disk = list(psutil.disk_usage(get_config("env", "workspace")))[0]
     return cpu, psy_mem.total, disk, vrt_mem.total + psy_mem.total
-
-
-def write_append(file_name, lines):
-    to_write = open(file_name, 'a')
-    to_write.writelines(lines)
-    to_write.close()
 
 
 def get_folder_size(folder):
@@ -123,82 +146,6 @@ def get_folder_size(folder):
             folder_size += os.path.getsize(file_name)
     
     return folder_size
-
-
-def con_mysql():
-    """Support for MySQL database(rely on MySQLdb)
-    h=host, u=user, p=password, db=database, port=database port, local=local_infile"""
-    import MySQLdb
-    try:
-        connection = MySQLdb.connect(host=get_config("db", "host"), user=get_config("db", "user"),
-                                     passwd=get_config("db", "password"), db=get_config("db", "db_name"),
-                                     port=int(get_config("db", "port")), local_infile=1)
-        if buffer == 1:
-            cursor = connection.cursor(buffer=True)
-        else:
-            cursor = connection.cursor()
-            
-    except Exception as e:
-        print(e)
-    return connection, cursor
-
-
-def update(table, jid, field, value):
-    query = """UPDATE `%s` SET `%s` = '%s' WHERE `id` = %s;""" % (table, field, value, jid)
-    try:
-        connection, cursor = con_mysql()
-        cursor.execute(query)
-        connection.commit()
-        connection.close()
-    except Exception as e:
-        print(e)
-        return 0
-    return 1
-
-
-def multi_update(table, jid, m):
-    res = []
-    for key in m:
-        res.append("`%s` = '%s'" % (key, m[key]))
-    dyn_sql = ', '.join(res)
-    query = """UPDATE `%s` SET %s WHERE `id` = %s;""" % (table, dyn_sql, jid)
-    try:
-        connection, cursor = con_mysql()
-        cursor.execute(query)
-        connection.commit()
-        connection.close()
-    except Exception as e:
-        print(e)
-        return 0
-    return 1
-
-
-def get_field(field, table, key, value):
-    try:
-        connection, cursor = con_mysql()
-        query = """SELECT `%s` FROM `%s` WHERE `%s` = '%s';""" % (field, table, key, value)
-        cursor.execute(query)
-        res = cursor.fetchone()
-        connection.close()
-        if res is not None:
-            return res[0]
-        else:
-            return None
-    except Exception as e:
-        print(e)
-
-
-def delete(table, record_id):
-    query = """DELETE FROM `%s` WHERE `id` = '%s';""" % (table, record_id)
-    try:
-        connection, cursor = con_mysql()
-        cursor.execute(query)
-        connection.commit()
-        connection.close()
-    except Exception as e:
-        print(e)
-        return 0
-    return 1
 
 
 def get_path(url):

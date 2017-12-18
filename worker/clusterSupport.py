@@ -134,10 +134,6 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, wor
                         pass
                 return 0
             else:
-                try:
-                    os.remove(tmp_filename)
-                except:
-                    pass
                 return 1
     else:
         print('Unknown Cluster')
