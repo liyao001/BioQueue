@@ -1137,7 +1137,11 @@ def resume_job(request):
             try:
                 job = Queue.objects.get(id=cd['job'])
                 if job.check_owner(request.user.id) or request.user.is_superuser:
-                    job.resume_job()
+                    rollback_to = int(cd['step']) - 2
+                    if rollback_to <= job.resume:
+                        job.resume_job(rollback_to)
+                    else:
+                        job.resume_job(job.resume)
                     return success('Your job will be resumed soon.')
                 else:
                     return error('Your are not the owner of the job.')

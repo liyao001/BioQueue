@@ -63,17 +63,42 @@
                         <li><b>Last update:</b> {{ job.update_time }}</li>
                         <li><span class="label label-info show-folder" onclick="showFolder({{ job.id }});" data-toggle="tooltip" data-placement="top" title="{{ job.result }}"><i class="icon-folder-open"></i> Show output files</span></li>
                     </ul></p>
-                        <p class="text-center">{% if job.status == -1 %}
-                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                        <div class="text-center">
+                        {% if job.status == -1 %}
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
+                            </div>
                         {% elif job.status == 0 %}
-                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
+                            </div>
                         {% elif job.status == -3 %}
-                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);"><i class='icon-trash icon-white'></i> Delete</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-success" onclick="resumeJob(this);"><i class='icon-play icon-white'></i> Resume</button> <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);"><i class='icon-repeat icon-white'></i> Rerun</button>
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="$('#resume-{{ job.id }}').show();" data-toggle="tooltip" data-placement="top" title="Rollback"><i class='icon-share-alt icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-success" onclick="resumeJob(this, {{ job.resume }});" data-toggle="tooltip" data-placement="top" title="Resume"><i class='icon-play icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
+                            </div>
+                            <div class="text-left" id="resume-{{ job.id }}" style="display: none;">
+                                <hr>
+                                <div class="alert alert-success">
+                                    <span href="#" class="close" onclick="$('#resume-{{ job.id }}').hide();">&times;</span>
+                                    <label for="rollback-{{ job.id }}">Rollback to step:</label>
+                                    <input id="rollback-{{ job.id }}" name="rollback-{{ job.id }}" class="sliderbar" data-slider-id='rollback-{{ job.id }}' type="text" data-slider-min="1" class="form-control" data-slider-max="{{ job.resume|add:2 }}" data-slider-step="1" data-slider-value="{{ job.resume|add:2 }}"/>
+                                    <button style="margin-top: 5px;" data-jid="{{ job.id }}" class="btn btn-warning btn-block" onclick="resumeJob(this);">Apply</button>
+                                </div>
+                            </div>
                         {% elif job.status > 0 %}
-                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</button>
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='icon-stop icon-white'></i></button>
+                            </div>
                         {% elif job.status == -2 %}
-                            <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);"><i class='icon-stop icon-white'></i> Terminate</button>
-                        {% endif %}</p>
+                            <div class="btn-group" role="group" aria-label="...">
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='icon-stop icon-white'></i></button>
+                            </div>
+                        {% endif %}</div>
                     </div>
                 </div>
             </div>
@@ -152,6 +177,12 @@
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     });
+    $('.sliderbar').slider({
+        formatter: function(value) {
+            return value;
+        },
+        tooltip_position:'bottom',
+    });
     function delJob(obj){
         var self = $(obj);
         $.post("{% url 'ui:delete_job' %}", {job: self.attr("data-jid")}, function(data){
@@ -188,15 +219,20 @@
             };
         });
 	};
-    function resumeJob(obj){
+    function resumeJob(obj, spec=0){
         var self = $(obj);
-        $.post("{% url 'ui:resume_job' %}", {job: self.attr("data-jid")}, function(data){
+        var jid = self.attr("data-jid");
+        if(spec==0){
+            spec=$("#rollback-"+jid).text();
+        }
+        $.post("{% url 'ui:resume_job' %}", {job: jid, step:spec}, function(data){
             if(data.status){
                 Messenger().post({
 					message: data.info,
 					showCloseButton: true
 				});
                 self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Waiting');
+                $('#resume-'+jid).hide();
 		    }else{
                 Messenger().post({
 					message: data.info,

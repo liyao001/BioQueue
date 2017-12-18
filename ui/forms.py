@@ -53,6 +53,9 @@ class JobManipulateForm(forms.Form):
     job = forms.IntegerField(
         required=True
     )
+    step = forms.IntegerField(
+        required=True
+    )
 
 
 class ProtocolManipulateForm(forms.Form):

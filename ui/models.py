@@ -147,7 +147,8 @@ class Queue(models.Model):
         self.ter = 0
         self.save()
 
-    def resume_job(self):
+    def resume_job(self, rollback):
+        self.resume = rollback
         self.status = 0
         self.save()
 
