@@ -29,7 +29,7 @@
         <div class="row job-container">
             {% if job_list %}
             {% for job in job_list %}
-            <div class="col-sm-6 col-md-4">
+            <div class="col-sm-6 col-md-4" id="job-panel-parent-{{ job.id }}">
                 <div class="thumbnail job-panel" id="job-panel-{{ job.id }}">
                     <div class="caption">
                         <div class="text-center">{% if job.status == -1 %}
@@ -185,13 +185,14 @@
     });
     function delJob(obj){
         var self = $(obj);
-        $.post("{% url 'ui:delete_job' %}", {job: self.attr("data-jid")}, function(data){
+        var jid = self.attr("data-jid");
+        $.post("{% url 'ui:delete_job' %}", {job: jid}, function(data){
             if(data.status){
                 Messenger().post({
 					message: data.info,
 					showCloseButton: true
 				});
-                self.parent().parent().parent().parent().hide("slow");
+                $("#job-panel-parent-"+jid).hide("slow");
 		    }else{
                 Messenger().post({
 					message: data.info,
