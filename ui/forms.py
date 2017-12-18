@@ -54,7 +54,7 @@ class JobManipulateForm(forms.Form):
         required=True
     )
     step = forms.IntegerField(
-        required=True
+        required=False
     )
 
 
