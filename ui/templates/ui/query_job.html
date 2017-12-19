@@ -32,7 +32,7 @@
             <div class="col-sm-6 col-md-4" id="job-panel-parent-{{ job.id }}">
                 <div class="thumbnail job-panel" id="job-panel-{{ job.id }}">
                     <div class="caption">
-                        <div class="text-center">{% if job.status == -1 %}
+                        <div class="text-center status">{% if job.status == -1 %}
                             <i class="icon-ok icon-3x"></i>
                         {% elif job.status == -2 %}
                             <i class="icon-pause icon-3x"></i>
@@ -46,7 +46,7 @@
                         <h3 style="margin-top: 0;">{% if job.job_name %}{{ job.job_name }}{% else %}{{ job.protocol }}{% endif %}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
                         <p><ul class="list-unstyled">
                         <li><b>ID:</b> {{ job.id }}</li>
-                        <li><b>Status:</b> {% if job.status == -1 %}
+                        <li><b>Status:</b> <span class="status-text">{% if job.status == -1 %}
                             Finished
                         {% elif job.status == -2 %}
                             Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} (Step {{ job.resume|add:2 }})
@@ -56,7 +56,7 @@
                             Waiting (Step {{ job.resume|add:2 }})
                         {% else %}
                             Running (Step {{ job.status }})
-                        {% endif %}</li>
+                        {% endif %}</span></li>
                         <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
                         <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
                         <li><b>Create time:</b> {{ job.create_time }}</li>
@@ -210,7 +210,7 @@
 					message: data.info,
 					showCloseButton: true
 				});
-                self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Waiting');
+                self.parent().parent().parent().children(".status").html('<i class="icon-time icon-3x"></i>');
 		    }else{
                 Messenger().post({
 					message: data.info,
@@ -236,7 +236,7 @@
 					message: data.info,
 					showCloseButton: true
 				});
-                self.parent().parent().parent().children(".status").html('<i class="icon-time"></i>Waiting');
+                $('#resume-'+jid).children(".status").html('<i class="icon-time"></i>Waiting');
                 $('#resume-'+jid).hide();
 		    }else{
                 Messenger().post({
