@@ -18,7 +18,7 @@
                     <form class="form" id="fetch-ref-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="parameter">Reference Name </label>
-                            <input type="text" class="form-control" id="name" name="name" />
+                            <input type="text" class="form-control" id="ref-name" name="name" />
                         </div>
                         <div class="form-group" style="margin-bottom: 9px;">
                             <button type="submit" class="btn btn-success btn-large btn-block">Search</button>
@@ -154,7 +154,7 @@ $("#fetch-ref-form").submit(function(){
     $("#repo-tbody").html('');
     $(".search-result").show("slow");
     var api_bus = '{{ ab }}';
-    $.get(api_bus.replace('{query}', $("#name").val()),function(result){
+    $.get(api_bus.replace('{query}', $("#ref-name").val()),function(result){
         if(result.total_count>=1){
             for(var key in result.items){
                 parse_ref(result.items[key].name);
