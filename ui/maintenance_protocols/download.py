@@ -13,5 +13,6 @@ def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
                         parent=protocol_parent,
                         user_id=0,
                         hash='3efb64d0fa1144993ee287d3233dde06',
-                        step_order=step_order_start))
+                        step_order=step_order_start,
+                        force_local=1))
     return step_order_start+len(steps), steps

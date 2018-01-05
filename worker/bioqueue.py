@@ -692,6 +692,9 @@ def run_step(job_desc, resources):
                 if rt in JOB_COMMAND[job_id]:
                     true_shell = 1
                     break
+            # special care for R scripts
+            if JOB_COMMAND[job_id][0] == "R":
+                true_shell = 1
 
             if true_shell:
                 step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True,
