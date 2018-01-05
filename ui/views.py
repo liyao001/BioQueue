@@ -270,7 +270,7 @@ def build_plain_protocol(request, protocol_id):
                 }
             protocol_data['step'].append(tmp)
             protocol_data['reference'] = protocol_ref
-        return build_json_protocol(protocol_data)
+        return protocol_data['name'], build_json_protocol(protocol_data)
     else:
         # no permission
         return 2
@@ -471,7 +471,7 @@ def download(file_path):
 def export_protocol(request):
     if request.method == 'GET':
         if 'id' in request.GET:
-            protocol_text = build_plain_protocol(request, request.GET['id'])
+            pname, protocol_text = build_plain_protocol(request, request.GET['id'])
             if protocol_text == 1:
                 return error('Cannot find the protocol.')
             elif protocol_text == 2:
@@ -480,8 +480,7 @@ def export_protocol(request):
                 from django.http import StreamingHttpResponse
                 response = StreamingHttpResponse(protocol_text)
                 response['Content-Type'] = 'application/octet-stream'
-                response['Content-Disposition'] = 'attachment;filename="{0}"'.format(request.user.username +
-                                                                                 str(request.GET['id']) + '.txt')
+                response['Content-Disposition'] = 'attachment;filename="{0}"'.format(str(pname + '.txt'))
                 return response
         else:
             return error('Unknown parameter.')
@@ -1548,7 +1547,7 @@ def update_step_order(request):
 def upload_protocol(request):
     if request.method == 'GET':
         if 'id' in request.GET:
-            protocol_text = build_plain_protocol(request, request.GET['id'])
+            pname, protocol_text = build_plain_protocol(request, request.GET['id'])
             if protocol_text == 1:
                 return error('Cannot find the protocol.')
             elif protocol_text == 2:

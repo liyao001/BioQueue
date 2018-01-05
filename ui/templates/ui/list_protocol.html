@@ -5,10 +5,6 @@
     <div class="page-header">
         <h1>Protocol List</h1>
     </div>
-    <div class="alert alert-info alert-dismissible" role="alert">
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <strong>Hint:</strong> To edit a protocol, you need to move cursor to Operation column where the protocol locates in, and click the Edit Protocol button. We provide a more detailed instruction in our <a href="http://bioqueue.readthedocs.io/en/latest/protocol.html#edit-steps" target="_blank">documentation</a>.
-    </div>
     <table class="table table-bordered">
         <thead>
             <tr>
@@ -19,7 +15,7 @@
         </thead>
         <tbody>
         {% for protocol in protocol_list %}
-            <tr class="pending-user">
+            <tr class="pending-user protocol-rows" id="protocol-row-{{ protocol.id }}">
                 <td>{{ protocol.id }}</td>
                 <td>{{ protocol.name }}</td>
                 <td>
@@ -257,8 +253,10 @@
                 if ($('#stepsContainer').css("display") != 'none'){
                     $('#stepsContainer').hide("fast");
                 }
-                $('#stepsContainer').html(data.info);
-                $('#stepsContainer').show("slow");
+                $(".protocol-rows").removeClass("warning");
+                $("#protocol-row-"+recId).addClass("warning");
+                $("#stepsContainer").html(data.info);
+                $("#stepsContainer").show("slow");
                 $("html,body").animate({scrollTop:$("#stepsContainer").offset().top},1000)
 		    }else{
                 Messenger().post({
