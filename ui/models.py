@@ -127,6 +127,7 @@ class Queue(models.Model):
     resume = models.SmallIntegerField(default=-1)
     ter = models.SmallIntegerField(default=0)
     wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
+    force_local = models.SmallIntegerField(default=0)
 
     def __str__(self):
         return str(self.id)
