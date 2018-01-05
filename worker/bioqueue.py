@@ -69,6 +69,7 @@ def get_steps(protocol_id):
             'parameter': html_parser.unescape(str(step.software).rstrip() + " " + str(step.parameter)),
             'specify_output': step.specify_output,
             'hash': step.hash,
+            'force_local': step.force_local,
         })
     return step_list
 
@@ -102,10 +103,7 @@ def get_user_reference(user):
     for reference in references:
         if user not in USER_REFERENCES.keys():
             USER_REFERENCES[user] = dict()
-        if reference.name in USER_REFERENCES[user]:
-            continue
-        else:
-            USER_REFERENCES[user][reference.name] = reference.path
+        USER_REFERENCES[user][reference.name] = reference.path
 
 
 def create_user_folder(uf, jf):
@@ -610,6 +608,11 @@ def run_step(job_desc, resources):
     job_id = int(items[0])
     step_order = int(items[1])
     user_id = JOB_TABLE[job_id]['user_id']
+    try:
+        is_force_local = JOB_TABLE[job_id]['steps'][step_order]['force_local']
+    except Exception as e:
+        print(e)
+        is_force_local = 0
     recheck = forecast_step(job_id, step_order, resources)
 
     log_file = os.path.join(settings["env"]["log"], str(job_id))
@@ -624,7 +627,7 @@ def run_step(job_desc, resources):
         except:
             pass
 
-    if settings['cluster']['type']:
+    if settings['cluster']['type'] and not is_force_local:
         # for cluster
         import clusterSupport
         if resources['cpu'] is None:
