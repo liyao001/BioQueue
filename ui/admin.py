@@ -24,11 +24,14 @@ class PredictionAdmin(admin.ModelAdmin):
 class ResourceAdmin(admin.ModelAdmin):
     list_display = ('cpu', 'mem', 'disk', 'lock')
 
+
 class ProtocolAdmin(admin.ModelAdmin):
     list_display = ('software', 'parameter', 'specify_output', 'parent')
 
+
 class ProtocolListAdmin(admin.ModelAdmin):
     list_display = ('name', 'user_id')
+
 
 admin.site.register(Queue, QueueAdmin)
 admin.site.register(Prediction, PredictionAdmin)

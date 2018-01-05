@@ -64,6 +64,7 @@ class Protocol(models.Model):
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
     step_order = models.SmallIntegerField(default=1)
+    force_local = models.SmallIntegerField(default=0)
 
     def __str__(self):
         return self.software+' '+self.parameter
@@ -127,7 +128,6 @@ class Queue(models.Model):
     resume = models.SmallIntegerField(default=-1)
     ter = models.SmallIntegerField(default=0)
     wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
-    force_local = models.SmallIntegerField(default=0)
 
     def __str__(self):
         return str(self.id)
