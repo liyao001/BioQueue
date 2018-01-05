@@ -23,6 +23,7 @@ def get_download_link(acc, field="fastq_ftp"):
     :return:
     """
     links = list()
+    # https://www.ebi.ac.uk/ena/submit/read-data-format
     if acc[2] == "A":
         keyword = "submission_accession"
     elif acc[2] == "S":
@@ -77,7 +78,8 @@ def downloader(url):
     :param url: str
     :return:
     """
-    os.system("wget %s" % url)
+    ret = os.system("wget %s" % url)
+    return ret
 
 
 def download_fastq_from_ebi(query):
@@ -87,11 +89,18 @@ def download_fastq_from_ebi(query):
     :return:
     """
     all_links = list()
+    print("Try to get access id for %s" % query)
     fl = get_accession(query)
+    print("Hit: ", " ".join(fl))
     for r in fl:
-        all_links.extend(get_download_link(r))
+        print("Try to fetch download link for %s" % r)
+        tmp = get_download_link(r)
+        all_links.extend(tmp)
+        print("Download link for %s is %s" % (r, ";".join(tmp)))
     for file in all_links:
-        downloader(file)
+        print("Try to download %s" % file)
+        if not downloader(file):
+            print("File %s has been downloaded.")
 
 
 if __name__ == "__main__":
@@ -103,3 +112,10 @@ if __name__ == "__main__":
 
     if len(opts) == 0:
         sys.exit()
+
+    query = ''
+    for o, a in opts:
+        if o in ("-q", "--query"):
+            query = a
+    print("Try to download %s" % query)
+    download_fastq_from_ebi(query)
