@@ -1412,17 +1412,13 @@ def show_upload_files(request, special_type='uploads'):
         except Exception as e:
             return render(request, 'ui/error.html', {'error_msg': e})
 
-    for file_name in os.listdir(user_path):
-        file_path = os.path.join(user_path, file_name)
-        tmp = dict()
-        tmp['name'] = file_name
-        tmp['file_size'] = os.path.getsize(file_path)
-        tmp['file_create'] = time.ctime(os.path.getctime(file_path))
-        tmp['trace'] = base64.b64encode(os.path.join(special_type, file_name))
-        tmp['raw'] = os.path.join(special_type, file_name)
-        user_files.append(tmp)
-    user_files = sorted(user_files, key=lambda user_files: user_files['name'])
-    context = {'user_files': user_files}
+    for root, dirs, files in os.walk(user_path):
+        for file_name in files:
+            file_full_path = os.path.join(root, file_name)
+            file_path = file_full_path.replace(user_path + '\\', '') \
+                .replace(user_path + '/', '').replace(user_path, '')
+            user_files.append(file_path)
+    context = {'user_files': sorted(user_files)}
     return render(request, 'ui/show_uploads.html', context)
 
 
