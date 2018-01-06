@@ -99,7 +99,7 @@ def download_fastq_from_ebi(query):
         print("Download link for %s is %s" % (r, ";".join(tmp)))
     for file in all_links:
         print("Try to download %s" % file)
-        if not downloader(file):
+        if not downloader("ftp://"+file):
             print("File %s has been downloaded.")
 
 
