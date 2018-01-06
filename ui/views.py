@@ -1401,15 +1401,28 @@ def show_step(request):
 
 
 @login_required
-def show_upload_files(request):
+def show_upload_files(request, special_type='uploads'):
+    import time
+    import base64
     user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads')
+    user_files = []
     if not os.path.exists(user_path):
         try:
             os.makedirs(user_path)
         except Exception as e:
             return render(request, 'ui/error.html', {'error_msg': e})
 
-    context = {'user_files': sorted(os.listdir(user_path))}
+    for file_name in os.listdir(user_path):
+        file_path = os.path.join(user_path, file_name)
+        tmp = dict()
+        tmp['name'] = file_name
+        tmp['file_size'] = os.path.getsize(file_path)
+        tmp['file_create'] = time.ctime(os.path.getctime(file_path))
+        tmp['trace'] = base64.b64encode(os.path.join(special_type, file_name))
+        tmp['raw'] = os.path.join(special_type, file_name)
+        user_files.append(tmp)
+    user_files = sorted(user_files, key=lambda user_files: user_files['name'])
+    context = {'user_files': user_files}
     return render(request, 'ui/show_uploads.html', context)
 
 
