@@ -11,7 +11,7 @@ body {
 .navbar-brand:hover{
 	color: #ccc;
 }
-.navbar-bioqueue {
+.navbar-bioqueue, .navbar-inner {
 	background: #308034;
 	background: rgba(48,128,52,1);
 	background: -moz-linear-gradient(-45deg, rgba(48,128,52,1) 0%, rgba(128,198,132,1) 100%);
@@ -56,7 +56,7 @@ body {
 	text-decoration: none;
 	text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
 }
-.nav .open > a, .nav .open > a:hover, .nav .open > a:focus{
+.nav .open > a, .nav .open > a:hover, .nav .open > a:focus, .navbar > a:focus{
 	background-color: transparent;
 }
 #top-nav .nav li:hover, #top-nav .nav .open > a:focus{
