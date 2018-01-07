@@ -15,7 +15,11 @@ def user_login(request):
             if user is not None:
                 if user.is_active:
                     login(request, user)
-                    return success('Authenticated successfully', '/ui')
+                    if "next" in request.POST.keys():
+                        red_url = request.POST["next"]
+                    else:
+                        red_url = "/ui"
+                    return success('Authenticated successfully', red_url)
                 else:
                     return error('Disabled account')
             else:
@@ -24,7 +28,10 @@ def user_login(request):
             return error(str(form.errors))
     else:
         form = LoginForm()
-    return render(request, 'accounts/login.html', {'form': form})
+    if "next" in request.GET.keys():
+       return render(request, 'accounts/login.html', {'form': form, 'next': request.GET["next"]})
+    else:
+        return render(request, 'accounts/login.html', {'form': form})
 
 
 def register(request):
