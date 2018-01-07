@@ -187,6 +187,8 @@
 </div>
 {% endblock %}
 {% block script %}
+$(".system-nav").addClass("active");
+$("#update-settings").addClass("active");
 if ($('#cluster-type').children('option:selected').val()!=''){
     $('.cluster-control').removeAttr("disabled");
 }

@@ -50,7 +50,7 @@
 </div>
 {% endblock %}
 {% block script %}
-    $("#manage-reference").addClass("active");
+    $(".ref-nav").addClass("active");
     var csrftoken = $.cookie('csrftoken');
     $.ajaxSetup({
         beforeSend: function(xhr, settings){
