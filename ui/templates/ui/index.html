@@ -7,7 +7,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
-	<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">
+	<!--<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">-->
 	<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
 	<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
 	<!--[if lt IE 9]>
@@ -16,30 +16,14 @@
     <![endif]-->
 </head>
 <body>
-<div class="navbar">
-  <div class="navbar-inner">
-    <div class="container-fluid">
-    	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-    		<span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span>
-    	</a>
-    	<a class="brand" href="{% url 'ui:index' %}">
-    		<span class='brand-slogan'>BioQueue</span>
-    	</a>
-    	<div class="nav navbar-nav navbar-right" style="margin-top:3px;">
-    		{% if user.is_authenticated %}
-                <a class="btn btn-default" href="{% url 'accounts:logout' %}"><i class="icon-user"></i> Log out</a>
-            {% endif %}
-		</div>
-	</div>
-  </div>
-</div>
-<div style="margin: 0 auto; width: 90%;">
+{% include 'ui/navigation.html' %}
+<div style="margin: 20px auto; width: 90%;">
 	<ul class="breadcrumb">
 	  <li><a href="#">Index</a></li>
 	  <li class="active">Dashboard</li>
 	</ul>
 </div>
-<div class="row" style="padding: 5px; margin: 0 auto; width: 90%;">
+<div class="row" style="padding: 5px; margin: 20px auto; width: 90%;">
 	<div class="metro-nav">
 		<div class="metro-nav-block nav-block-orange">
 		    <a data-original-title="" href="#cp" role="button" data-toggle="modal" data-target="#cp">

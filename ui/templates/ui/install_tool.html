@@ -148,6 +148,8 @@
     </div>
 {% endblock %}
 {% block script %}
+$("#install-tool").addClass("active");
+$(".scaffold-nav").addClass("active");
 var csrftoken = $.cookie('csrftoken');
 function install_tool(obj){
     var self = $(obj);

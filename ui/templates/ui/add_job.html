@@ -99,6 +99,7 @@
 {% endblock %}
 {% block script %}
     $("#add-job").addClass("active");
+    $(".job-nav").addClass("active");
     $("#protocol-selector").change(function(){
         var selected=$(this).children('option:selected').val();
         if (selected){
