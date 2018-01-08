@@ -20,6 +20,11 @@ CHECKPOINT_CHOICES = (
     (6, 'Virtual Memory')
 )
 
+YES_OR_NO = (
+    (0, 'No'),
+    (1, 'Yes')
+)
+
 
 class Prediction(models.Model):
     """Prediction Table
@@ -64,7 +69,7 @@ class Protocol(models.Model):
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
     step_order = models.SmallIntegerField(default=1)
-    force_local = models.SmallIntegerField(default=0)
+    force_local = models.SmallIntegerField(default=0, choices=YES_OR_NO)
 
     def __str__(self):
         return self.software+' '+self.parameter
