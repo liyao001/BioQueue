@@ -33,6 +33,9 @@ def main(pf, wd, output_file):
                 true_shell = 1
                 break
 
+        if parameters[0] == "R":
+            true_shell = 1
+
         if true_shell:
             proc = subprocess.Popen(step, shell=True, cwd=wd)
         else:
