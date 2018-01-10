@@ -43,9 +43,13 @@ $(document).ajaxStart(function(){
 	$("button:submit").attr("disabled", false);
 });
 {% block script %}{% endblock %}
-$.getJSON("{% url 'ui:query_running_jobs' %}", function(json){
-    $("#top-running-jobs").html(json.info);
-});
+function queryJobNum(){
+    $.getJSON("{% url 'ui:query_running_jobs' %}", function(json){
+        $("#top-running-jobs").html(json.info);
+    });
+}
+var jobT = window.setInterval(queryJobNum, 30000);
+queryJobNum();
 </script>
 </body>
 </html>

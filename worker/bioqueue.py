@@ -132,7 +132,7 @@ def prepare_workspace(resume, run_folder, job_id, user_id, result=''):
     :param result: string, folder name for the job
     :return: tuple, path to user folder and job folder
     """
-    if resume == -1:
+    if resume==-1 and result=='':
         result_store = baseDriver.rand_sig() + str(job_id)
         user_folder = os.path.join(run_folder, str(user_id))
         run_folder = os.path.join(user_folder, result_store)
