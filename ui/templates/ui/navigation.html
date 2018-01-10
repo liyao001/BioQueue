@@ -20,7 +20,7 @@
                     </ul>
                 </li>
                 <li class="dropdown job-nav">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="icon-list"></i> Job <span class="caret"></span></a>
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><i class="icon-list"></i> Job <span id="top-running-jobs" class="badge badge-inverse"></span> <span class="caret"></span></a>
                     <ul class="dropdown-menu">
                         <li id="add-job"><a href="{% url 'ui:add_job' %}">New Job</a></li>
                         <li id="query-job"><a href="{% url 'ui:query_job' %}">Job Status</a></li>
