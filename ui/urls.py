@@ -30,6 +30,7 @@ urlpatterns = [
     url(r'^query-job/$', views.query_job, name='query_job'),
     url(r'^query-job-parameter/$', views.query_job_parameter, name='query_job_parameter'),
     url(r'^query-protocol', views.query_protocol, name='query_protocol'),
+    url(r'^query-running-jobs', views.query_running_jobs, name='query_running_jobs'),
     url(r'^query-usage', views.query_usage, name='query_usage'),
     url(r'^rerun-job/$', views.rerun_job, name='rerun_job'),
     url(r'^resume-job/$', views.resume_job, name='resume_job'),

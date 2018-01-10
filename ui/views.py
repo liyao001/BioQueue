@@ -1085,6 +1085,16 @@ def query_protocol(request):
 
 
 @login_required
+def query_running_jobs(request):
+    if request.user.is_superuser:
+        running_job = Queue.objects.filter(status__gt=0).count()
+    else:
+        running_job = Queue.objects.filter(user_id=request.user.id).filter(status__gt=0).count()
+
+    return success(running_job)
+
+
+@login_required
 def query_usage(request):
     """
     This function should only be called when the user is using IE8 or IE9
