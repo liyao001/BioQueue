@@ -39,7 +39,7 @@ $("table td .dels").click(function(){
 	var self = $(this);
 	$.get("{% url 'ui:delete_step' %}", {id: self.attr('data-sid')}, function(data){
 		if(data.status){
-			self.parent().parent().parent().remove();
+			showSteps($("#step-parent").val());
 		}
 	});
 });
