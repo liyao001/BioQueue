@@ -81,17 +81,19 @@ def add_step(request):
                                         parent=protocol,
                                         user_id=request.user.id,
                                         step_order=step_amount,
-                                        hash=m.hexdigest())
+                                        hash=m.hexdigest(),
+                                        force_local=cd['force_local'])
                     else:
                         step = Protocol(software=cd['software'],
                                         parameter=cd['parameter'],
                                         parent=protocol,
                                         user_id=request.user.id,
                                         step_order=cd["insert_to"]+1,
-                                        hash=m.hexdigest())
+                                        hash=m.hexdigest(),
+                                        force_local=cd['force_local'])
                         to_update_steps = Protocol.objects.filter(parent=step.parent, step_order__gt=cd["insert_to"])
                         for tus in to_update_steps:
-                            tus.step_order+=1
+                            tus.step_order += 1
                             tus.save()
                     step.save()
                     return success('Your step have been created.')
