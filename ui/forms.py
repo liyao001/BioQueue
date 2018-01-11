@@ -108,6 +108,14 @@ class CreateStepForm(forms.Form):
         required=False,
         widget=forms.HiddenInput()
     )
+    insert_to = forms.IntegerField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': u'input-block-level',
+            }
+        )
+    )
 
 
 class StepManipulateForm(forms.Form):

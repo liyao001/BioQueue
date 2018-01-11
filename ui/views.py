@@ -74,13 +74,25 @@ def add_step(request):
                 if protocol.check_owner(request.user.id) or request.user.is_superuser:
                     m = hashlib.md5()
                     m.update(cd['software'] + ' ' + cd['parameter'].strip())
-                    step_amount = Protocol.objects.filter(parent=cd['parent']).count() + 1
-                    step = Protocol(software=cd['software'],
-                                    parameter=cd['parameter'],
-                                    parent=protocol,
-                                    user_id=request.user.id,
-                                    step_order=step_amount,
-                                    hash=m.hexdigest())
+                    if cd["insert_to"] == -1:
+                        step_amount = Protocol.objects.filter(parent=cd['parent']).count() + 1
+                        step = Protocol(software=cd['software'],
+                                        parameter=cd['parameter'],
+                                        parent=protocol,
+                                        user_id=request.user.id,
+                                        step_order=step_amount,
+                                        hash=m.hexdigest())
+                    else:
+                        step = Protocol(software=cd['software'],
+                                        parameter=cd['parameter'],
+                                        parent=protocol,
+                                        user_id=request.user.id,
+                                        step_order=cd["insert_to"]+1,
+                                        hash=m.hexdigest())
+                        to_update_steps = Protocol.objects.filter(parent=step.parent, step_order__gt=cd["insert_to"])
+                        for tus in to_update_steps:
+                            tus.step_order+=1
+                            tus.save()
                     step.save()
                     return success('Your step have been created.')
                 else:
@@ -427,6 +439,11 @@ def delete_step(request):
             try:
                 step = Protocol.objects.get(id=int(request.GET['id']))
                 if step.check_owner(request.user.id) or request.user.is_superuser:
+                    # update order
+                    to_update_steps = Protocol.objects.filter(parent=step.parent, step_order__gt=step.step_order)
+                    for tus in to_update_steps:
+                        tus.step_order-=1
+                        tus.save()
                     step.delete()
                     return success('Your step has been deleted.')
                 else:
