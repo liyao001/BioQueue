@@ -116,6 +116,14 @@ class CreateStepForm(forms.Form):
             }
         )
     )
+    force_local = forms.IntegerField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': u'input-block-level',
+            }
+        )
+    )
 
 
 class StepManipulateForm(forms.Form):
