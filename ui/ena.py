@@ -77,6 +77,7 @@ def query_download_link_from_ebi(query):
     fl = get_accession(query)
     for r in fl:
         tmp = get_download_link(r)
-        all_links.extend(tmp)
+        if len(tmp) > 0:
+            all_links.extend(tmp)
     ret_links = ["ftp://"+link for link in all_links]
     return sorted(list(set(ret_links)))
