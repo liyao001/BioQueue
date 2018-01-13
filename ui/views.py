@@ -508,6 +508,75 @@ def export_protocol(request):
 
 
 @login_required
+def fetch_data(request):
+    if request.method == "POST":
+        from tools import get_maintenance_protocols
+        protocol_name = "Fetch Data From EBI ENA"
+        try:
+            protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=0)
+        except ProtocolList.DoesNotExist:
+            # build protocol
+            protocol_parent = ProtocolList(name=protocol_name, user_id=0)
+            protocol_parent.save()
+            steps = list()
+            maintenance_protocols = get_maintenance_protocols()
+            # download
+            step_order = 1
+            if "download" not in maintenance_protocols:
+                protocol_parent.delete()
+                return error("No protocol to fetch the data")
+            else:
+                model = __import__("ui.maintenance_protocols.download", fromlist=["download"])
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # decompress
+            if "gunzip" not in maintenance_protocols:
+                protocol_parent.delete()
+                return error("No protocol to decompress (gz) the data")
+            else:
+                model = __import__("ui.maintenance_protocols.gunzip", fromlist=["gunzip"])
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+            # move to user's uploads folder
+            steps.append(Protocol(software="mv",
+                                  parameter="{LastOutput} {UserUploads}",
+                                  parent=protocol_parent,
+                                  user_id=0,
+                                  hash='c5f8bf22aff4c9fd06eb0844e6823d5f',
+                                  step_order=step_order))
+            try:
+                Protocol.objects.bulk_create(steps)
+                protocol_record = protocol_parent
+            except:
+                protocol_parent.delete()
+                return error('Fail to save the protocol.')
+        user_upload_dir = os.path.join(os.path.join(get_config('env', 'workspace'), str(request.user.id)), 'uploads')
+        if not os.path.exists(user_upload_dir):
+            try:
+                os.makedirs(user_upload_dir)
+            except:
+                return error('Fail to create your uploads folder')
+        from ena import query_download_link_from_ebi
+        links = query_download_link_from_ebi(request.POST["acc"])
+        job = Queue(
+            protocol_id=protocol_record.id,
+            parameter='UserUploads=%s;' % user_upload_dir,
+            run_dir=get_config('env', 'workspace'),
+            user_id=request.user.id,
+            input_file=";".join(links),
+        )
+        try:
+            job.save()
+            return success("<br>".join(links))
+        except:
+            return error('Fail to save the job.')
+    else:
+        return render(request, 'ui/fetch_data.html')
+
+
+@login_required
 def fetch_learning(request):
     try:
         from urllib2 import urlopen
