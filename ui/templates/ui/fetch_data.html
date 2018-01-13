@@ -1,0 +1,62 @@
+{% extends "ui/base.html" %}
+{% block title %}Fetch Data | BioQueue{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Fetch Data</h1>
+</div>
+    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="single">
+                <h4 class="panel-title">
+                    <a data-toggle="collapse" data-parent="#accordion" href="#ebi-panel" aria-expanded="true" aria-controls="ebi-panel">
+                        <i class="glyphicon glyphicon-cloud"></i> Fetch Data By Accession ID
+                    </a>
+                </h4>
+            </div>
+            <div id="ebi-panel" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
+                <div class="panel-body">
+                    <form class="form" id="fetch-data-form" style="margin-top:9px; margin-bottom:0;">
+                        <div class="form-group">
+                            <label for="acc-id">Accession ID </label>
+                            <input type="text" class="form-control" id="acc-id" name="acc" />
+                            <span class="help-block">This function provides support for <strong>GEO ID</strong>, like <em>GSM1014192</em>, <em>GSE42815</em>, and <strong>EBI accssion ID</strong>, like <em>ERA000092</em> (submission), <em>ERP000016</em> (study), <em>ERR003990</em> (run), <em>ERS000081</em> (sample), <em>ERX000398</em> (experiment).</span>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 9px;">
+                            <button type="submit" class="btn btn-success btn-large btn-block">Search</button>
+                        </div>
+                    {% csrf_token %}
+                    </form>
+                    <div class="search-result" style="display: none;">
+                        <h2>The following data will be downloaded from EBI</h2>
+                        <p id="link-container"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+$("#fetch-data").addClass("active");
+$(".scaffold-nav").addClass("active");
+var csrftoken = $.cookie('csrftoken');
+$("#fetch-data-form").submit(function(){
+    $("#link-container").html("");
+    $(".search-result").hide("slow");
+    var self = $(this);
+    $.post(self.attr("action"), self.serialize(), success, "json");
+    return false;
+
+    function success(data){
+        if(data.status){
+            $("#link-container").html(data.info);
+            $(".search-result").show("slow");
+        }else{
+            Messenger().post({
+                message: data.info,
+                type: 'error',
+                showCloseButton: true
+            });
+        }
+    }
+});
+{% endblock %}
