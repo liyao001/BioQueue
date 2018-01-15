@@ -26,7 +26,7 @@
                 <span class="label label-success disk" data-hash="{{ step.hash }}" onclick="showML(this);" style="cursor:pointer;">Disk</span>
             </td>
             <td>
-                <span class="user-actions"><span class="label label-danger dels" style="cursor: pointer;" data-sid="{{ step.id }}">Delete</span></span>
+                <span class="user-actions"><span class="label label-danger dels" style="cursor: pointer;" data-pid="{{ step.parent }}" data-sid="{{ step.id }}">Delete</span></span>
                 <span class="user-actions"><a href="/admin/ui/prediction" class="label label-info">Edit Checkpoint</a></span>
             </td>
         </tr>
@@ -39,7 +39,7 @@ $("table td .dels").click(function(){
 	var self = $(this);
 	$.get("{% url 'ui:delete_step' %}", {id: self.attr('data-sid')}, function(data){
 		if(data.status){
-			showSteps($("#step-parent").val());
+			showSteps($("#step-parent").val(self.attr('data-pid')));
 		}
 	});
 });
