@@ -206,6 +206,7 @@
     }
     function reRunJob(obj){
         var self = $(obj);
+        var jid = self.attr("data-jid");
         $.post("{% url 'ui:rerun_job' %}", {job: self.attr("data-jid")}, function(data){
             if(data.status){
                 Messenger().post({
@@ -253,6 +254,7 @@
     }
     function terJob(obj){
 		var self = $(obj);
+        var jid = self.attr("data-jid");
         $.post("{% url 'ui:terminate_job' %}", {job: self.attr("data-jid")}, function(data){
             if(data.status){
                 Messenger().post({
