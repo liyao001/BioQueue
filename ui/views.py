@@ -561,6 +561,7 @@ def fetch_data(request):
         from ena import query_download_link_from_ebi
         links = query_download_link_from_ebi(request.POST["acc"])
         job = Queue(
+            job_name=request.POST["acc"],
             protocol_id=protocol_record.id,
             parameter='UserUploads=%s;' % user_upload_dir,
             run_dir=get_config('env', 'workspace'),
@@ -1013,12 +1014,13 @@ def install_tool(request):
                                           step_order=step_order))
                     step_order += 1
             # move to user's bin folder
-            steps.append(Protocol(software="mv",
-                                  parameter="{CompileTargets} {UserBin}",
-                                  parent=protocol_parent,
-                                  user_id=0,
-                                  hash='e6f31db5777dc687329b7390d4366676',
-                                  step_order=step_order))
+            if tool_info["compile_targets"] != "n":
+                steps.append(Protocol(software="mv",
+                                      parameter="{CompileTargets} {UserBin}",
+                                      parent=protocol_parent,
+                                      user_id=0,
+                                      hash='e6f31db5777dc687329b7390d4366676',
+                                      step_order=step_order))
             try:
                 Protocol.objects.bulk_create(steps)
                 protocol_record = protocol_parent
