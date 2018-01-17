@@ -196,6 +196,7 @@ def get_job(max_fetch=1):
                 'user_folder': user_folder,
                 'job_folder': job_folder,
                 'wait_for': 0,
+                'name': job.job_name,
             }
             OUTPUT_DICT[job.id] = dict()
             OUTPUT_DICT_SUFFIX[job.id] = dict()
@@ -339,6 +340,7 @@ def run_prepare(job_id, job, no_new_learn=0):
         step = job['steps'][job['resume'] + 1]['parameter']
 
     step = step.replace('{Job}', str(job_id))
+    step = step.replace('{JobName}', str(JOB_TABLE[job_id]['name']))
 
     if job_id in LAST_OUTPUT_STRING.keys():
         step = step.replace('{LastOutput}', LAST_OUTPUT_STRING[job_id])
