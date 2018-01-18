@@ -175,7 +175,12 @@ def regression(step_hash, save=1):
         coefficients['av'], coefficients['bv'], coefficients['rv'] = reg_single_feature(x, vrt_mem)
 
         # CPU Usage
-        coefficients['ac'], coefficients['bc'], coefficients['rc'] = reg_single_feature(x, cpu)
+        # coefficients['ac'], coefficients['bc'], coefficients['rc'] = reg_single_feature(x, cpu)
+        coefficients['ac'] = 0
+
+        if len(cpu)>0:
+            coefficients['bc'] = sum(cpu)/len(cpu)
+            coefficients['rc'] = 1
 
         for coefficient in coefficients:
             coefficients[coefficient] = 0 if numpy.isnan(coefficients[coefficient]) else coefficients[coefficient]
