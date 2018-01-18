@@ -1137,7 +1137,7 @@ def query_job_parameter(request):
                                 'Job', 'ThreadN',
                                 'Output', 'LastOutput',
                                 'Uploaded', 'Suffix',
-                                'Workspace', 'UserBin']
+                                'Workspace', 'UserBin', 'JobName']
             reference_list = References.objects.filter(user_id=request.user.id).all()
             pre_defined_keys.extend([reference.name for reference in reference_list])
             steps = Protocol.objects.filter(parent=protocol.id)
