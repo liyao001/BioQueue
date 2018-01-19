@@ -50,6 +50,7 @@ $("#fetch-data-form").submit(function(){
         if(data.status){
             $("#link-container").html(data.info);
             $(".search-result").show("slow");
+            self[0].reset();
         }else{
             Messenger().post({
                 message: data.info,

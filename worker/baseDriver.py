@@ -362,3 +362,26 @@ def get_job_log(file_path):
     except Exception as e:
         print(e)
         return ''
+
+
+def check_shell_sig(command_tuple):
+    """
+    Check whether the command uses shell features
+    like pipe, wildcard
+    :param command_tuple: tuple or list
+    :return: bool
+    """
+    redirect_tags = ('>', '<', '|', ';', '*')
+    true_shell = 0
+    try:
+        for rt in redirect_tags:
+            if rt in command_tuple:
+                true_shell = 1
+                break
+        # special care for R scripts
+        if command_tuple[0] == "R":
+            true_shell = 1
+    except Exception as e:
+        print(e)
+
+    return true_shell
