@@ -6,6 +6,7 @@ import subprocess
 import psutil
 import sys
 from mlCollector import get_cpu, get_mem, get_cpu_mem
+from baseDriver import check_shell_sig
 import django_initial
 from ui.models import Training
 import pickle
@@ -25,16 +26,8 @@ def main(pf, wd, output_file):
         cpu_list = []
         from parameterParser import parameter_string_to_list
         parameters = parameter_string_to_list(step)
-        true_shell = 0
-        redirect_tags = ('>', '<', '|')
 
-        for rt in redirect_tags:
-            if rt in parameters:
-                true_shell = 1
-                break
-
-        if parameters[0] == "R":
-            true_shell = 1
+        true_shell = check_shell_sig(parameters)
 
         if true_shell:
             proc = subprocess.Popen(step, shell=True, cwd=wd)

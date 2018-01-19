@@ -132,7 +132,7 @@ def prepare_workspace(resume, run_folder, job_id, user_id, result=''):
     :param result: string, folder name for the job
     :return: tuple, path to user folder and job folder
     """
-    if resume==-1 and result=='':
+    if result=='' or resume==-1:
         result_store = baseDriver.rand_sig() + str(job_id)
         user_folder = os.path.join(run_folder, str(user_id))
         run_folder = os.path.join(user_folder, result_store)
@@ -687,17 +687,7 @@ def run_step(job_desc, resources):
         try:
             log_file_handler = open(log_file, "a")
             RUNNING_JOBS += 1
-            true_shell = 0
-            redirect_tags = ('>', '<', '|', ';')
-
-            for rt in redirect_tags:
-                if rt in JOB_COMMAND[job_id]:
-                    true_shell = 1
-                    break
-            # special care for R scripts
-            if JOB_COMMAND[job_id][0] == "R":
-                true_shell = 1
-
+            true_shell = baseDriver.check_shell_sig(JOB_COMMAND[job_id])
             if true_shell:
                 step_process = subprocess.Popen(' '.join(JOB_COMMAND[job_id]), shell=True,
                                                 cwd=JOB_TABLE[job_id]['job_folder'])
@@ -828,7 +818,7 @@ def main():
             biggest_cpu = None
             biggest_mem = None
             biggest_id = None
-            biggest_vrt_mem = None
+            # biggest_vrt_mem = None
 
             sorted_resources_info = sorted(RESOURCES.keys())
             if settings['cluster']['type']:
@@ -888,8 +878,8 @@ def main():
                             set_checkpoint_info(job_id, 2)
                         elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
                             set_checkpoint_info(job_id, 1)
-                        elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
-                            set_checkpoint_info(job_id, 6)
+                        # elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
+                        #     set_checkpoint_info(job_id, 6)
                         else:
                             if biggest_cpu is None:
                                 biggest_cpu = RESOURCES[job_desc]['cpu']
@@ -897,13 +887,13 @@ def main():
                                 biggest_mem = RESOURCES[job_desc]['mem']
                             if biggest_id is None:
                                 biggest_id = job_desc
-                            if biggest_vrt_mem is None:
-                                biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
+                            # if biggest_vrt_mem is None:
+                            #     biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
 
                             if biggest_cpu < RESOURCES[job_desc]['cpu']:
                                 biggest_cpu = RESOURCES[job_desc]['cpu']
                                 biggest_mem = RESOURCES[job_desc]['mem']
-                                biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
+                                # biggest_vrt_mem = RESOURCES[job_desc]['vrt_mem']
                                 biggest_id = job_desc
                 if biggest_id is not None:
                     new_thread = threading.Thread(target=run_step, args=(biggest_id, RESOURCES[biggest_id]))

@@ -1145,6 +1145,10 @@ def query_job_parameter(request):
             for step in steps:
                 for wildcard in re.findall(wildcard_pattern, step.parameter):
                     wildcard = wildcard.split(':')[0]
+                    if wildcard.find(";") != -1:
+                        continue
+                    if wildcard.find(",") != -1:
+                        continue
                     if wildcard not in pre_defined_keys:
                         user_defined_wildcards.append(wildcard)
     except:
