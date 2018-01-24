@@ -114,6 +114,7 @@ def setup():
     print('')
     print('======================================================')
     print('|Installing dependent python packages, please wait...|')
+    print('|Please contact fb@bioqueue.org, if problems arise.  |')
     print('======================================================')
     print('')
 
