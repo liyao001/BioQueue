@@ -59,7 +59,7 @@ def get_random_secret_key():
                       'on your system. Falling back to Mersenne Twister.')
         using_sysrandom = False
 
-    chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)'
+    chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$^&*(-_=+)'
     if not using_sysrandom:
         random.seed(
             hashlib.sha256(
