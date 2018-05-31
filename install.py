@@ -6,10 +6,10 @@ from multiprocessing import cpu_count
 from getpass import getpass
 
 # check python version
-if sys.version_info[0] == 2 and sys.version_info[1] < 7:
+if sys.version_info[0] != 2 and sys.version_info[1] != 7:
     print('')
     print('========================================================================')
-    print('|BioQueue requires Python 2.7 or 3.3 or above                          |')
+    print('|BioQueue requires Python 2.7                                          |')
     print('|For Linux/Unix users, package managers make the installation easy     |')
     print('|If you don\'t have root privilege, you can enter following commands to |')
     print('|install it:                                                           |')
