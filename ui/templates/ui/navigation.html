@@ -46,7 +46,10 @@
             {% endif %}
             </ul>
             <ul class="nav navbar-nav navbar-right">
-                {% if user.is_staff %}
+                {% if user.is_authenticated %}
+                <li><a>Hello, {{ user.username}}.</a></li>
+            {% endif %}
+                {% if user.is_staff %}s
                 <li><a href="/admin"><i class="icon-wrench"></i> Admin</a></li>
             {% endif %}
                 {% if user.is_authenticated %}
