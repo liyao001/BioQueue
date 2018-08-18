@@ -75,9 +75,16 @@ def query_download_link_from_ebi(query):
     """
     all_links = list()
     fl = get_accession(query)
-    for r in fl:
-        tmp = get_download_link(r)
-        if len(tmp) > 0:
-            all_links.extend(tmp)
-    ret_links = ["ftp://"+link for link in all_links]
-    return sorted(list(set(ret_links)))
+    if type(fl) != int:
+        for r in fl:
+            tmp = get_download_link(r)
+            if len(tmp) > 0:
+                all_links.extend(tmp)
+        ret_links = ["ftp://"+link for link in all_links]
+        return sorted(list(set(ret_links)))
+    else:
+        return []
+
+
+if __name__ == "__main__":
+    query_download_link_from_ebi("GSE60456")
