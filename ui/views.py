@@ -560,19 +560,22 @@ def fetch_data(request):
                 return error('Fail to create your uploads folder')
         from ena import query_download_link_from_ebi
         links = query_download_link_from_ebi(request.POST["acc"])
-        job = Queue(
-            job_name=request.POST["acc"],
-            protocol_id=protocol_record.id,
-            parameter='UserUploads=%s;' % user_upload_dir,
-            run_dir=get_config('env', 'workspace'),
-            user_id=request.user.id,
-            input_file=";".join(links),
-        )
-        try:
-            job.save()
-            return success("<br>".join(links))
-        except:
-            return error('Fail to save the job.')
+        if len(links) > 0:
+            job = Queue(
+                job_name=request.POST["acc"],
+                protocol_id=protocol_record.id,
+                parameter='UserUploads=%s;' % user_upload_dir,
+                run_dir=get_config('env', 'workspace'),
+                user_id=request.user.id,
+                input_file=";".join(links),
+            )
+            try:
+                job.save()
+                return success("<br>".join(links))
+            except:
+                return error('Fail to save the job.')
+        else:
+            return error("No result found.")
     else:
         return render(request, 'ui/fetch_data.html')
 

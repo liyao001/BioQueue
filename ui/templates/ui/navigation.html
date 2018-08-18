@@ -49,7 +49,7 @@
                 {% if user.is_authenticated %}
                 <li><a>Hello, {{ user.username}}.</a></li>
             {% endif %}
-                {% if user.is_staff %}s
+                {% if user.is_staff %}
                 <li><a href="/admin"><i class="icon-wrench"></i> Admin</a></li>
             {% endif %}
                 {% if user.is_authenticated %}
