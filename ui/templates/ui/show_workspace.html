@@ -22,7 +22,14 @@
             <td>{{ file_item.file_size | filesizeformat }}</td>
             <td class="editble" onclick="edit(this);" data-sid="{{ file_item.trace }}">{{ file_item.comment }}</td>
             <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a> <span class='label label-info' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span></td>
+            <td><span class='label label-danger op-label' data-path='{{ file_item.trace }}' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success op-label' href='/ui/download-file/f/{{ file_item.trace }}'><i class="icon-download-alt"></i> Download</a> <span class='label label-info op-label' data-path='{{ file_item.trace }}' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span> <span class="dropdown label label-warning op-label">
+  <a class="dropdown-toggle" data-toggle="dropdown" href="#" style="color:white;"><i class="icon-th-list"></i> More</a>
+  <ul class="dropdown-menu op-more-container" role="menu" aria-labelledby="dLabel">
+      {% for fs in file_item.file_support %}
+      <li><a data-file="{{ file_item.name }}" data-ext="{{ file_item.ext}}" data-support="{{ fs.1 }}" onclick="fs(this);">{{fs.0}}</a></li>
+      {% endfor %}
+  </ul>
+</span></td>
         </tr>
     {% endfor %}
     </tbody>
@@ -157,4 +164,25 @@ function edit(obj){
             }
         });
     };
+function fs(obj){
+    var self = $(obj);
+    $.get("{% url 'ui:file_support' %}",
+          {ext:self.attr("data-ext"),
+           support:self.attr("data-support"),
+           file:self.attr("data-file")},
+           function(data){
+               if (data.status){
+                   Messenger().post({
+                       message: data.info,
+                       showCloseButton: true
+                   });
+               }else{
+                   Messenger().post({
+                       message: data.info,
+                       type: 'error',
+                       showCloseButton: true
+                   });
+               }
+           });
+}
 {% endblock %}

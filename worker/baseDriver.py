@@ -19,8 +19,10 @@ def config_init(const=0):
     :return:
     """
     config = ConfigParser()
-    if const:
+    if const == 1:
         path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
+    elif const == 2:
+        path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/file_support.conf'
     else:
         path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
     config.read(path)

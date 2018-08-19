@@ -194,6 +194,20 @@ class CommentManipulateForm(forms.Form):
     )
 
 
+class FileSupportForm(forms.Form):
+    ext = forms.CharField(
+        required=True,
+    )
+    support = forms.CharField(
+        required=True,
+        max_length=500,
+    )
+    file = forms.CharField(
+        required=True,
+        max_length=500,
+    )
+
+
 class RestrictedFileField(forms.FileField):
 
     def __init__(self, *args, **kwargs):

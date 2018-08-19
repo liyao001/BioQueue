@@ -852,3 +852,10 @@ span.icon-bar {
 .page-header {
     margin: 0;
 }
+.op-label {
+	cursor: pointer;
+}
+.op-more-container{
+	text-transform: capitalize;
+    color: #51A351;
+}
