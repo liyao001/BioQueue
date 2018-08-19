@@ -463,6 +463,9 @@ def delete_upload_file(request, f):
     import base64
     file_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), base64.b64decode(f))
     delete_file(file_path)
+    fm_path = os.path.join(get_config('env', 'workspace'), "file_comment", f)
+    if os.path.exists(fm_path):
+        delete_file(fm_path)
 
     return success('Deleted')
 
