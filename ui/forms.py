@@ -185,7 +185,7 @@ class CreateReferenceForm(forms.Form):
 
 
 class CommentManipulateForm(forms.Form):
-    trace = forms.IntegerField(
+    trace = forms.CharField(
         required=True,
     )
     content = forms.CharField(
