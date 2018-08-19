@@ -18,6 +18,7 @@ urlpatterns = [
     url(r'^delete-step/$', views.delete_step, name='delete_step'),
     url(r'^download-file/(?P<f>[a-z,A-Z,0-9,/,+,=]*)/$', views.download_file, name='download_file'),
     url(r'^export-protocol', views.export_protocol, name='export_protocol'),
+    url(r'^file-support', views.file_support, name='file_support'),
     url(r'^fetch-data', views.fetch_data, name='fetch_data'),
     url(r'^fetch-learning', views.fetch_learning, name='fetch_learning'),
     url(r'^get-learning-result/$', views.get_learning_result, name='get_learning_result'),

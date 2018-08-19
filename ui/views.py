@@ -7,10 +7,10 @@ from django.template import loader
 from django.http import HttpResponseRedirect, FileResponse, HttpResponse
 from tools import error, success, delete_file, check_user_existence, handle_uploaded_file, \
     check_disk_quota_lock, build_json_protocol, os_to_int, get_disk_quota_info, build_json_reference
-from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
+from worker.baseDriver import config_init, get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, \
-    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm, CommentManipulateForm
+    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm, CommentManipulateForm, FileSupportForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
@@ -508,6 +508,59 @@ def export_protocol(request):
             return error('Unknown parameter.')
     else:
         return error('Method error.')
+
+
+@login_required
+def file_support(request):
+    if request.method == "GET":
+        fs_form = FileSupportForm(request.GET)
+        if fs_form.is_valid():
+            cd = fs_form.cleaned_data
+            from tools import get_maintenance_protocols
+            protocol_name = "%s (%s)" % (cd["support"], cd["ext"])
+            try:
+                protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=0)
+            except ProtocolList.DoesNotExist:
+                # build protocol
+                protocol_parent = ProtocolList(name=protocol_name, user_id=0)
+                protocol_parent.save()
+                steps = list()
+                maintenance_protocols = get_maintenance_protocols()
+                step_order = 1
+                if cd["support"] == "gg":
+                    if cd["ext"] != "gz":
+                        model = __import__("ui.maintenance_protocols.compress", fromlist=["gzip"])
+                    else:
+                        model = __import__("ui.maintenance_protocols.decompress", fromlist=["gunzip"])
+                else:
+                    if cd["support"] in maintenance_protocols:
+                        model = __import__("ui.maintenance_protocols." + cd["support"], fromlist=[cd["support"]])
+                    else:
+                        return error("No support found.")
+                step_order, sub_steps = model.get_sub_protocol(Protocol, protocol_parent, step_order)
+                for sub_step in sub_steps:
+                    steps.append(sub_step)
+
+                try:
+                    Protocol.objects.bulk_create(steps)
+                    protocol_record = protocol_parent
+                except:
+                    protocol_parent.delete()
+                    return error('Fail to save the protocol.')
+            job = Queue(
+                protocol_id=protocol_record.id,
+                parameter=';',
+                run_dir=get_config('env', 'workspace'),
+                user_id=request.user.id,
+                input_file=cd['file'],
+            )
+            try:
+                job.save()
+                return success('Push the task into job queue.')
+            except:
+                return error('Fail to save the job.')
+        else:
+            return error(str(fs_form.errors))
 
 
 @login_required
@@ -1514,7 +1567,7 @@ def show_step(request):
 def show_upload_files(request, special_type='uploads'):
     import time
     import base64
-    user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), 'uploads')
+    user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), special_type)
     user_files = []
     if not os.path.exists(user_path):
         try:
@@ -1556,12 +1609,14 @@ def show_workspace_files(user_id, special_type='uploads'):
     user_files = []
     user_path = os.path.join(get_config('env', 'workspace'), str(user_id), special_type)
     fm_path = os.path.join(get_config('env', 'workspace'), 'file_comment')
+    fs = config_init(2)
 
     if not os.path.exists(user_path):
         os.makedirs(user_path)
 
     for file_name in os.listdir(user_path):
         file_path = os.path.join(user_path, file_name)
+        name, ext = os.path.splitext(file_name)
         tmp = dict()
         tmp['name'] = file_name
         tmp['file_size'] = os.path.getsize(file_path)
@@ -1569,6 +1624,12 @@ def show_workspace_files(user_id, special_type='uploads'):
         tmp['trace'] = base64.b64encode(os.path.join(special_type, file_name))
         tmp['raw'] = os.path.join(special_type, file_name)
         tmp['comment'] = check_file_comment(tmp['trace'], fm_path)
+        tmp['file_support'] = []
+        ext = ext[1:].lower()
+        tmp['ext'] = ext
+        if ext in fs.sections():
+            tmp['file_support'].extend(fs.items("fastq"))
+        tmp['file_support'].extend(fs.items("generic"))
         user_files.append(tmp)
     user_files = sorted(user_files, key=lambda user_files: user_files['name'])
     return user_files
