@@ -14,6 +14,7 @@ from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, Protoco
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
+from urllib import unquote
 
 
 @login_required
@@ -1602,7 +1603,7 @@ def check_file_comment(trace, prefix=""):
         fh.close()
     else:
         comment = ""
-    return comment
+    return unquote(comment)
 
 
 def show_workspace_files(user_id, special_type='uploads'):
