@@ -1627,7 +1627,7 @@ def update_comment(request):
 
             with open(os.path.join(fm_path, cd['trace']), "w") as fh:
                 fh.write(cd['content'])
-                return success('Your reference has been updated.')
+                return success('Your comment has been updated.')
         else:
             return error(str(update_cmt_form.errors))
     else:
