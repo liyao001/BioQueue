@@ -522,6 +522,8 @@ def file_support(request):
                 protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=request.user.id)
             except ProtocolList.DoesNotExist:
                 # build protocol
+                if request.user.id == 0:
+                    return error("Log in first.")
                 protocol_parent = ProtocolList(name=protocol_name, user_id=request.user.id)
                 protocol_parent.save()
                 steps = list()
