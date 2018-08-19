@@ -554,7 +554,8 @@ def file_support(request):
                 parameter=';',
                 run_dir=get_config('env', 'workspace'),
                 user_id=request.user.id,
-                input_file=cd['file'],
+                input_file="{Uploaded:%s}" % cd['file'],
+                job_name="%s-%s" % (cd['support'], cd['file']),
             )
             try:
                 job.save()
