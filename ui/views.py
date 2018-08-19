@@ -519,10 +519,10 @@ def file_support(request):
             from tools import get_maintenance_protocols
             protocol_name = "%s (%s)" % (cd["support"], cd["ext"])
             try:
-                protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=0)
+                protocol_record = ProtocolList.objects.get(name=protocol_name, user_id=request.user.id)
             except ProtocolList.DoesNotExist:
                 # build protocol
-                protocol_parent = ProtocolList(name=protocol_name, user_id=0)
+                protocol_parent = ProtocolList(name=protocol_name, user_id=request.user.id)
                 protocol_parent.save()
                 steps = list()
                 maintenance_protocols = get_maintenance_protocols()
