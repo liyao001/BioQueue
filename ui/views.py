@@ -1621,7 +1621,6 @@ def update_comment(request):
         if update_cmt_form.is_valid():
             cd = update_cmt_form.cleaned_data
             fm_path = os.path.join(get_config('env', 'workspace'), 'file_comment')
-            ref = References.objects.get(id=cd['trace'])
 
             with open(os.path.join(fm_path, cd['trace']), "w") as fh:
                 fh.write(cd['content'])
