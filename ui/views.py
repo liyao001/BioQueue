@@ -10,7 +10,7 @@ from tools import error, success, delete_file, check_user_existence, handle_uplo
 from worker.baseDriver import get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, \
-    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm
+    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm, CommentManipulateForm
 from .models import Queue, ProtocolList, Protocol, Prediction, References
 import os
 import re
@@ -1529,12 +1529,30 @@ def show_upload_files(request, special_type='uploads'):
     return render(request, 'ui/show_uploads.html', context)
 
 
+def check_file_comment(trace, prefix=""):
+    """
+    Check file comment
+    :param trace:
+    :param prefix: str, path to comments folder
+    :return:
+    """
+    file_path = os.path.join(prefix, trace)
+    if os.path.exists(file_path):
+        fh = open(file_path, "r")
+        comment = fh.read()
+        fh.close()
+    else:
+        comment = ""
+    return comment
+
+
 def show_workspace_files(user_id, special_type='uploads'):
     import time
     import base64
 
     user_files = []
     user_path = os.path.join(get_config('env', 'workspace'), str(user_id), special_type)
+    fm_path = os.path.join(get_config('env', 'workspace'), 'file_comment')
 
     if not os.path.exists(user_path):
         os.makedirs(user_path)
@@ -1547,6 +1565,7 @@ def show_workspace_files(user_id, special_type='uploads'):
         tmp['file_create'] = time.ctime(os.path.getctime(file_path))
         tmp['trace'] = base64.b64encode(os.path.join(special_type, file_name))
         tmp['raw'] = os.path.join(special_type, file_name)
+        tmp['comment'] = check_file_comment(tmp['trace'], fm_path)
         user_files.append(tmp)
     user_files = sorted(user_files, key=lambda user_files: user_files['name'])
     return user_files
@@ -1592,6 +1611,25 @@ def update_bioqueue(request):
             return error('An error occurred during the update process, please run update.py manually.')
     except Exception as e:
         return error(str(e))
+
+
+@login_required
+def update_comment(request):
+    if request.method == 'GET':
+        from urllib import unquote
+        update_cmt_form = CommentManipulateForm(request.GET)
+        if update_cmt_form.is_valid():
+            cd = update_cmt_form.cleaned_data
+            fm_path = os.path.join(get_config('env', 'workspace'), 'file_comment')
+            ref = References.objects.get(id=cd['trace'])
+
+            with open(os.path.join(fm_path, cd['trace']), "w") as fh:
+                fh.write(cd['content'])
+                return success('Your reference has been updated.')
+        else:
+            return error(str(update_cmt_form.errors))
+    else:
+        return error('Method error')
 
 
 @login_required

@@ -10,6 +10,7 @@
         <tr>
             <th>File Name</th>
             <th>File Size</th>
+            <th>Comment</th>
             <th>Create Time</th>
             <th>Operate</th>
         </tr>
@@ -19,6 +20,7 @@
         <tr>
             <td>{{ file_item.name }}</td>
             <td>{{ file_item.file_size | filesizeformat }}</td>
+            <td class="editble" onclick="edit(this);" data-sid="{{ file_item.trace }}">{{ file_item.comment }}</td>
             <td>{{ file_item.file_create }}</td>
             <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a> <span class='label label-info' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span></td>
         </tr>
@@ -122,4 +124,37 @@ function delFile(obj){
 		};
 	});
 };
+function edit(obj){
+        var new_id = "parameter" + Math.random();
+        var self = $(obj);
+        var txt = $.trim(self.text());
+        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
+        input.attr("value", txt);
+        self.html(input);
+        var oTextbox = new AutoSuggestControl(new_id);
+        input.click(function(){return false;});
+        input.trigger("focus");
+        input.blur(function(){
+            var newTxt = input.val();
+            if (newTxt != txt){
+                self.html(newTxt);
+                $.get("{% url 'ui:update_comment' %}", {trace:self.attr("data-sid"), content:encodeURI(newTxt)}, function(data){
+                    if (data.status){
+                        Messenger().post({
+                            message: data.info,
+                            showCloseButton: true
+				        });
+                    }else{
+                        Messenger().post({
+                            message: data.info,
+                            type: 'error',
+                            showCloseButton: true
+				        });
+                    }
+                });
+            }else{
+              self.html(newTxt);
+            }
+        });
+    };
 {% endblock %}

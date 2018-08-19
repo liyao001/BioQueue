@@ -184,6 +184,16 @@ class CreateReferenceForm(forms.Form):
     )
 
 
+class CommentManipulateForm(forms.Form):
+    trace = forms.IntegerField(
+        required=True,
+    )
+    content = forms.CharField(
+        required=True,
+        max_length=500,
+    )
+
+
 class RestrictedFileField(forms.FileField):
 
     def __init__(self, *args, **kwargs):
