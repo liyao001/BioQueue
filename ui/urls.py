@@ -47,6 +47,7 @@ urlpatterns = [
     url(r'^show-workspace/$', views.show_workspace, name='show_workspace'),
     url(r'^terminate-job/$', views.terminate_job, name='terminate_job'),
     url(r'^update-bioqueue/$', views.update_bioqueue, name='update_bioqueue'),
+    url(r'^update-comment/$', views.update_comment, name='update_comment'),
     url(r'^update-parameter/$', views.update_parameter, name='update_parameter'),
     url(r'^update-reference/$', views.update_reference, name='update_reference'),
     url(r'^update-step-order/$', views.update_step_order, name='update_step_order'),
