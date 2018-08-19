@@ -124,6 +124,7 @@ def setup():
     output_path = os.path.join(workspace_path, 'outputs')
     train_path = os.path.join(workspace_path, 'training')
     upload_path = os.path.join(workspace_path, 'batch_job')
+    file_comment_path = os.path.join(workspace_path, 'file_comment')
     try:
         if not os.path.exists(log_path):
             os.mkdir(log_path)
@@ -133,6 +134,8 @@ def setup():
             os.mkdir(train_path)
         if not os.path.exists(upload_path):
             os.mkdir(upload_path)
+        if not os.path.exists(file_comment_path):
+            os.mkdir(file_comment_path)
     except Exception as e:
         print('')
         print('Doesn\'t have the permission to write your workspace!', e)
