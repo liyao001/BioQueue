@@ -9,15 +9,15 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='samtools',
-                        parameter='sort -@ {ThreadN} -o {InputFile}.sorted.bam {InputFile}',
+                        parameter='sort -@ {ThreadN} -o sorted.bam {InputFile}',
                         parent=protocol_parent,
                         user_id=0,
-                        hash='e5b8ff75c663d0f19028da0264ad0a0c',
+                        hash='1c676531136f2dbd035894eb8a36e2e1',
                         step_order=step_order_start))
     steps.append(db_obj(software='samtools',
-                        parameter='index {InputFile}.sorted.bam',
+                        parameter='index sorted.bam',
                         parent=protocol_parent,
                         user_id=0,
-                        hash='030fdbd05e08e64d7b5df6db763a3687',
+                        hash='cb09b58adf333beb914e95e3a271fac3',
                         step_order=step_order_start + 1))
     return step_order_start+len(steps), steps
