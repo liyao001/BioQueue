@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='samtools',
-                        parameter='-@ {ThreadN} -o {InputFile}.sorted.bam {InputFile}',
+                        parameter='sort -@ {ThreadN} -o {InputFile}.sorted.bam {InputFile}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='e5b8ff75c663d0f19028da0264ad0a0c',
