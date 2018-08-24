@@ -1,19 +1,21 @@
 <div class="bs-callout bs-callout-info">
     You can use varibles or references when defining the parameters. Below are some of the system level variable:
     <ul>
+        <li><code>AllOutputBefore</code>: All output files before this step.</li>
+        <li><code>History:N-X</code>: Output file "X" in the n-th job.</li>
         <li><code>InputFile</code>: The initial input files which maps to files you provide when you create a job.</li>
         <li><code>InputFile:N</code>: The n-th file in input files.</li>
+        <li><code>Job</code>: Job ID.</li>
+        <li><code>JobName</code>: Job name.</li>
         <li><code>LastOutput</code>: Output files of last step.</li>
         <li><code>LastOutput:N</code>: The n-th output file of last step (in alphabetical order).</li>
-        <li><code>Output:N-M</code>: The m-th output file of the n-th step (in alphabetical order).</li>
+        <li><code>Output:N-M</code>: The output file M produced by the n-th step (in alphabetical order).</li>
         <li><code>Suffix:X</code>: Output file(s) with a "X" suffix in last step.</li>
         <li><code>Suffix:N-X</code>: Output file(s) with a "X" suffix in the n-th step.</li>
         <li><code>Suffix:N-X-M</code>: The m-th output file with a "X" suffix in the n-th step.</li>
-        <li><code>History:N-X</code>: Output file "X" in the n-th job.</li>
-        <li><code>AllOutputBefore</code>: All output files before this step.</li>
-        <li><code>Job</code>: job ID.</li>
-        <li><code>Workspace</code>: Local storage path for the job.</li>
         <li><code>ThreadN</code>: The number of CPUs in the running node.</li>
+        <li><code>UserBin</code>: Path where BioQueue will install software to for a specific user.</li>
+        <li><code>Workspace</code>: Local storage path for the job.</li>
     </ul>
     All varibles should be surrounded by curly-braces, like {ThreadN}.
 </div>
