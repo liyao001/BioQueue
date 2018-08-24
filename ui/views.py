@@ -1632,7 +1632,7 @@ def show_workspace_files(user_id, special_type='uploads'):
         ext = ext[1:].lower()
         tmp['ext'] = ext
         if ext in fs.sections():
-            tmp['file_support'].extend(fs.items("fastq"))
+            tmp['file_support'].extend(fs.items(ext))
         tmp['file_support'].extend(fs.items("generic"))
         user_files.append(tmp)
     user_files = sorted(user_files, key=lambda user_files: user_files['name'])
