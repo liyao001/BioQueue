@@ -876,7 +876,7 @@ def main():
                             set_checkpoint_info(job_id, 3)
                         elif RESOURCES[job_desc]['mem'] > mem_indeed or RESOURCES[job_desc]['mem'] > MEMORY_POOL:
                             set_checkpoint_info(job_id, 2)
-                        elif RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL:
+                        elif "disk" in RESOURCES[job_desc].keys() and (RESOURCES[job_desc]['disk'] > disk_indeed or RESOURCES[job_desc]['disk'] > DISK_POOL):
                             set_checkpoint_info(job_id, 1)
                         # elif RESOURCES[job_desc]['vrt_mem'] > vrt_indeed or RESOURCES[job_desc]['vrt_mem'] > VRT_POOL:
                         #     set_checkpoint_info(job_id, 6)
