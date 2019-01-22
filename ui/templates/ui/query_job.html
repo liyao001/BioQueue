@@ -30,8 +30,8 @@
             {% if job_list %}
             {% for job in job_list %}
             <div class="col-sm-6 col-md-4" id="job-panel-parent-{{ job.id }}">
-                <div class="thumbnail job-panel" id="job-panel-{{ job.id }}">
-                    <div class="caption">
+                <div class="thumbnail" id="job-panel-{{ job.id }}">
+                    <div class="caption job-panel">
                         <div class="text-center status" id="job-status-icon-{{ job.id }}">{% if job.status == -1 %}
                             <i class="icon-ok icon-3x"></i>
                         {% elif job.status == -2 %}
@@ -64,7 +64,8 @@
                         <li><b>Last update:</b> {{ job.update_time }}</li>
                         <li><span class="label label-info show-folder" onclick="showFolder({{ job.id }});" data-toggle="tooltip" data-placement="top" title="{{ job.result }}"><i class="icon-folder-open"></i> Show output files</span></li>
                     </ul></p>
-                        <div class="text-center">
+                    </div>
+                    <div class="text-center operation-buttons">
                         {% if job.status == -1 %}
                             <div class="btn-group" role="group" aria-label="...">
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
@@ -99,7 +100,7 @@
                             <div class="btn-group" role="group" aria-label="...">
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='icon-stop icon-white'></i></button>
                             </div>
-                        {% endif %}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
