@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^install-ref', views.install_reference, name='install_reference'),
     url(r'^install-tool', views.install_tool, name='install_tool'),
     url(r'^manage-reference', views.manage_reference, name='manage_reference'),
+    url(r'^mark-audit', views.mark_wrong_job, name='mark_wrong_job'),
     url(r'^user-reference', views.print_user_reference, name='print_user_reference'),
     url(r'^query-job/$', views.query_job, name='query_job'),
     url(r'^query-job-parameter/$', views.query_job_parameter, name='query_job_parameter'),

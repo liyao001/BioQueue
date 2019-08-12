@@ -71,6 +71,7 @@
                             <div class="btn-group" role="group" aria-label="...">
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='icon-screenshot icon-white'></i></button>
                             </div>
                         {% elif job.status == 0 %}
                             <div class="btn-group" role="group" aria-label="...">
@@ -217,6 +218,25 @@
 				});
                 $('#job-status-icon-'+jid).html('<i class="icon-time icon-3x"></i>');
                 $('#job-status-txt-'+jid).html('Reruning');
+		    }else{
+                Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+            };
+        });
+	};
+    function auditJob(obj){
+        var self = $(obj);
+        var jid = self.attr("data-jid");
+        $.post("{% url 'ui:mark_wrong_job' %}", {job: self.attr("data-jid")}, function(data){
+            if(data.status){
+                Messenger().post({
+					message: data.info,
+					showCloseButton: true
+				});
+                $('#job-status-icon-'+jid).html('<i class="icon-remove icon-3x"></i>');
 		    }else{
                 Messenger().post({
 					message: data.info,
