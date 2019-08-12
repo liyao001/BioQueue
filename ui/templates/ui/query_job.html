@@ -71,7 +71,7 @@
                             <div class="btn-group" role="group" aria-label="...">
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
                                 <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='icon-screenshot icon-white'></i></button>
+                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="auditJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='icon-screenshot icon-white'></i></button>
                             </div>
                         {% elif job.status == 0 %}
                             <div class="btn-group" role="group" aria-label="...">
