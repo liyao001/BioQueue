@@ -1295,6 +1295,29 @@ def rerun_job(request):
 
 
 @login_required
+def mark_wrong_job(request):
+    if request.method == 'POST':
+        mw_form = JobManipulateForm(request.POST)
+        if mw_form.is_valid():
+            cd = mw_form.cleaned_data
+            try:
+                job = Queue.objects.get(id=cd['job'])
+                if job.check_owner(request.user.id) or request.user.is_superuser:
+                    delete_job_file_tree(request, job.result)
+                    job.status = -3
+                    job.save()
+                    return success('Job status changed')
+                else:
+                    return error('Your are not the owner of the job.')
+            except Exception as e:
+                return error(e)
+        else:
+            return error(str(mw_form.errors))
+    else:
+        return error('Method error')
+
+
+@login_required
 def resume_job(request):
     if request.method == 'POST':
         terminate_form = JobManipulateForm(request.POST)
