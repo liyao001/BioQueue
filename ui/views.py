@@ -1303,7 +1303,7 @@ def mark_wrong_job(request):
             try:
                 job = Queue.objects.get(id=cd['job'])
                 if job.check_owner(request.user.id) or request.user.is_superuser:
-                    delete_job_file_tree(request, job.result)
+                    # delete_job_file_tree(request, job.result)
                     job.status = -3
                     job.save()
                     return success('Job status changed')
