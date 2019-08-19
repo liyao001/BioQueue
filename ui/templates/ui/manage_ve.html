@@ -59,7 +59,7 @@
 
 		function success(data){
 			if(data.status){
-                addNew(data.info, $("#name").val(), $("#value").val());
+                addNew(data.info, $("#name").val(), $("#ve-value").val());
 				self[0].reset();
 			} else {
 				Messenger().post({
