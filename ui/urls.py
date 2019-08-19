@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^delete-reference', views.delete_reference, name='delete_reference'),
     url(r'^delete-upload-file/(?P<f>[a-z,A-Z,0-9,/,+,=]*)/$', views.delete_upload_file, name='delete_upload_file'),
     url(r'^delete-step/$', views.delete_step, name='delete_step'),
+    url(r'^delete-ve/$', views.delete_ve, name='delete_ve'),
     url(r'^download-file/(?P<f>[a-z,A-Z,0-9,/,+,=]*)/$', views.download_file, name='download_file'),
     url(r'^export-protocol', views.export_protocol, name='export_protocol'),
     url(r'^file-support', views.file_support, name='file_support'),
@@ -53,5 +54,7 @@ urlpatterns = [
     url(r'^update-parameter/$', views.update_parameter, name='update_parameter'),
     url(r'^update-reference/$', views.update_reference, name='update_reference'),
     url(r'^update-step-order/$', views.update_step_order, name='update_step_order'),
+    url(r'^update-ve/$', views.update_ve, name='update_ve'),
     url(r'^upload-protocol/$', views.upload_protocol, name='upload_protocol'),
+    url(r'^virtual-env/$', views.virtual_environment, name='virtual_env'),
 ]

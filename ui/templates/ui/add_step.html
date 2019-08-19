@@ -1,11 +1,20 @@
 <form class="form" method="post" id="new-step-form" action="{% url 'ui:add_step' %}">
     <div class="form-group">
         <label for="software">Software*:</label>
-        <input type="text" class="form-control" id="software" name="software" required />
+        <input type="text" class="form-control" id="software" name="software" required/>
     </div>
     <div class="form-group">
         <label for="parameter">Parameters*:</label>
-        <input type="text" class="form-control" id="parameter" name="parameter" />
+        <input type="text" class="form-control" id="parameter" name="parameter"/>
+    </div>
+    <div class="form-group">
+        <label for="env-selector">Virtual environment</label>
+        <select class="form-control input-xlarge" id="env-selector" name="env">
+            <option value="">Specify a virtual environment</option>
+            {% for env in user_envs %}
+            <option value="{{ env.id }}">{{ env.name }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="form-group">
         <label for="parameter">Insert to: (0 means the first step, -1 means the last step)</label>
@@ -19,7 +28,7 @@
         </select>
         <span class="help-block">It will work only in cluster mode. When you run BioQueue in clusters, the computing nodes may not connect to the internet, so software, like wget, fastq-dump may not work. Under this circumstance, you can force BioQueue to run this step in local.</span>
     </div>
-    <hr />
+    <hr/>
     <input type="hidden" name="parent" id="step-parent" value="{{ parent }}">
     <input type="hidden" name="csrfmiddlewaretoken" id="csrf">
     <div class="form-group" style="text-align: center;">
@@ -29,26 +38,26 @@
 {% include 'ui/variant_hint.html' %}
 <script>
     $("#csrf").val(csrftoken);
-    $("form").submit(function(){
-		var self = $(this);
-		$.post(self.attr("action"), self.serialize(), success, "json");
-		return false;
+    $("form").submit(function () {
+        var self = $(this);
+        $.post(self.attr("action"), self.serialize(), success, "json");
+        return false;
 
-		function success(data){
-			if(data.status){
-				Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
+        function success(data) {
+            if (data.status) {
+                Messenger().post({
+                    message: data.info,
+                    showCloseButton: true
+                });
                 showSteps($("#step-parent").val());
                 $('#newStep').modal('hide');
-			} else {
-				Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-			}
-		}
+            } else {
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+                });
+            }
+        }
     });
 </script>

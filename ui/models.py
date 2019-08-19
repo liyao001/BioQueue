@@ -26,6 +26,24 @@ YES_OR_NO = (
 )
 
 
+class VirtualEnvironment(models.Model):
+    """Virtual Environment Table
+    Save VEs which can be activated by source command
+    """
+    name = models.CharField(max_length=50)
+    value = models.TextField()
+    user_id = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
+    def check_owner(self, user):
+        if int(self.user_id) == user:
+            return 1
+        else:
+            return 0
+
+
 class Prediction(models.Model):
     """Prediction Table
     Save linear model for memory, output size
@@ -69,6 +87,7 @@ class Protocol(models.Model):
     user_id = models.CharField(max_length=50)
     hash = models.CharField(max_length=50)
     step_order = models.SmallIntegerField(default=1)
+    env = models.ForeignKey('VirtualEnvironment', blank=True, null=True)
     force_local = models.SmallIntegerField(default=0, choices=YES_OR_NO)
 
     def __str__(self):

@@ -10,8 +10,9 @@ from tools import error, success, delete_file, check_user_existence, handle_uplo
 from worker.baseDriver import config_init, get_config, get_disk_free, get_disk_used, set_config, get_bioqueue_version
 from .forms import SingleJobForm, JobManipulateForm, CreateProtocolForm, ProtocolManipulateForm, CreateStepForm, \
     StepManipulateForm, ShareProtocolForm, QueryLearningForm, CreateReferenceForm, BatchJobForm, \
-    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm, CommentManipulateForm, FileSupportForm
-from .models import Queue, ProtocolList, Protocol, Prediction, References
+    FetchRemoteProtocolForm, RefManipulateForm, StepOrderManipulateForm, CommentManipulateForm, FileSupportForm, \
+    CreateVEForm
+from .models import Queue, ProtocolList, Protocol, Prediction, References, VirtualEnvironment
 import os
 import re
 from urllib import unquote
@@ -104,8 +105,13 @@ def add_step(request):
                 return error(str(e))
     elif request.method == 'GET':
         template = loader.get_template('ui/add_step.html')
+        if request.user.is_superuser:
+            available_env = VirtualEnvironment.objects.all()
+        else:
+            available_env = VirtualEnvironment.objects.filter(user_id=request.user.id).all()
         context = {
             'parent': request.GET['protocol'],
+            'user_envs': available_env,
         }
         return success(template.render(context))
     else:
@@ -334,7 +340,12 @@ def create_protocol(request):
         else:
             return error(str(protocol_form.errors))
     else:
-        context = {'api_bus': get_config('program', 'api', 1)}
+        if request.user.is_superuser:
+            available_env = VirtualEnvironment.objects.all()
+        else:
+            available_env = VirtualEnvironment.objects.filter(user_id=request.user.id).all()
+        context = {'api_bus': get_config('program', 'api', 1),
+                   'user_envs': available_env, }
         return render(request, 'ui/add_protocol.html', context)
 
 
@@ -469,6 +480,22 @@ def delete_upload_file(request, f):
         delete_file(fm_path)
 
     return success('Deleted')
+
+
+@login_required
+def delete_ve(request):
+    if request.method == 'GET':
+        if 've' in request.GET:
+            ve = VirtualEnvironment.objects.get(id=request.GET['ve'])
+            if ve.check_owner(request.user.id) or request.user.is_superuser:
+                ve.delete()
+                return success('Your VE has been deleted.')
+            else:
+                return error('You are not owner of the VE.')
+        else:
+            return error('Missing parameter.')
+    else:
+        return error('Error Method.')
 
 
 @login_required
@@ -1697,7 +1724,8 @@ def update_bioqueue(request):
         update_py_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/worker/update.py'
         update_command = 'python %s' % update_py_path
         if not os.system(update_command):
-            return success('Your instance has been updated, please restart the web server and queue service to apply the changes.')
+            return success('Your instance has been updated, please restart '
+                           'the web server and queue service to apply the changes.')
         else:
             return error('An error occurred during the update process, please run update.py manually.')
     except Exception as e:
@@ -1811,3 +1839,43 @@ def upload_protocol(request):
         return error('Method error.')
 
 
+@login_required
+def update_ve(request):
+    if request.method == 'GET':
+        update_ve_form = RefManipulateForm(request.GET)
+        if update_ve_form.is_valid():
+            cd = update_ve_form.cleaned_data
+            ve = VirtualEnvironment.objects.get(id=cd['id'])
+            if (ve.check_owner(request.user.id) or request.user.is_superuser):
+                ve.value = unquote(cd['path'])
+                ve.save()
+                return success('Your VE has been updated.')
+            else:
+                return error('Your are not owner of the VE.')
+        else:
+            return error(str(update_ve_form.errors))
+    else:
+        return error('Method error')
+
+
+@login_required
+def virtual_environment(request):
+    if request.method == 'POST':
+        ve_form = CreateVEForm(request.POST)
+        if ve_form.is_valid():
+            cd = ve_form.cleaned_data
+            if VirtualEnvironment.objects.filter(user_id=request.user.id, name=cd['name']).exists():
+                return error('Duplicate record!')
+            ve = VirtualEnvironment(name=cd['name'],
+                                    value=cd['value'],
+                                    user_id=request.user.id)
+            ve.save()
+            return success(ve.id)
+        else:
+            return error(str(ve_form.errors))
+    else:
+        if request.user.is_superuser:
+            ve_list = VirtualEnvironment.objects.all()
+        else:
+            ve_list = VirtualEnvironment.objects.filter(user_id=request.user.id).all()
+        return render(request, 'ui/manage_ve.html', {'ves': ve_list})

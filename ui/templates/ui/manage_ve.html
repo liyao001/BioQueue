@@ -1,0 +1,123 @@
+{% extends 'ui/base.html' %}
+{% block title %}Manage Virtual Environment | BioQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>New Virtual Environment</h1>
+    </div>
+    <form class="form" method="post" action="#">
+        <div class="form-group">
+            <label class="control-label" for="name">Describable name of the VE</label>
+            <input type="text" class="form-control" id="name" name="name" required />
+        </div>
+        <div class="form-group">
+            <label class="control-label" for="ve-value">Value</label>
+            <input type="text" class="form-control" id="ve-value" name="value" maxlength="255" required />
+            <p class="help-block">If a VE is specified in a step, then the virtual environment will be activated by <code>source ve.value</code> before running the step. If you are using conda, you can get all environments by using <code>conda env list</code>. And you can use any value presents in the first column as value here (<b>not full path</b>).</p>
+        </div>
+        <input type="submit" class="btn btn-success btn-large" value="Add" />
+    </form>
+    <hr>
+    <div class="page-header">
+        <h1>Virtual Environment List</h1>
+    </div>
+    <table class="table table-bordered" id="ve-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Value</th>
+            <th>Operation</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for ve in ves %}
+            <tr class="pending-user">
+                <td>{{ ve.id }}</td>
+                <td>{{ ve.name }}</td>
+                <td class="editble" onclick="edit(this);" data-sid="{{ ve.id }}">{{ ve.value }}</td>
+                <td><span class="user-actions"><span onclick="delVE(this);" data-rid="{{ ve.id }}" class="label label-danger" style="cursor:pointer;">Delete</span></span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block script %}
+    $("#virtual-environment").addClass("active");
+    $(".scaffold-nav").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                addNew(data.info, $("#name").val(), $("#value").val());
+				self[0].reset();
+			} else {
+				Messenger().post({
+					message: data.info,
+					type: 'error',
+					showCloseButton: true
+				});
+			}
+		}
+    });
+    function addNew(rid, key, value)
+    {
+        var table1 = $('#ve-table');
+        var firstTr = table1.find('tbody>tr:first');
+        var row = $("<tr class='pending-user'></tr>");
+        var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td><td><span class='user-actions'><span onclick='delVE(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
+        row.append(td);
+        table1.append(row);
+    }
+    function edit(obj){
+        var new_id = "parameter" + Math.random();
+        var self = $(obj);
+        var txt = $.trim(self.text());
+        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
+        input.attr("value", txt);
+        self.html(input);
+        var oTextbox = new AutoSuggestControl(new_id);
+        input.click(function(){return false;});
+        input.trigger("focus");
+        input.blur(function(){
+            var newTxt = input.val();
+            if (newTxt != txt){
+                self.html(newTxt);
+                $.get("{% url 'ui:update_ve' %}", {id:self.attr("data-sid"), path:encodeURI(newTxt)}, function(data){
+                    if (data.status){
+                        Messenger().post({
+                            message: data.info,
+                            showCloseButton: true
+				        });
+                    }else{
+                        Messenger().post({
+                            message: data.info,
+                            type: 'error',
+                            showCloseButton: true
+				        });
+                    }
+                });
+            }else{
+              self.html(newTxt);
+            }
+        });
+    };
+    function delVE(obj){
+	    var self = $(obj);
+        $.get("{% url 'ui:delete_ve' %}", {ve: self.attr("data-rid")}, function(data){
+            if(data.status){
+                self.parent().parent().parent().hide("slow");
+		    };
+	    });
+    }
+{% endblock %}

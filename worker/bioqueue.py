@@ -69,6 +69,7 @@ def get_steps(protocol_id):
             'parameter': html_parser.unescape(str(step.software).rstrip() + " " + str(step.parameter)),
             'specify_output': step.specify_output,
             'hash': step.hash,
+            'env': step.env,
             'force_local': step.force_local,
         })
     return step_list
@@ -375,6 +376,12 @@ def run_prepare(job_id, job, no_new_learn=0):
             step = step.replace('{ThreadN}', str(settings['env']['cpu']))
     else:
         step = step.replace('{ThreadN}', str(settings['env']['cpu']))
+
+    # support for virtual envs
+    if step["env"] is not None:
+        step = "source activate " + step["env"].value + "&&" + step
+        step += " && source deactivate"
+
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
     LAST_OUTPUT[job_id] = baseDriver.get_folder_content(job['job_folder'])
     training_num = get_training_items(job['steps'][job['resume'] + 1]['hash'])
