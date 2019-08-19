@@ -184,6 +184,17 @@ class CreateReferenceForm(forms.Form):
     )
 
 
+class CreateVEForm(forms.Form):
+    name = forms.CharField(
+        required=True,
+        max_length=255,
+    )
+    value = forms.CharField(
+        required=True,
+        max_length=500,
+    )
+
+
 class CommentManipulateForm(forms.Form):
     trace = forms.CharField(
         required=True,

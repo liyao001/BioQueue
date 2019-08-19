@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Queue, Training, Prediction, Resource, Protocol, ProtocolList
+from .models import Queue, Training, Prediction, Resource, Protocol, ProtocolList, VirtualEnvironment
 
 '''
 class QueueInline(admin.StackedInline):
@@ -39,3 +39,4 @@ admin.site.register(Training, TrainingAdmin)
 admin.site.register(Resource, ResourceAdmin)
 admin.site.register(ProtocolList, ProtocolListAdmin)
 admin.site.register(Protocol, ProtocolAdmin)
+admin.site.register(VirtualEnvironment)
