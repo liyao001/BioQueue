@@ -4,87 +4,120 @@
 <div class="page-header">
     <h1>New Job</h1>
 </div>
-    <div class="disk-quota">
-        Disk Usage ({{ u_disk }} of {{ t_disk }}):
-        <div class="progress">
-            <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" aria-valuenow="{{ disk_per }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ disk_per }}%">
-                <span class="sr-only">{{ disk_per }}% Used</span>
+<div class="disk-quota">
+    Disk Usage ({{ u_disk }} of {{ t_disk }}):
+    <div class="progress">
+        <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar"
+             aria-valuenow="{{ disk_per }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ disk_per }}%">
+            <span class="sr-only">{{ disk_per }}% Used</span>
+        </div>
+    </div>
+</div>
+<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="single">
+            <h4 class="panel-title">
+                <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true"
+                   aria-controls="single-job">
+                    <i class="icon-tag"></i> Single Job
+                </a>
+            </h4>
+        </div>
+        <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
+            <div class="panel-body">
+                <form class="form" id="single-job-form" method="post" action="."
+                      style="margin-top:9px; margin-bottom:0;">
+                    <div class="form-group">
+                        <label for="protocol-selector">Choose a protocol</label>
+                        <select class="form-control input-xlarge" id="protocol-selector" name="protocol" required>
+                            <option value="">Please choose a protocol</option>
+                            {% for protocol in user_protocols %}
+                            <option value="{{ protocol.id }}">{{ protocol.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="job_name">Job Name</label>
+                        <input type="text" class="form-control" id="job_name" name="job_name"/>
+                        <p class="help-block">Optional, if you don't specify a job name, BioQueue will use protocol name
+                            as job name.</p>
+                    </div>
+                    <label for="input_files">Input files</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="input_files" name="input_files"/>
+                        <div class="input-group-btn" role="group" aria-label="">
+                            <button type="button" class="btn btn-default" id="lf-trigger" title="Choose FTP file"><i
+                                    class="icon-upload"></i></button>
+                            <button type="button" class="btn btn-default" id="jf-trigger"
+                                    title="Choose file from other jobs."><i class="icon-inbox"></i></button>
+                        </div>
+                    </div>
+                    <p class="help-block">Please use semicolons (";") to separate multiple files. <a
+                                href="http://bioqueue.readthedocs.io/en/latest/faq.html#upload-file"><i
+                                class=" icon-question-sign"></i>How to upload files to BioQueue?</a></p>
+                    <div id="lf-container" class="form-group alert alert-info alert-dismissable" role="alert"
+                         style="display: none;">
+                        <button type="button" class="close" onclick="$('#lf-container').hide();$('#lf-trigger').prop('disabled', false);" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <label>Uploaded files:</label>
+                        <div class="checkbox" id="lf-list">
+                        </div>
+                    </div>
+                    <div id="jf-container" class="form-group alert alert-info alert-dismissable" role="alert" style="display: none;">
+                        <button type="button" class="close" onclick="$('#jf-container').hide();$('#jf-trigger').prop('disabled', false);" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <div class="form-group">
+                        <label>Name of the job that you want to cite</label>
+                        <input type="text" class="form-control advancedAutoComplete"
+                               data-url="{% url 'ui:get_job_list' %}" autocomplete="off" id="prev_jobs" name="job"/>
+                        </div>
+                        <div class="form-group">
+                        <label>Select the file</label>
+                        <select class="form-control" id="job-file-selector">
+                        </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="parameter">Job parameter <span class="icon-question-sign" data-toggle="popover"
+                                                                   title="Special reference"
+                                                                   data-content="You can assign values to tags by entering job parameter, like key1=value1;key2=value2;"></span></label>
+                        <input type="text" class="form-control" id="parameter" name="parameter"/>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 9px;">
+                        <button type="submit" class="btn btn-success btn-large btn-block">Push job into queue</button>
+                    </div>
+                    {% csrf_token %}
+                </form>
             </div>
         </div>
     </div>
-    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="single">
-                <h4 class="panel-title">
-                    <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true" aria-controls="single-job">
-                        <i class="icon-tag"></i> Single Job
-                    </a>
-                </h4>
-            </div>
-            <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
-                <div class="panel-body">
-                    <form class="form" id="single-job-form" method="post" action="." style="margin-top:9px; margin-bottom:0;">
-                        <div class="form-group">
-                            <label for="protocol-selector">Choose a protocol</label>
-                            <select class="form-control input-xlarge" id="protocol-selector" name="protocol" required>
-                                <option value="">Please choose a protocol</option>
-                                {% for protocol in user_protocols %}
-                                    <option value="{{ protocol.id }}">{{ protocol.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="job_name">Job Name</label>
-                            <input type="text" class="form-control" id="job_name" name="job_name" />
-                            <p class="help-block">Optional, if you don't specify a job name, BioQueue will use protocol name as job name.</p>
-                        </div>
-                        <div class="form-group">
-                            <label for="lf-trigger">Input files <button type="button" class="btn btn-default" id="lf-trigger">Choose FTP file</button></label>
-                            <input type="text" class="form-control" id="input_files" name="input_files" />
-                            <p class="help-block">Please use semicolons (";") to separate multiple files. <a href="http://bioqueue.readthedocs.io/en/latest/faq.html#upload-file"><i class=" icon-question-sign"></i>How to upload files to BioQueue?</a></p>
-                        </div>
-                        <div id="lf-container" class="form-group alert alert-info alert-dismissable" role="alert" style="display: none;">
-                            <label>Uploaded files:</label>
-                            <div class="checkbox" id="lf-list">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="parameter">Job parameter <span class="icon-question-sign" data-toggle="popover" title="Special reference" data-content="You can assign values to tags by entering job parameter, like key1=value1;key2=value2;"></span></label>
-                            <input type="text" class="form-control" id="parameter" name="parameter" />
-                        </div>
-                        <div class="form-group" style="margin-bottom: 9px;">
-                            <button type="submit" class="btn btn-success btn-large btn-block" >Push job into queue</button>
-                        </div>
-                    {% csrf_token %}
-                </form>
-                </div>
-            </div>
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="batch">
+            <h4 class="panel-title">
+                <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#batch-job"
+                   aria-expanded="false"
+                   aria-controls="batch-job">
+                    <i class="icon-tags"></i> Batch Job
+                </a>
+            </h4>
         </div>
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="batch">
-                <h4 class="panel-title">
-                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#batch-job" aria-expanded="false" aria-controls="batch-job">
-                        <i class="icon-tags"></i> Batch Job
-                    </a>
-                </h4>
-            </div>
-            <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
-                <div class="panel-body">
-                    <form class="form" method="post" action="{% url 'ui:batch_job' %}" enctype="multipart/form-data">
-                        <fieldset>
-                            <div class="form-group">
-                                <label for="parameter">Job list</label>
-                                <input type="file" id="job_list" name="job_list">
-                            </div>
-                            {% csrf_token %}
-                            <div class="form-group" style="margin-bottom: 9px;">
-                                <button type="submit" class="btn btn-success btn-large btn-block" >Upload and create</button>
-                            </div>
-                        </fieldset>
-                    </form>
+        <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
+            <div class="panel-body">
+                <form class="form" method="post" action="{% url 'ui:batch_job' %}" enctype="multipart/form-data">
+                    <fieldset>
+                        <div class="form-group">
+                            <label for="parameter">Job list</label>
+                            <input type="file" id="job_list" name="job_list">
+                        </div>
+                        {% csrf_token %}
+                        <div class="form-group" style="margin-bottom: 9px;">
+                            <button type="submit" class="btn btn-success btn-large btn-block">Upload and create</button>
+                        </div>
+                    </fieldset>
+                </form>
                 <div class="alert alert-info alert-block">
                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                    <p>You can create a batch of jobs by upload a list file. This file should contain below three columns which are separated by <code>Tabs(\t)</code>.
+                    <p>You can create a batch of jobs by upload a list file. This file should contain below three
+                        columns
+                        which are separated by <code>Tabs(\t)</code>.
                     </p>
                     <ol>
                         <li>protocol ID</li>
@@ -92,61 +125,101 @@
                         <li>Special parameter</li>
                     </ol>
                 </div>
-                </div>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}
 {% block script %}
-    $("#add-job").addClass("active");
-    $(".job-nav").addClass("active");
-    $("#protocol-selector").change(function(){
-        var selected=$(this).children('option:selected').val();
-        if (selected){
-            $.get("{% url 'ui:query_job_parameter' %}", {parent: selected}, function(data){
-                if (data.status){
-                    $("#parameter").val(data.info);
+$("#add-job").addClass("active");
+$(".job-nav").addClass("active");
+$('#prev_jobs').autoComplete({
+    resolver: 'custom',
+    events: {
+        search: function (qry, callback) {
+            $.ajax('{% url 'ui:get_job_list' %}',
+                {
+                    data: {'q': qry}
                 }
+        ).
+            done(function (res) {
+                callback(res.results)
             });
         }
-    });
-    $("#single-job-form").submit(function(){
-		var self = $(this);
-		$.post(self.attr("action"), self.serialize(), success, "json");
-		return false;
-
-		function success(data){
-			if(data.status){
-				Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
-				self[0].reset();
-			} else {
-				Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-			}
-		}
-    });
-    function ftp_files(obj){
-        var self = $(obj);
-        if (self.prop("checked") == true){
-            $("#input_files").val($("#input_files").val()+"{Uploaded:"+self.val()+"};");
-        }else{
-            $("#input_files").val($("#input_files").val().replace("{Uploaded:"+self.val()+"};", ""));
-        }
     }
-    $(function () {
-        $('[data-toggle="popover"]').popover();
-    });
-    $("#lf-trigger").click(function(){
-        $("#lf-trigger").attr("disabled", true);
-        $.get("{% url 'ui:show_upload' %}", function(result){
-            $('#lf-list').html(result);
-            $('#lf-container').show();
+});
+$('#prev_jobs').on('autocomplete.select', function(evt, item) {
+    $.getJSON("{% url 'ui:get_job_file_list' %}?id="+item.id, function(data){
+        $("#job-file-selector").html('<option value="--">Select a file</option>');
+        $.each(data, function(){
+            $("#job-file-selector").append('<option value="'+item.id+'-'+ this.name +'">'+ this.name +'</option>');
         });
     });
+});
+$("#job-file-selector").change(function() {
+    if($("#job-file-selector").val()!="--"){
+        if($("#input_files").val()==""){
+            $("#input_files").val("{History:"+$("#job-file-selector").val()+"}")
+        }else{
+            $("#input_files").val($("#input_files").val()+";{History:"+$("#job-file-selector").val()+"}")
+        }
+    }
+});
+$("#protocol-selector").change(function () {
+    var selected = $(this).children('option:selected').val();
+    if (selected) {
+        $.get("{% url 'ui:query_job_parameter' %}", {parent: selected}, function (data) {
+            if (data.status) {
+                $("#parameter").val(data.info);
+            }
+        });
+    }
+});
+$("#single-job-form").submit(function () {
+    var self = $(this);
+    $.post(self.attr("action"), self.serialize(), success, "json");
+    return false;
+
+    function success(data) {
+        if (data.status) {
+            Messenger().post({
+                message: data.info,
+                showCloseButton: true
+            });
+            self[0].reset();
+        } else {
+            Messenger().post({
+                message: data.info,
+                type: 'error',
+                showCloseButton: true
+            });
+        }
+    }
+});
+
+function ftp_files(obj) {
+    var self = $(obj);
+    if (self.prop("checked") == true) {
+        $("#input_files").val($("#input_files").val() + "{Uploaded:" + self.val() + "};");
+    } else {
+        $("#input_files").val($("#input_files").val().replace("{Uploaded:" + self.val() + "};", ""));
+    }
+}
+
+$(function () {
+    $('[data-toggle="popover"]').popover();
+});
+$("#lf-trigger").click(function () {
+    $("#lf-trigger").attr("disabled", true);
+    $.get("{% url 'ui:show_upload' %}", function (result) {
+        $('#lf-list').html(result);
+        $('#jf-container').hide();
+        $('#lf-container').show();
+    });
+});
+$("#jf-trigger").click(function () {
+    $("#jf-trigger").attr("disabled", true);
+    $("#lf-container").hide();
+    $("#jf-container").show();
+});
 {% endblock %}
