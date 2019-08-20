@@ -1585,7 +1585,8 @@ def show_job_folder(request):
         if query_job_form.is_valid():
             cd = query_job_form.cleaned_data
             user_files = get_job_files(cd["job"], request.user.id, request.user.is_superuser)
-            if user_files is list:
+            print(type(user_files))
+            if type(user_files) is list:
                 template = loader.get_template('ui/show_job_folder.html')
                 import operator
                 context = {
