@@ -697,6 +697,56 @@ def fetch_learning(request):
 
 
 @login_required
+def get_job_list(request):
+    import json
+    if request.user.is_superuser:
+        job_list = Queue.objects.filter(job_name__icontains=request.GET["q"])
+    else:
+        job_list = Queue.objects.filter(user_id=request.user.id, job_name__icontains=request.GET["q"])
+    pre_result = {"results": []}
+    for job in job_list:
+        pre_result["results"].append({"text": job.job_name, "id": job.id})
+    return HttpResponse(json.dumps(pre_result), content_type='application/json')
+
+
+def get_job_files(job_id, user_id, super_user):
+    import time
+    import base64
+    try:
+        user_files = []
+        job = Queue.objects.get(id=job_id)
+        if job.check_owner(user_id) or super_user:
+            result_folder = job.get_result()
+            if result_folder is None:  # doesn't have output
+                return user_files
+            user_path = os.path.join(get_config('env', 'workspace'), str(job.user_id), result_folder)
+
+            for root, dirs, files in os.walk(user_path):
+                for file_name in files:
+                    file_full_path = os.path.join(root, file_name)
+                    file_path = file_full_path.replace(user_path + '\\', '') \
+                        .replace(user_path + '/', '').replace(user_path, '')
+                    tmp = dict()
+                    tmp['name'] = file_path
+                    tmp['file_size'] = os.path.getsize(file_full_path)
+                    tmp['file_create'] = time.ctime(os.path.getctime(file_full_path))
+                    tmp['trace'] = base64.b64encode(os.path.join(result_folder, file_path))
+                    user_files.append(tmp)
+            return user_files
+        else:
+            return "Your are not the owner of the job."
+    except Exception as e:
+        return e
+
+
+@login_required
+def get_job_file_list(request):
+    import json
+    file_list = get_job_files(request.GET["id"], request.user.id, request.user.is_superuser)
+    return HttpResponse(json.dumps(file_list), content_type='application/json')
+
+
+@login_required
 def get_learning_result(request):
     if request.method == 'GET':
         learning_form = QueryLearningForm(request.GET)
@@ -1530,39 +1580,20 @@ def show_job_log(request):
 
 @login_required
 def show_job_folder(request):
-    import time
-    import base64
     if request.method == 'POST':
         query_job_form = JobManipulateForm(request.POST)
         if query_job_form.is_valid():
             cd = query_job_form.cleaned_data
-            try:
-                job = Queue.objects.get(id=cd['job'])
-                if job.check_owner(request.user.id) or request.user.is_superuser:
-                    result_folder = job.get_result()
-                    user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), result_folder)
-                    user_files = []
-                    for root, dirs, files in os.walk(user_path):
-                        for file_name in files:
-                            file_full_path = os.path.join(root, file_name)
-                            file_path = file_full_path.replace(user_path+'\\', '')\
-                                .replace(user_path+'/', '').replace(user_path, '')
-                            tmp = dict()
-                            tmp['name'] = file_path
-                            tmp['file_size'] = os.path.getsize(file_full_path)
-                            tmp['file_create'] = time.ctime(os.path.getctime(file_full_path))
-                            tmp['trace'] = base64.b64encode(os.path.join(result_folder, file_path))
-                            user_files.append(tmp)
-                    template = loader.get_template('ui/show_job_folder.html')
-                    import operator
-                    context = {
-                        'user_files': sorted(user_files, key=lambda user_files : user_files['name']),
-                    }
-                    return success(template.render(context))
-                else:
-                    return error('Your are not the owner of the job.')
-            except Exception as e:
-                return error(e)
+            user_files = get_job_files(cd["job"], request.user.id, request.user.is_superuser)
+            if user_files is list:
+                template = loader.get_template('ui/show_job_folder.html')
+                import operator
+                context = {
+                    'user_files': sorted(user_files, key=lambda user_files: user_files['name']),
+                }
+                return success(template.render(context))
+            else:
+                return error(user_files)
         else:
             return error(str(query_job_form.errors))
     else:
