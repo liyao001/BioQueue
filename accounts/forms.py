@@ -9,7 +9,7 @@ class LoginForm(forms.Form):
         error_messages={'required': 'Please type username'},
         widget=forms.TextInput(
             attrs={
-                'placeholder': u'Username',
+                'placeholder': u'Username / Project name',
                 'class': u'form-control',
             }
         ),
