@@ -1653,8 +1653,6 @@ def show_step(request):
 
 @login_required
 def show_upload_files(request, special_type='uploads'):
-    import time
-    import base64
     user_path = os.path.join(get_config('env', 'workspace'), str(request.user.id), special_type)
     user_files = []
     if not os.path.exists(user_path):
