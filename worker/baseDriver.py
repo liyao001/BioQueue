@@ -373,7 +373,7 @@ def check_shell_sig(command_tuple):
     :param command_tuple: tuple or list
     :return: bool
     """
-    redirect_tags = ('>', '<', '|', ';', '*')
+    redirect_tags = ('>', '<', '|', ';', '*', '&&')
     true_shell = 0
     try:
         for rt in redirect_tags:

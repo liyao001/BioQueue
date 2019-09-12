@@ -318,6 +318,7 @@ def create_protocol(request):
                 protocol.save()
                 softwares = request.POST.getlist('software', '')
                 parameters = request.POST.getlist('parameter', '')
+                virtual_environments = request.POST.getlist('env', '')
                 steps = []
                 try:
                     protocol_id_trace = ProtocolList.objects.get(id=protocol.id)
@@ -329,6 +330,7 @@ def create_protocol(request):
                         m.update(software + ' ' + parameters[index].strip())
                         steps.append(Protocol(software=software,
                                               parameter=parameters[index],
+                                              env=virtual_environments[index],
                                               parent=protocol_id_trace,
                                               hash=m.hexdigest(),
                                               step_order=index+1,
@@ -1664,10 +1666,18 @@ def show_upload_files(request, special_type='uploads'):
     for root, dirs, files in os.walk(user_path):
         for file_name in files:
             file_full_path = os.path.join(root, file_name)
+            file_name_warning = 0
+            if file_full_path.find(" ") != -1:
+                file_name_warning = 1
+            else:
+                try:
+                    file_full_path.decode("ascii")
+                except UnicodeDecodeError:
+                    file_name_warning = 1
             file_path = file_full_path.replace(user_path + '\\', '') \
                 .replace(user_path + '/', '').replace(user_path, '')
-            user_files.append(file_path)
-    context = {'user_files': sorted(user_files)}
+            user_files.append((file_path, file_name_warning))
+    context = {'user_files': sorted(user_files, key=lambda x: x[0])}
     return render(request, 'ui/show_uploads.html', context)
 
 
