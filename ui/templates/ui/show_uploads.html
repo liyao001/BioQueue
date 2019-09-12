@@ -1,5 +1,5 @@
 {% if user_files %}
     {% for file_item in user_files %}
-        <label class='checkbox'><input type='checkbox' name='input_file_r' id='input_file_r' onclick="ftp_files(this);" value='{{ file_item }}'> {{ file_item }}</label>
+        <label class='checkbox {% if file_item[1] %}alert-warning{% endif %}'><input type='checkbox' name='input_file_r' id='input_file_r' onclick="ftp_files(this);" value='{{ file_item[0] }}'> {{ file_item[0] }}</label>
     {% endfor %}
 {% endif %}

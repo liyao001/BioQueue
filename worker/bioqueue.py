@@ -333,12 +333,15 @@ def run_prepare(job_id, job, no_new_learn=0):
         if 'LAST_OUTPUT_SUFFIX' in tmp_dict.keys():
             LAST_OUTPUT_SUFFIX[job_id] = tmp_dict['LAST_OUTPUT_SUFFIX']
 
+    ve = None
     if (job['resume'] + 1) == len(job['steps']):
         return None
     elif job['status'] > 0:
         return 'running'
     else:
         step = job['steps'][job['resume'] + 1]['parameter']
+        ve = job['steps'][job['resume'] + 1]['env']
+
 
     step = step.replace('{Job}', str(job_id))
     step = step.replace('{JobName}', str(JOB_TABLE[job_id]['name']))
@@ -378,8 +381,8 @@ def run_prepare(job_id, job, no_new_learn=0):
         step = step.replace('{ThreadN}', str(settings['env']['cpu']))
 
     # support for virtual envs
-    if step["env"] is not None:
-        step = "source activate " + step["env"].value + "&&" + step
+    if ve is not None:
+        step = "source activate " + ve.value + "&&" + step
         step += " && source deactivate"
 
     JOB_COMMAND[job_id] = parameterParser.parameter_string_to_list(step)
@@ -731,13 +734,14 @@ def run_step(job_desc, resources):
             log_file_handler.close()
             print("Now job %s finished." % job_desc)
             # finish_step(job_id, step_order, resources)
+            JOB_TABLE[job_id]['resume'] = step_order
             if step_process.returncode != 0:
                 RUNNING_JOBS -= 1
                 error_job(job_id, resources)
             else:
                 RUNNING_JOBS -= 1
                 finish_step(job_id, step_order, resources)
-            JOB_TABLE[job_id]['resume'] = step_order
+
             if job_id > LATEST_JOB_ID and (step_order + 1) > LATEST_JOB_STEP:
                 LATEST_JOB_ID = job_id
                 LATEST_JOB_STEP = step_order
