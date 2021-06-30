@@ -1,0 +1,116 @@
+{% extends 'ui/base.html' %}
+{% block title %}Manage environment | BioQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Environment</h1>
+        {% if page_help %}<p>{{ page_help|safe }}</p>{% endif %}
+    </div>
+    <div class="accordion" id="accordionEnvironment">
+        <div class="card">
+            <div class="card-header" id="headingCreateEnv">
+                <h2 class="mb-0">
+                    <a class="btn btn-block text-left" href="{% url 'ui:manage_simple_models' 'create' 'Environment' %}" aria-expanded="true" aria-controls="collapseCreateEnv">
+                        Add new environment
+                    </a>
+                </h2>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header" id="headingEnvList">
+                <h2 class="mb-0">
+                    <button class="btn btn-block text-left collapsed" type="button" data-toggle="collapse" data-target="#collapseEnvList" aria-expanded="false" aria-controls="collapseEnvList">
+                        Environment list
+                    </button>
+                </h2>
+            </div>
+            <div id="collapseEnvList" class="collapse show" aria-labelledby="headingEnvList" data-parent="#accordionEnvironment">
+                <div class="card-body">
+                    <table class="table table-bordered" id="ve-table">
+                        <thead>
+                        <tr>
+                            <th class="align-middle">ID</th>
+                            <th class="align-middle">Name</th>
+                            <th class="align-middle">Value</th>
+                            <th class="align-middle">Operation</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for ve in objects %}
+                            <tr class="align-middle {% if ve.user is None %}table-success{% endif %}" id="recRow{{ve.id}}">
+                                <td class="align-middle">{{ ve.id }}</td>
+                                <td class="align-middle">{{ ve.name }}</td>
+                                <td class="align-middle" onclick="edit(this);" data-sid="{{ ve.id }}">{{ ve.value }}</td>
+                                <td class="align-middle">
+                                    {% if ve.user is not None or request.user.is_staff %}
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary" title="Edit this environment" onclick="updateVE(this);" data-target="{% url 'ui:manage_simple_models' 'update' 'Environment' %}" data-id="{{ve.id}}"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-outline-secondary" title="Delete this environment" onclick="delVE(this);" data-target="{% url 'ui:manage_simple_models' 'delete' 'Environment' %}" data-id="{{ve.id}}"><i class="fas fa-trash-alt"></i></button>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <nav aria-label="Page navigation" class="mx-auto">
+                        <ul class="pagination justify-content-center">
+                            {% if objects.has_previous %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.previous_page_number }}" aria-label="Previous" class="page-link">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <span aria-hidden="true">Page {{ objects.number }} of {{ objects.paginator.num_pages }}</span>
+                                </span>
+                            </li>
+                            {% if objects.has_next %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.next_page_number }}" aria-label="Next" class="page-link">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+    $("#topNavEnvironment").addClass("active");
+    $(".scaffold-nav").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                addNew(data.info, $("#name").val(), $("#ve-value").val());
+				self[0].reset();
+			} else {
+                post_msg(data.info, 1);
+			}
+		}
+    });
+    function delVE(obj){
+	    let self = $(obj);
+        generic_get(obj, false);
+        $("#recRow"+self.data("id")).hide("slow");
+    }
+    function updateVE(obj){
+        generic_get_modal(obj);
+    }
+{% endblock %}

@@ -4,10 +4,10 @@
 <head>
 <title>{% block title %}{% endblock %}</title>
 <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}" />
-<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/bootstrap.min.css" %}" rel="stylesheet" media="screen">
 <link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+<<link href="{% static "ui/fontawesome/css/all.min.css" %}" rel="stylesheet">
+<link href="{% static "ui/css/bootstrap-select.min.css" %}" rel="stylesheet">
 {% block extrastyle %}{% endblock %}
 {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}" />{% endif %}
 {% block extrahead %}{% endblock %}

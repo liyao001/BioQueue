@@ -1,0 +1,14 @@
+<form class="form" method="post" action="{{ action }}">
+    {% for field in form %}
+    <div class="form-group">
+        {{ field.errors }}
+        {{ field.label_tag }} {{field}}
+        {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text|safe }}</small>
+        {% endif %}
+    </div>
+    {% csrf_token %}
+    <input type="hidden" name="qid" value="{{ qid }}">
+    {% endfor %}
+    <button type="submit" class="btn btn-success btn-lg btn-block">Update</button>
+</form>

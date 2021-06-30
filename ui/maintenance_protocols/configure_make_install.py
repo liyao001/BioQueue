@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='./configure',
-                        parameter='--prefix {UserBin}',
+                        parameter='--prefix {{UserBin}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='dfca5277f71c6782e3351f6ed9ac7fcb',

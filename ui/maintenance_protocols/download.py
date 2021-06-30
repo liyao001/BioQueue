@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='wget',
-                        parameter='{InputFile}',
+                        parameter='{{InputFile}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='3efb64d0fa1144993ee287d3233dde06',

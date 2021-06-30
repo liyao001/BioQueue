@@ -1,4 +1,4 @@
-{% load staticfiles %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,14 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="author" content="Li Yao">
-    <link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
-    <link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">
+    <link href="{% static "ui/css/bootstrap.min.css" %}" rel="stylesheet" media="screen">
     <link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-    <link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
-    <!--[if lt IE 9]>
-        <script src="{% static "ui/js/respond.min.js" %}"></script>
-        <script src="{% static "ui/js/html5shiv.min.js" %}"></script>
-    <![endif]-->
+    <link href="{% static "ui/fontawesome/css/all.min.css" %}" rel="stylesheet">
 </head>
 <body style="background-color: #efefef; padding-top: 49px;">
 {% include 'ui/navigation.html' %}
@@ -29,8 +24,8 @@
 </div>
 <hr>
 {% include 'ui/foot.html' %}
-<script src="{% static "ui/js/jquery.js" %}"></script>
-<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
+<script src="{% static "ui/js/jquery-3.6.0.min.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.bundle.min.js" %}"></script>
 <script>
 {% block script %}{% endblock %}
 </script>

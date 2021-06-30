@@ -1,188 +1,115 @@
-{% extends "ui/base.html" %}
-{% block title %}Manage Sample Pool | BioQueue{% endblock %}
+{% extends 'ui/base.html' %}
+{% block title %}Workspaces | BioQueue{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>My Sample Pool</h1>
-</div>
-{% if user_files %}
-<table class="table table-bordered table-hover">
-    <thead>
-        <tr>
-            <th>File Name</th>
-            <th>File Size</th>
-            <th>Comment</th>
-            <th>Create Time</th>
-            <th>Operate</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for file_item in user_files %}
-        <tr>
-            <td>{{ file_item.name }}</td>
-            <td>{{ file_item.file_size | filesizeformat }}</td>
-            <td class="editble" onclick="edit(this);" data-sid="{{ file_item.trace }}">{{ file_item.comment }}</td>
-            <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-danger op-label' data-path='{{ file_item.trace }}' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success op-label' href='/ui/download-file/f/{{ file_item.trace }}'><i class="icon-download-alt"></i> Download</a> <span class='label label-info op-label' data-path='{{ file_item.trace }}' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span> <span class="dropdown label label-warning op-label">
-  <a class="dropdown-toggle" data-toggle="dropdown" href="#" style="color:white;"><i class="icon-th-list"></i> More</a>
-  <ul class="dropdown-menu op-more-container" role="menu" aria-labelledby="dLabel">
-      {% for fs in file_item.file_support %}
-      <li><a data-file="{{ file_item.name }}" data-ext="{{ file_item.ext}}" data-support="{{ fs.1 }}" onclick="fs(this);">{{fs.0}}</a></li>
-      {% endfor %}
-  </ul>
-</span></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<div>You have not uploaded any file yet.</div>
-{% endif %}
-{% if user_ref_files %}
-<div class="page-header">
-    <h1>My Reference Files</h1>
-</div>
-<table class="table table-bordered table-hover">
-    <thead>
-        <tr>
-            <th>File Name</th>
-            <th>File Size</th>
-            <th>Create Time</th>
-            <th>Operate</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for file_item in user_ref_files %}
-        <tr>
-            <td>{{ file_item.name }}</td>
-            <td>{{ file_item.file_size | filesizeformat }}</td>
-            <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% endif %}
-<div class="modal fade" id="showCR" tabindex="-1" role="dialog" aria-labelledby="cr">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="cr">Use uploaded file as reference</h4>
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Workspace</h1>
+        {% if page_help %}<p>{{ page_help|safe }}</p>{% endif %}
+    </div>
+    <div class="accordion" id="accordionWorkspace">
+        <div class="card">
+            <div class="card-header" id="headingCreateWp">
+                <h2 class="mb-0">
+                    <a href="{% url 'ui:manage_simple_models' 'create' 'Workspace' %}" class="btn btn-block text-left" aria-expanded="true" aria-controls="collapseCreateEnv">
+                        Add new workspace
+                    </a>
+                </h2>
             </div>
-            <div class="modal-body">
-                <form class="form" method="post" action="/ui/create-reference-shortcut/">
-                    <div class="form-group">
-                        <label class="control-label" for="name">Reference Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required />
-                        <p class="help-block">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</p>
-                    </div>
-                    <div class="form-group">
-                        <label class="control-label" for="name">Description (optional)</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                    </div>
-                    <input type="hidden" class="form-control" id="path" name="path" maxlength="255" required />
-                    <input type="hidden" class="form-control" id="source" name="source" value="upload" required />
-                    <input type="submit" class="btn btn-success btn-block btn-large" value="Add" />
-                </form>
+        </div>
+        <div class="card">
+            <div class="card-header" id="headingWpList">
+                <h2 class="mb-0">
+                    <button class="btn btn-block text-left collapsed" aria-expanded="false" aria-controls="headingWpList">
+                        Workspace list
+                    </button>
+                </h2>
+            </div>
+            <div id="collapseListWp" class="collapse show" aria-labelledby="headingListWp" data-parent="#accordionWorkspace">
+                <div class="card-body">
+                    <table class="table table-bordered" id="workspaceTable">
+                        <thead>
+                        <tr>
+                            <th class="align-middle">ID</th>
+                            <th class="align-middle">Workspace</th>
+                            <th class="align-middle">Operation</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for obj in objects %}
+                            <tr class="align-middle {% if obj.user is None %}table-success{% endif %}" id="recRow{{obj.id}}">
+                                <td class="align-middle">{{ obj.id }}</td>
+                                <td class="align-middle">{{ obj.name }}</td>
+                                <td class="align-middle">
+                                    {% if obj.user is not None %}
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary" title="Edit this environment" onclick="updateWP(this);" data-target="{% url 'ui:manage_simple_models' 'update' 'Workspace' %}" data-id="{{obj.id}}"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-outline-secondary" title="Delete this environment" onclick="delWorkspace(this);" data-target="{% url 'ui:manage_simple_models' 'delete' 'Workspace' %}" data-id="{{obj.id}}"><i class="fas fa-trash-alt"></i></button>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <nav aria-label="Page navigation" class="mx-auto">
+                        <ul class="pagination justify-content-center">
+                            {% if objects.has_previous %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.previous_page_number }}" aria-label="Previous" class="page-link">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <span aria-hidden="true">Page {{ objects.number }} of {{ objects.paginator.num_pages }}</span>
+                                </span>
+                            </li>
+                            {% if objects.has_next %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.next_page_number }}" aria-label="Next" class="page-link">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 {% block script %}
-var csrftoken = $.cookie('csrftoken');
-$.ajaxSetup({
-    beforeSend: function(xhr, settings){
-        xhr.setRequestHeader("X-CSRFToken", csrftoken);
-    }
-});
-$("form").submit(function(){
-    var self = $(this);
-    $.post(self.attr("action"), self.serialize(), success, "json");
-    return false;
-
-    function success(data){
-        if(data.status){
-            Messenger().post({
-					message: 'Created.',
-					showCloseButton: true
-				});
-            self[0].reset();
-            $('#showCR').modal('hide');
-        } else {
-            Messenger().post({
-                message: data.info,
-                type: 'error',
-                showCloseButton: true,
-            });
+    $("#topNavWorkspace").addClass("active");
+    $(".scaffold-nav").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
         }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                addNew(data.info, $("#name").val(), $("#ve-value").val());
+				self[0].reset();
+			} else {
+                post_msg(data.info, 1);
+			}
+		}
+    });
+    function delWorkspace(obj){
+	    let self = $(obj);
+        generic_get(obj, false);
+        $("#recRow"+self.data("id")).hide("slow");
     }
-});
-function showQuickRef(obj){
-    var self = $(obj);
-    $('#showCR #path').val(self.attr("data-path"));
-    $('#showCR').modal();
-};
-function delFile(obj){
-	var self = $(obj);
-	$.get("/ui/delete-upload-file/"+self.attr("data-path"), function(data){
-		if(data.status){
-			self.parent().parent().hide('fast');
-		};
-	});
-};
-function edit(obj){
-        var new_id = "parameter" + Math.random();
-        var self = $(obj);
-        var txt = $.trim(self.text());
-        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
-        input.attr("value", txt);
-        self.html(input);
-        var oTextbox = new AutoSuggestControl(new_id);
-        input.click(function(){return false;});
-        input.trigger("focus");
-        input.blur(function(){
-            var newTxt = input.val();
-            if (newTxt != txt){
-                self.html(newTxt);
-                $.get("{% url 'ui:update_comment' %}", {trace:self.attr("data-sid"), content:encodeURI(newTxt)}, function(data){
-                    if (data.status){
-                        Messenger().post({
-                            message: data.info,
-                            showCloseButton: true
-				        });
-                    }else{
-                        Messenger().post({
-                            message: data.info,
-                            type: 'error',
-                            showCloseButton: true
-				        });
-                    }
-                });
-            }else{
-              self.html(newTxt);
-            }
-        });
-    };
-function fs(obj){
-    var self = $(obj);
-    $.get("{% url 'ui:file_support' %}",
-          {ext:self.attr("data-ext"),
-           support:self.attr("data-support"),
-           file:self.attr("data-file")},
-           function(data){
-               if (data.status){
-                   Messenger().post({
-                       message: data.info,
-                       showCloseButton: true
-                   });
-               }else{
-                   Messenger().post({
-                       message: data.info,
-                       type: 'error',
-                       showCloseButton: true
-                   });
-               }
-           });
-}
+    function updateWP(obj){
+        generic_get_modal(obj);
+    }
 {% endblock %}

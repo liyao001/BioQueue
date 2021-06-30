@@ -1,0 +1,116 @@
+{% extends 'ui/base.html' %}
+{% block title %}Manage reference | BioQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Reference</h1>
+        {% if page_help %}<p>{{ page_help|safe }}</p>{% endif %}
+    </div>
+    <div class="accordion" id="accordionReference">
+        <div class="card">
+            <div class="card-header" id="headingCreateRef">
+                <h2 class="mb-0">
+                    <a class="btn btn-block text-left" href="{% url 'ui:manage_simple_models' 'create' 'Reference' %}" aria-expanded="true" aria-controls="collapseCreateRef">
+                        Add new reference
+                    </a>
+                </h2>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header" id="headingRefList">
+                <h2 class="mb-0">
+                    <button class="btn btn-block text-left collapsed" type="button" data-toggle="collapse" data-target="#collapseRefList" aria-expanded="false" aria-controls="collapseRefList">
+                        Reference list
+                    </button>
+                </h2>
+            </div>
+            <div id="collapseRefList" class="collapse show" aria-labelledby="headingRefList" data-parent="#accordionReference">
+                <div class="card-body">
+                    <table class="table table-bordered" id="ve-table">
+                        <thead>
+                        <tr>
+                            <th class="align-middle">Key</th>
+                            <th class="align-middle">Value</th>
+                            <th class="align-middle">Description</th>
+                            <th class="align-middle">Operation</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for obj in objects %}
+                            <tr class="align-middle {% if obj.user is None %}table-success{% endif %}" id="recRow{{obj.id}}">
+                                <td class="align-middle">{{ obj.name }}</td>
+                                <td class="align-middle text-break">{{ obj.path }}</td>
+                                <td class="align-middle text-break">{{ obj.description }}</td>
+                                <td class="align-middle">
+                                    {% if obj.user is not None or request.user.is_staff %}
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary" title="Edit this environment" onclick="updateRef(this);" data-target="{% url 'ui:manage_simple_models' 'update' 'Reference' %}" data-id="{{obj.id}}"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-outline-secondary" title="Delete this environment" onclick="delRef(this);" data-target="{% url 'ui:manage_simple_models' 'delete' 'Reference' %}" data-id="{{obj.id}}"><i class="fas fa-trash-alt"></i></button>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    <nav aria-label="Page navigation" class="mx-auto">
+                        <ul class="pagination justify-content-center">
+                            {% if objects.has_previous %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.previous_page_number }}" aria-label="Previous" class="page-link">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    <span aria-hidden="true">Page {{ objects.number }} of {{ objects.paginator.num_pages }}</span>
+                                </span>
+                            </li>
+                            {% if objects.has_next %}
+                            <li class="page-item">
+                                <a href="?page={{ objects.next_page_number }}" aria-label="Next" class="page-link">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+    $("#topNav{{model_name}}").addClass("active");
+    $(".scaffold-nav").addClass("active");
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                addNew(data.info, $("#name").val(), $("#ve-value").val());
+				self[0].reset();
+			} else {
+                post_msg(data.info, 1);
+			}
+		}
+    });
+    function delRef(obj){
+	    let self = $(obj);
+        generic_get(obj, false);
+        $("#recRow"+self.data("id")).hide("slow");
+    }
+    function updateRef(obj){
+        generic_get_modal(obj);
+    }
+{% endblock %}

@@ -8,7 +8,7 @@
 # @Github: https://github.com/liyao001
 import requests
 import base64
-from baseDriver import get_config, get_bioqueue_version
+from .bases import get_config, get_bioqueue_version
 
 
 def feedback(software, parameter, mail):
@@ -42,7 +42,7 @@ def get_error_log(file_path):
     """
     error_log = ''
     try:
-        from baseDriver import get_job_log
+        from bases import get_job_log
         error_log = get_job_log(file_path)
     except:
         pass

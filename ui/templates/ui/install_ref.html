@@ -4,17 +4,17 @@
 <div class="page-header">
     <h1>Install References</h1>
 </div>
-    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="single">
-                <h4 class="panel-title">
-                    <a data-toggle="collapse" data-parent="#accordion" href="#single-job" aria-expanded="true" aria-controls="single-job">
-                        <i class="glyphicon glyphicon-cloud"></i> Search BioQueue's Repository
-                    </a>
-                </h4>
+    <div id="accordion" role="tablist" aria-multiselectable="true">
+        <div class="card">
+            <div class="card-header" role="tab" id="single">
+                <h5 class="mb-0">
+                    <button class="btn" data-toggle="collapse" href="#single-job" aria-expanded="true" aria-controls="single-job">
+                        <i class="fas fa-cloud"></i> Search BioQueue's Repository
+                    </button>
+                </h5>
             </div>
-            <div id="single-job" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
-                <div class="panel-body">
+            <div id="single-job" class="collapse show" role="tabpanel" aria-labelledby="single" data-parent="#accordion">
+                <div class="card-body">
                     <form class="form" id="fetch-ref-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="parameter">Reference Name </label>
@@ -44,16 +44,16 @@
                 </div>
             </div>
         </div>
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="batch">
-                <h4 class="panel-title">
-                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#batch-job" aria-expanded="false" aria-controls="batch-job">
-                        <i class="glyphicon glyphicon-heart"></i> Contribute to the Repository
-                    </a>
-                </h4>
+        <div class="card">
+            <div class="card-header" role="tab" id="batch">
+                <h5 class="mb-0">
+                    <button class="btn" class="collapsed" data-toggle="collapse" href="#batch-job" aria-expanded="false" aria-controls="batch-job">
+                        <i class="fas fa-heart"></i> Contribute to the Repository
+                    </button>
+                </h5>
             </div>
-            <div id="batch-job" class="panel-collapse collapse" role="tabpanel" aria-labelledby="batch">
-                <div class="panel-body">
+            <div id="batch-job" class="collapse" role="tabpanel" aria-labelledby="batch" data-parent="#accordion">
+                <div class="card-body">
                     <form class="form" id="share-ref-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="name">Reference Name </label>
@@ -95,7 +95,7 @@
                             <label for="target_files">Target files (separated by semi-colons) </label>
                             <input type="text" class="form-control" id="target_files" name="target_files" />
                         </div>
-                        <h3>Operation after decompression <a class="btn btn-default" onclick="add_step();"><i class="glyphicon glyphicon-plus"></i>Add step</a></h3>
+                        <h3>Operation after decompression <a class="btn btn-outline-secondary" onclick="add_step();"><i class="fas fa-plus-circle"></i> Add step</a></h3>
                         <div class="step-container">
                             <div class="protocol-step">
                                 <div class="form-group">

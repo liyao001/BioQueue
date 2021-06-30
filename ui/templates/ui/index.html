@@ -1,4 +1,4 @@
-{% load staticfiles %}
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,97 +6,84 @@
 	<title>Dashboard | BioQueue</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
-	<!--<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">-->
+	<link href="{% static "ui/css/bootstrap.min.css" %}" rel="stylesheet" media="screen">
 	<link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-	<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
-	<!--[if lt IE 9]>
-        <script src="{% static "ui/js/respond.min.js" %}"></script>
-        <script src="{% static "ui/js/html5shiv.min.js" %}"></script>
-    <![endif]-->
+	<link href="{% static "ui/fontawesome/css/all.min.css" %}" rel="stylesheet">
 </head>
-<body style="padding-top: 40px;">
+<body>
 {% include 'ui/navigation.html' %}
-<div style="margin: 20px auto; width: 90%;">
-	<ul class="breadcrumb">
-	  <li><a href="#">Index</a></li>
-	  <li class="active">Dashboard</li>
-	</ul>
+<div class="container-fluid">
+	<nav style="margin-top: 4rem;" aria-label="breadcrumb">
+		<ol class="breadcrumb">
+		  <li class="breadcrumb-item"><a href="#">Index</a></li>
+		  <li class="breadcrumb-item active">Dashboard</li>
+		</ol>
+	</nav>
 </div>
-<div class="row" style="padding: 5px; margin: 20px auto; width: 90%;">
-	<div class="metro-nav">
-		<div class="metro-nav-block nav-block-orange">
-		    <a data-original-title="" href="#cp" role="button" data-toggle="modal" data-target="#cp">
-            <!--<a href="{% url 'accounts:password_change' %}">-->
-		        <i class="icon-user"></i>
-		        <div class="info">Change</div>
-		        <div class="status">Password</div>
+<div class="container">
+	<div class="row text-white text-decoration-none">
+		<div class="col-md-2 v4-metro v4-metro-orange d-flex align-items-center">
+			<a data-original-title="" href="#cp" role="button" data-toggle="modal" data-target="#cp">
+				<div class="text-center">
+					<i class="fas fa-key fa-4x"></i>
+				</div>
+				<div class="col1">Change password</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-deep-terques">
-		    <a data-original-title="" href="{% url 'ui:add_job' %}">
-		        <i class="icon-plus-sign"></i>
-		        <div class="info">Create</div>
-		        <div class="status">New Job</div>
+		<div class="col-md-2 v4-metro v4-metro-deep-terques d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:add_job' %}">
+				<div class="text-center">
+		        <i class="fas fa-plus-circle fa-4x"></i>
+				</div>
+		        <div class="col1">Create new job</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-yellow double">
-		    <a data-original-title="" href="{% url 'ui:query_job' %}">
-		        <i class="icon-eye-open"></i>
-		        <div class="info">Running: {{ running_jobs }}</div>
-		        <div class="status">Job Status</div>
+		<div class="col-md-3 v4-metro v4-metro-yellow d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:query_job' %}">
+		        <div class="text-center"><i class="fas fa-eye fa-4x"></i></div>
+		        <div class="status">Job status (running: {{ running_jobs }})</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-green">
-		    <a data-original-title="" href="{% url 'ui:show_workspace' %}">
-		        <i class="icon-folder-open"></i>
-		        <div class="info"></div>
-		        <div class="status">Sample Pool</div>
+		<div class="col-md-2 v4-metro v4-metro-green d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:show_workspace' %}">
+		        <div class="text-center"><i class="fas fa-folder-open fa-4x"></i></div>
+		        <div class="status">Sample pool</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-red" style="margin-right: 0;">
-		    <a data-original-title="" href="http://bioqueue.nefu.edu.cn">
-		        <i class="icon-bar-chart"></i>
-		        <div class="status">Open Platform</div>
+		<div class="col-md-2 v4-metro v4-metro-red d-flex align-items-center">
+			<a data-original-title="" href="https://open.bioqueue.org">
+				<div class="text-center"><i class="fas fa-project-diagram fa-4x"></i></div>
+		        <div class="status">Open platform</div>
 		    </a>
 		</div>
-	</div>
-</div>
-<div class="row" style="padding: 5px; margin: 0 auto; width: 90%;">
-	<div class="metro-nav">
-		<div class="metro-nav-block nav-block-blue">
-		    <a data-original-title="" href="{% url 'ui:create_protocol' %}">
-		        <i class="icon-edit"></i>
-		        <div class="info">Create</div>
-		        <div class="status">Protocol</div>
+		<div class="col-md-2 v4-metro v4-metro-blue d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:create_protocol' %}">
+		        <div class="text-center"><i class="fas fa-clipboard fa-4x"></i></div>
+		        <div class="status">Create protocol</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-purple double">
-		    <a data-original-title="" href="{% url 'ui:query_protocol' %}">
-		        <i class="icon-pencil"></i>
-		        <div class="info">Edit</div>
-		        <div class="status">Protocol(Modify steps)</div>
+		<div class="col-md-3 v4-metro v4-metro-purple d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:query_protocol' %}">
+		        <div class="text-center"><i class="fas fa-edit fa-4x"></i></div>
+		        <div class="status">Edit protocol (modify steps)</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-olive">
-		    <a data-original-title="" href="{% url 'ui:manage_reference' %}">
-		        <i class="icon-book"></i>
-		        <div class="info">Manage</div>
-		        <div class="status">Reference</div>
+		<div class="col-md-2 v4-metro v4-metro-olive d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:manage_simple_models' 'create' 'Reference' %}">
+				<div class="text-center"><i class="fas fa-book fa-4x"></i></div>
+		        <div class="status">Manage reference</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-light-brown">
-		    <a data-original-title="" href="{% url 'ui:settings' %}">
-		        <i class="icon-cog"></i>
-		        <div class="info">Settings</div>
-		        <div class="status">Authorization required</div>
+		<div class="col-md-2 v4-metro v4-metro-brown d-flex align-items-center">
+			<a data-original-title="" href="{% url 'ui:settings' %}">
+		        <div class="text-center"><i class="fas fa-cogs fa-4x"></i></div>
+		        <div class="status">{% if user.is_staff %}<i class="fas fa-lock-open"></i>{% else %}<i class="fas fa-lock"></i>{% endif %} Settings</div>
 		    </a>
 		</div>
-		<div class="metro-nav-block nav-block-grey" style="margin-right: 0;">
-		    <a data-original-title="" href="/admin/auth/user">
-		        <i class="icon-ok"></i>
-		        <div class="info">Users</div>
-		        <div class="status">Authorization required</div>
+		<div class="col-md-2 v4-metro v4-metro-grey d-flex align-items-center">
+			<a data-original-title="" href="/admin/auth/user">
+		        <div class="text-center"><i class="fas fa-users fa-4x"></i></div>
+		        <div class="status">{% if user.is_staff %}<i class="fas fa-lock-open"></i>{% else %}<i class="fas fa-lock"></i>{% endif %} Users</div>
 		    </a>
 		</div>
 	</div>
@@ -104,39 +91,40 @@
 <hr/>
 {% include 'ui/foot.html' %}
 <div class="modal fade" id="cp" tabindex="-1" role="dialog" aria-labelledby="cyp">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="cyp">Change your password</h4>
-      </div>
-      <div class="modal-body">
-      <form action="{% url 'accounts:password_change' %}" method="post">
-          <div class="Validform_checktip alert" style="display: none;"></div>
-          <div class="form-group">
-              <label>Old Password</label>
-              <input type="password" class="form-control" name="old_password" id="old_password" placeholder="Old password" required>
-		  </div>
-		  <div class="form-group">
-              <label>New Password</label>
-              <input type="password" class="form-control" name="new_password_1" id="new_password_1" placeholder="New password" required>
-		  </div>
-		  <div class="form-group">
-              <label>Enter Your New Password Again</label>
-              <input type="password" class="form-control" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
-		  </div>
-		  {% csrf_token %}
-		  <div><button type="submit" class="btn btn-info">Change password</button></div>
-	  </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h4 class="modal-title" id="cyp">Change your password</h4>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<form action="{% url 'accounts:password_change' %}" method="post">
+					<div class="Validform_checktip alert" style="display: none;"></div>
+					<div class="form-group">
+						<label>Old Password</label>
+						<input type="password" class="form-control" name="old_password" id="old_password" placeholder="Old password" required>
+					</div>
+					<div class="form-group">
+						<label>New Password</label>
+						<input type="password" class="form-control" name="new_password_1" id="new_password_1" placeholder="New password" required>
+					</div>
+					<div class="form-group">
+						<label>Enter Your New Password Again</label>
+						<input type="password" class="form-control" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
+					</div>
+					{% csrf_token %}
+					<div><button type="submit" class="btn btn-info">Change password</button></div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
 </div>
-<script src="{% static "ui/js/jquery.js" %}"></script>
-<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
+	</div>
+<script src="{% static "ui/js/jquery-3.6.0.min.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.bundle.min.js" %}"></script>
 <script>
 $("form").submit(function(){
     var self = $(this);

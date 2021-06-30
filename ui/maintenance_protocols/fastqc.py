@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='fastqc',
-                        parameter='-o {Workspace} {InputFile}',
+                        parameter='-o {{Workspace}} {{InputFile}}',
                         parent=protocol_parent,
                         user_id=protocol_parent.user_id,
                         hash='3a24f9a8e2f78d22e6e310d2694c08c2',

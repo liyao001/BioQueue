@@ -1,0 +1,183 @@
+{% extends "ui/base.html" %}
+{% load tz %}
+{% block title %}Manage Sample Pool | BioQueue{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>My Sample Pool</h1>
+        <div style="padding-bottom: 9px;"><a class="dynamic-highlight" href="{% url 'ui:register_sample' %}"><i class="fas fa-file-signature"></i> Register sample</a></div>
+        <form class="form-inline mb-3" action="#" method="post">
+            <div class="form-row">
+                <div class="col">
+                    <input type="text" class="form-control" name="name" id="sample-name" placeholder="Sample name" {% if s_name != "" %}value="{{ s_name }}" {% endif %}>
+                </div>
+                <div class="col">
+                    <input type="text" class="form-control" name="attribute" id="comment" placeholder="Comment" {% if s_note != "" %}value="{{ s_note }}" {% endif %}>
+                </div>
+                <div class="col">
+                    <select class="form-control" name="experiment" id="experiment-selector">
+                        <option value="">Experiment</option>
+                        {% for ex in experiments %}
+                            <option value="{{ ex.id }}" {% if s_exp == ex.id %}selected="selected"{% endif %}>{{ ex.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-secondary">Search</button>
+                </div>
+            </div>
+        {% csrf_token %}
+        </form>
+    </div>
+    {% if samples %}
+        {% include "ui/registered_sample_cards.html" %}
+    {% else %}
+        <div class="alert alert-warning">You have not uploaded or registered any file yet.</div>
+    {% endif %}
+    <nav aria-label="Page navigation" class="mx-auto">
+        <ul class="pagination justify-content-center">
+            {% if raw.has_previous %}
+            <li class="page-item">
+                <a href="?page={{ raw.previous_page_number }}" aria-label="Previous" class="page-link">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">
+                    <span aria-hidden="true">Page {{ raw.number }} of {{ raw.paginator.num_pages }}</span>
+                </span>
+            </li>
+            {% if raw.has_next %}
+            <li class="page-item">
+                <a href="?page={{ raw.next_page_number }}" aria-label="Next" class="page-link">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% if user_ref_files %}
+        <div class="page-header">
+            <h1>My Reference Files</h1>
+        </div>
+        <table class="table table-bordered table-hover">
+            <thead>
+            <tr>
+                <th>File Name</th>
+                <th>File Size</th>
+                <th>Create Time</th>
+                <th>Operate</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for file_item in user_ref_files %}
+                <tr>
+                    <td>{{ file_item.name }}</td>
+                    <td>{{ file_item.file_size | filesizeformat }}</td>
+                    <td>{{ file_item.file_create }}</td>
+                    <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;'
+                              onclick=delSample(this);><i class="icon-trash"></i> Delete</span> <a
+                            class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}'
+                            style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    <div class="modal fade" id="showCR" tabindex="-1" role="dialog" aria-labelledby="cr">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="cr">Use uploaded file as reference</h4>
+                </div>
+                <div class="modal-body">
+                    <form class="form" method="post" action="/ui/create-reference-shortcut/">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Reference Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required/>
+                            <small class="form-text text-muted">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example,
+                                GENOME_HG38_FA.</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="name">Description (optional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" class="form-control" id="path" name="path" maxlength="255" required/>
+                        <input type="hidden" class="form-control" id="source" name="source" value="upload" required/>
+                        <input type="submit" class="btn btn-success btn-block btn-large" value="Add"/>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+        var csrftoken = $.cookie('csrftoken');
+        $.ajaxSetup({
+            beforeSend: function (xhr, settings) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        });
+        $("form1").submit(function () {
+            var self = $(this);
+            $.post(self.attr("action"), self.serialize(), success, "json");
+            return false;
+
+            function success(data) {
+                if (data.status) {
+                    post_msg("Created");
+                    self[0].reset();
+                    $('#showCR').modal('hide');
+                } else {
+                    post_msg(data.info, 1);
+                }
+            }
+        });
+
+        function showQuickRef(obj) {
+            var self = $(obj);
+            $('#showCR #path').val(self.attr("data-path"));
+            $('#showCR').modal();
+        };
+
+        function delSample(obj) {
+            var self = $(obj);
+            $.get("{% url 'ui:manage_simple_models' 'delete' 'Sample' %}",
+                  {id: self.data("id")},
+                  function (data) {
+                  if (data.status) {
+                        $(".sample-rows-"+self.data("id")).hide("fast");
+                  };
+            });
+        };
+
+        function fs(obj) {
+            var self = $(obj);
+            $.get("{% url 'ui:file_support' %}",
+                {
+                    exp: self.data("exp"),
+                    support: self.data("support"),
+                    file: self.data("file")
+                },
+                function (data) {
+                    if (data.status) {
+                        post_msg(data.info);
+                    } else {
+                        post_msg(data.info, 1);
+                    }
+                });
+        }
+        $(".file-links").each(function () {
+            let self = $(this);
+            let files = self.data("rp").split(";");
+            let shallow_names = self.text().split(";");
+            let rendered_content = "";
+            let url_template = "{% url "ui:download_file" 0 "BIOQ" %}";
+            files.forEach(function (file, index, array) {
+                rendered_content += '<a href="' + url_template.replace("BIOQ", btoa(file)) + '">' + shallow_names[index] + '</a>; ';
+            });
+            self.html(rendered_content);
+        });
+{% endblock %}

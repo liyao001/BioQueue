@@ -1,0 +1,272 @@
+{% extends "ui/base.html" %}
+{% block title %}Register Sample | BioQueue{% endblock %}
+{% block content %}
+    <div class="page-header">
+        <h1>Register Sample</h1>
+    </div>
+    {{ form }}
+    {% if user_files %}
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">Choose uploaded files from the following list or type in the textbox to filter out interested items</span>
+            </div>
+            <input id="uploader-filter" type="text" class="form-control">
+        </div>
+        <hr>
+        <table class="table table-bordered table-hover" id="uploaded-file-table">
+            <thead>
+            <tr>
+                <th class="text-center align-middle">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="batch_register(this);" title="Register selected samples"><i class="fas fa-check-double"></i></button>
+                </th>
+                <th class="align-middle">File Name</th>
+                <th class="align-middle">File Size</th>
+                <th class="align-middle">Create Time</th>
+                <th class="align-middle">Operation</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for file_item in user_files %}
+                <tr>
+                    <td class="text-center align-middle"><input type="checkbox" class="batch_operation" name="batch_operation" data-path="{{ file_item.trace }}" data-inner="{{ file_item.raw }}"></td>
+                    <td class="align-middle">{{ file_item.name }}</td>
+                    <td class="align-middle">{{ file_item.file_size | filesizeformat }}</td>
+                    <td class="align-middle">{{ file_item.file_create }}</td>
+                    <td class="align-middle">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Operations for sample {{ file_item.name }}">
+                            <button type="button" class="btn btn-secondary" title="Register this sample" data-path='{{ file_item.trace }}' data-inner='{{ file_item.raw }}'
+                               onclick=showRegister(this);><i class="fas fa-save"></i></button>
+                            <button type="button" class="btn btn-secondary" title="Delete" data-path="{{ file_item.trace }}"
+                                                                              onclick=delFile(this);><i class="fas fa-trash-alt"></i></button>
+                            <a class="btn btn-secondary" href="/ui/download-file/f/{{ file_item.trace }}" title="Download file"><i class="fas fa-download"></i></a>
+                            <button type="button" class="btn btn-secondary" data-path='{{ file_item.trace }}'
+                                                                              onclick=showQuickRef(this); title="Create a reference"><i class="fas fa-book"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-warning">You have not uploaded any file yet.</div>
+    {% endif %}
+    {% if user_ref_files %}
+        <div class="page-header">
+            <h1>My Reference Files</h1>
+        </div>
+        <table class="table table-bordered table-hover">
+            <thead>
+            <tr>
+                <th>File Name</th>
+                <th>File Size</th>
+                <th>Create Time</th>
+                <th>Operate</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for file_item in user_ref_files %}
+                <tr>
+                    <td>{{ file_item.name }}</td>
+                    <td>{{ file_item.file_size | filesizeformat }}</td>
+                    <td>{{ file_item.file_create }}</td>
+                    <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;'
+                              onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a
+                            class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}'
+                            style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    <div class="modal fade" id="register-sample" tabindex="-1" role="dialog" aria-labelledby="rs">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sr">Register sample</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <form class="form" method="post" action="{% url 'ui:register_sample' %}">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Sample Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required/>
+                            <small class="form-text text-muted">Human friendly name of the sample.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="protocol-selector">Experiment type</label>
+                            <select class="form-control input-xlarge" id="experiment-selector" name="experiment"
+                                    onchange="parse_questions(this);" required>
+                                <option data-questions="None" value="">Please choose an experiment</option>
+                                {% for experiment in experiments %}
+                                    <option data-questions="{{ experiment.required_fields }}"
+                                            value="{{ experiment.id }}">{{ experiment.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="name">Description (strongly recommended)</label>
+                            <textarea class="form-control" id="sample-attribute" name="attribute" rows="5"></textarea>
+                        </div>
+                        <input type="hidden" class="form-control" id="rs-path" name="file_path" maxlength="500"
+                               required/>
+                        <input type="hidden" class="form-control" id="us-path" name="inner_path" maxlength="500"
+                               required/>
+                        <input type="submit" class="btn btn-success btn-block btn-large" value="Add"/>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="showCR" tabindex="-1" role="dialog" aria-labelledby="cr">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="cr">Use uploaded file as reference</h4>
+                </div>
+                <div class="modal-body">
+                    <form class="form" method="post" action="/ui/create-reference-shortcut/">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Reference Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required/>
+                            <small class="form-text text-muted">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example,
+                                GENOME_HG38_FA.</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="name">Description (optional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" class="form-control" id="path" name="path" maxlength="255" required/>
+                        <input type="hidden" class="form-control" id="source" name="source" value="upload" required/>
+                        <input type="submit" class="btn btn-success btn-block btn-large" value="Add"/>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+        var csrftoken = $.cookie('csrftoken');
+        $.ajaxSetup({
+            beforeSend: function (xhr, settings) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        });
+        $("form").submit(function () {
+            var self = $(this);
+            $.post(self.attr("action"), self.serialize(), success, "json");
+            return false;
+
+            function success(data) {
+                if (data.status) {
+                    Messenger().post({
+                        message: 'Created.',
+                        showCloseButton: true
+                    });
+                    self[0].reset();
+                    $('#uploaded-file-table :checkbox:enabled').prop('checked', false);
+                    $('#showCR').modal('hide');
+                    $('#register-sample').modal('hide');
+                    location.reload();
+                } else {
+                    Messenger().post({
+                        message: data.info,
+                        type: 'error',
+                        showCloseButton: true,
+                    });
+                }
+            }
+        });
+
+        function showRegister(obj) {
+            var self = $(obj);
+            $('#register-sample #rs-path').val(self.attr("data-path"));
+            $('#register-sample #us-path').val(self.attr("data-inner"));
+            $('#register-sample').modal();
+        };
+
+        function showQuickRef(obj) {
+            var self = $(obj);
+            $('#showCR #path').val(self.attr("data-path"));
+            $('#showCR').modal();
+        };
+
+        function delFile(obj) {
+            var self = $(obj);
+            $.get("/ui/delete-upload-file/" + self.attr("data-path"), function (data) {
+                if (data.status) {
+                    self.parent().parent().parent().hide('fast');
+                }
+                ;
+            });
+        };
+
+        function fs(obj) {
+            var self = $(obj);
+            $.get("{% url 'ui:file_support' %}",
+                {
+                    ext: self.attr("data-ext"),
+                    support: self.attr("data-support"),
+                    file: self.attr("data-file")
+                },
+                function (data) {
+                    if (data.status) {
+                        Messenger().post({
+                            message: data.info,
+                            showCloseButton: true
+                        });
+                    } else {
+                        Messenger().post({
+                            message: data.info,
+                            type: 'error',
+                            showCloseButton: true
+                        });
+                    }
+                });
+        }
+
+        function parse_questions(obj) {
+            var self = $("#experiment-selector :selected");
+            self.data("questions").split(";").forEach(function (item) {
+                if (item != "") {
+                    $("#sample-attribute").val($("#sample-attribute").val() + item + ":\n")
+                }
+            });
+        }
+
+        function batch_register(){
+            var innerPaths = new Array;
+            var filePaths = new Array;
+            $(":checkbox").each(function(i){
+                if($(this).prop("checked")){
+                    innerPaths[i] = $(this).data("inner");
+                    filePaths[i] = $(this).data("path");
+                }
+            });
+            innerPaths = innerPaths.filter(Boolean);
+            filePaths = filePaths.filter(Boolean);
+            var inners = innerPaths.join(';');
+            var files = filePaths.join(';');
+            if (inners){
+                $("#rs-path").val(files);
+                $("#us-path").val(inners);
+                $('#register-sample').modal();
+            }else{
+                alert("Please check items!");
+            }
+        }
+
+        $("#uploader-filter").on('input', function (e) {
+            $("#uploaded-file-table tbody tr").each(function (index) {
+                var row = $(this);
+                var col = row.children().eq(1);
+                if (col.text().search($("#uploader-filter").val()) == -1) {
+                    col.parent().hide();
+                } else {
+                    col.parent().show();
+                }
+            });
+        });
+{% endblock %}

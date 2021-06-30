@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='git',
-                        parameter='clone {InputFile}',
+                        parameter='clone {{InputFile}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='f95d6d36a0d0cae61a03704b46f72892',

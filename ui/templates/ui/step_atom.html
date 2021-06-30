@@ -1,0 +1,59 @@
+<div class="form-group">
+    <label class="control-label" for="software">Software</label>
+    <div class="input-group mb-3">
+        <input type="text" class="form-control input-xlarge" id="software" name="software" required/>
+        <div class="input-group-append">
+            <button type="button" onclick="fetchKB(this);" class="btn btn-outline-secondary">How to use the software?</button>
+        </div>
+    </div>
+    <div class="hints" style="display: none;">
+        <button type="button" class="close" onclick="$(this).parent().hide();" data-dismiss="alert" aria-label="Close"><span
+                aria-hidden="true">&times;</span></button>
+        <div class="hints-container"></div>
+    </div>
+</div>
+<div class="form-group">
+    <label class="control-label" for="parameter">Parameter</label>
+    <textarea class="form-control parameter-ac" id="parameter" name="parameter" rows="5" required></textarea>
+</div>
+<div class="form-group">
+    <details>
+        <summary>
+            Having expectations of resources this step takes?
+        </summary>
+        <div class="row">
+            <div class="col-md-4">
+                <label for="prior_cpu">CPU</label>
+                <input type="number" class="form-control prior_cpus" id="prior_cpu" name="prior_cpu" value="-1">
+                <small class="form-text text-muted">Percent of expected CPU usage. For example, if you specify a software to work with two parallel threads/subprocesses, then you can specify the value here as <coode>200</coode>. Leave it as <code>-1</code> if no info about it is available.</small>
+            </div>
+            <div class="col-md-4">
+                <label for="prior_mem">Memory</label>
+                <input type="number" class="form-control prior_mems" id="prior_mem" name="prior_mem" value="-1">
+                <small class="form-text text-muted">Expected peak memory usage in the unit of bytes. Leave it as <code>-1</code> if no info about it is available.</small>
+            </div>
+            <div class="col-md-4">
+                <label for="prior_disk">Disk</label>
+                <input type="number" class="form-control prior_disks" id="prior_disk" name="prior_disk" value="-1">
+                <small class="form-text text-muted">Expected disk usage in the unit of bytes. Leave it as <code>-1</code> if no info about it is available.</small>
+            </div>
+        </div>
+    </details>
+</div>
+<div class="form-group">
+    <label for="env-selector">Virtual environment</label>
+    <select class="form-control input-xlarge" id="env-selector" name="env">
+        <option value="">Specify a virtual environment</option>
+        {% for env in user_envs %}
+            <option value="{{ env.id }}">{{ env.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="form-group">
+    <label for="force_local">Force BioQueue to run the step locally instead of submitting to clusters.</label>
+    <select name="force_local" id="force_local">
+        <option value="0">No</option>
+        <option value="1">Yes</option>
+    </select>
+    <small class="form-text text-muted">It will work only in cluster mode. When you run BioQueue in clusters, the computing nodes may not connect to the internet, so software, like wget, fastq-dump may not work. Under this circumstance, you can force BioQueue to run this step in local.</small>
+</div>

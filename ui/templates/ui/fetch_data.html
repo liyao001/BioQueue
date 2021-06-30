@@ -5,16 +5,16 @@
     <h1>Fetch Data</h1>
 </div>
     <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
-        <div class="panel panel-default">
-            <div class="panel-heading" role="tab" id="single">
-                <h4 class="panel-title">
-                    <a data-toggle="collapse" data-parent="#accordion" href="#ebi-panel" aria-expanded="true" aria-controls="ebi-panel">
-                        <i class="glyphicon glyphicon-cloud"></i> Fetch Data By Accession ID
-                    </a>
-                </h4>
+        <div class="card panel-default">
+            <div class="card-header" role="tab" id="single">
+                <h5 class="panel-title mb-0">
+                    <button class="btn" data-toggle="collapse" href="#ebi-panel" aria-expanded="true" aria-controls="ebi-panel">
+                        <i class="fas fa-cloud"></i> Fetch Data By Accession ID
+                    </button>
+                </h5>
             </div>
-            <div id="ebi-panel" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="single">
-                <div class="panel-body">
+            <div id="ebi-panel" class="collapse show" role="tabpanel" aria-labelledby="single" data-parent="#accordion">
+                <div class="card-body">
                     <form class="form" id="fetch-data-form" style="margin-top:9px; margin-bottom:0;">
                         <div class="form-group">
                             <label for="acc-id">Accession ID </label>

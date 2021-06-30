@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='gunzip',
-                        parameter='{LastOutput}',
+                        parameter='{{LastOutput}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='0603ff9d39724ecd6d62be4618901b54',

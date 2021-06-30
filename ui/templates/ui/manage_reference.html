@@ -9,7 +9,7 @@
         <div class="form-group">
             <label class="control-label" for="name">Reference Name</label>
             <input type="text" class="form-control" id="name" name="name" required />
-            <p class="help-block">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</p>
+            <small class="form-text text-muted">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</small>
         </div>
         <div class="form-group">
             <label class="control-label" for="path">Reference Value</label>
@@ -24,11 +24,11 @@
     <hr>
     <div class="page-header">
         <h1>Reference List</h1>
+        <small><i class="icon-lightbulb"></i> References marked by green are shared/common references across the entire system.</small>
     </div>
     <table class="table table-bordered" id="rtable">
         <thead>
         <tr>
-            <th>ID</th>
             <th>Key</th>
             <th>Value</th>
             <th>Description</th>
@@ -37,12 +37,15 @@
         </thead>
         <tbody>
         {% for ref in references %}
-            <tr class="pending-user">
-                <td>{{ ref.id }}</td>
+            <tr class="pending-user {% if ref.user_id == '0' %}success{% endif %}">
                 <td>{{ ref.name }}</td>
-                <td class="editble" onclick="edit(this);" data-sid="{{ ref.id }}">{{ ref.path }}</td>
+                {% if ref.user_id != '0' %}
+                    <td class="editble" onclick="edit(this);" data-sid="{{ ref.id }}">{{ ref.path }}</td>
+                {% else %}
+                    <td data-sid="{{ ref.id }}">{{ ref.path }}</td>
+                {% endif %}
                 <td>{{ ref.description }}</td>
-                <td><span class="user-actions"><span onclick="delReference(this);" data-rid="{{ ref.id }}" class="label label-danger" style="cursor:pointer;">Delete</span></span></td>
+                <td>{% if ref.user_id != '0' %}<span class="user-actions"><span onclick="delReference(this);" data-rid="{{ ref.id }}" class="label label-danger" style="cursor:pointer;">Delete</span></span>{% endif %}</td>
             </tr>
         {% endfor %}
         </tbody>
@@ -80,7 +83,7 @@
         var table1 = $('#rtable');
         var firstTr = table1.find('tbody>tr:first');
         var row = $("<tr class='pending-user'></tr>");
-        var td = "<td>"+rid+"</td><td>"+key+"</td><td>"+value+"</td><td>"+description+"</td><td><span class='user-actions'><span onclick='delReference(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
+        var td = "<td>"+key+"</td><td>"+value+"</td><td>"+description+"</td><td><span class='user-actions'><span onclick='delReference(this);' data-rid='"+rid+"' class='label label-important' style='cursor:pointer;'>Delete</span></span></td>";
         row.append(td);
         table1.append(row);
     }
@@ -122,7 +125,13 @@
         $.get("{% url 'ui:delete_reference' %}", {ref: self.attr("data-rid")}, function(data){
             if(data.status){
                 self.parent().parent().parent().hide("slow");
-		    };
+		    }else{
+                Messenger().post({
+                    message: data.info,
+                    type: 'error',
+                    showCloseButton: true
+                });
+            };
 	    });
     }
 {% endblock %}

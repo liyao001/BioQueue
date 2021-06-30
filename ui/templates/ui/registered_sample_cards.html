@@ -1,0 +1,40 @@
+{% load tz %}
+<table class="table table-bordered table-hover">
+    <thead>
+    <tr>
+        <th class="align-middle">Sample Name</th>
+        <th class="align-middle">Assay</th>
+        <th class="align-middle">Create Time</th>
+        <th class="align-middle">Operation</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for file_item in samples %}
+        <tr class="sample-row-{{ file_item.id }}">
+            <td class="align-middle">{{ file_item.name }}</td>
+            <td class="align-middle">{{ file_item.exp }}</td>
+            <td class="align-middle">{{ file_item.create_time | localtime }}</td>
+            <td class="align-middle">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Operations for sample {{ file_item.name }}">
+                    <button type="button" class="btn btn-secondary" title="Delete" data-id="{{ file_item.id }}" onclick="delSample(this);"><i class="fas fa-trash-alt"></i></button>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            More
+                        </button>
+                        <div class="dropdown-menu">
+                        {% for fs in file_item.file_support %}
+                            <a class="dropdown-item" href="#" data-file="{{ file_item.inner }}" data-exp="{{ file_item.exp }}" data-support="{{ fs.1 }}" onclick="fs(this);">{{ fs.0 }}</a>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr class="sample-row-{{ file_item.id }}">
+            <td colspan="4">File name: <span class="file-links" data-rp="{{ file_item.rp }}">{{ file_item.raw }}</span>
+                <p class="editable" onclick="edit_multiline(this);" data-id="{{ file_item.id }}"
+                   data-bind="{% url 'ui:update_sample_attr' %}">{{ file_item.attribute|linebreaksbr }}</p></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

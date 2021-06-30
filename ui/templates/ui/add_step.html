@@ -26,7 +26,7 @@
             <option value="0">No</option>
             <option value="1">Yes</option>
         </select>
-        <span class="help-block">It will work only in cluster mode. When you run BioQueue in clusters, the computing nodes may not connect to the internet, so software, like wget, fastq-dump may not work. Under this circumstance, you can force BioQueue to run this step in local.</span>
+        <small class="form-text text-muted">It will work only in cluster mode. When you run BioQueue in clusters, the computing nodes may not connect to the internet, so software, like wget, fastq-dump may not work. Under this circumstance, you can force BioQueue to run this step in local.</small>
     </div>
     <hr/>
     <input type="hidden" name="parent" id="step-parent" value="{{ parent }}">
