@@ -1,14 +1,8 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# @Time    : 05/01/2018 2:12 PM
-# @Project : main
-# @Author  : Li Yao
-# @File    : ena.py
-from __future__ import print_function
-try:
-    from urllib2 import urlopen
-except ImportError:
-    from urllib.request import urlopen
+# coding=utf-8
+# @Author: Li Yao
+# @Date: 05/01/20
+import requests
 import json
 
 
@@ -35,14 +29,18 @@ def get_download_link(acc, field="fastq_ftp"):
         print("Unsupported accession type %s" % acc)
         return []
     api_bus = 'https://www.ebi.ac.uk/ena/portal/api/search?result=read_run&query="%s=%s"&fields=%s&format=json' % (keyword, acc, field)
-    res_data = urlopen(api_bus)
-    ret = res_data.read()
-    if ret:
-        res = json.loads(ret)
-        for run in res:
-            links.extend(run[field].split(";"))
-        return links
-    else:
+    # res_data = urlopen(api_bus)
+    # ret = res_data.read()
+    try:
+        response = requests.get(api_bus)
+        if response.ok:
+            res = response.json()
+            for run in res:
+                links.extend(run[field].split(";"))
+            return links
+        else:
+            return []
+    except:
         return []
 
 
@@ -55,8 +53,11 @@ def get_accession(query):
     api_bus = "http://www.ebi.ac.uk/ebisearch/ws/rest/nucleotideSequences?query=%s&fieldurl=true&viewurl=true&format=json" % query
     sra_list = list()
     try:
-        res_data = urlopen(api_bus)
-        res = json.loads(res_data.read())
+        response = requests.get(api_bus)
+        if response.ok:
+            res = response.json()
+        else:
+            return 0
         if res["hitCount"] == 0:
             return 0
         for entry in res["entries"]:
@@ -86,5 +87,5 @@ def query_download_link_from_ebi(query):
         return []
 
 
-if __name__ == "__main__":
-    query_download_link_from_ebi("GSE60456")
+# if __name__ == "__main__":
+#     print(query_download_link_from_ebi("GSM3318211"))

@@ -1,0 +1,196 @@
+{% extends "ui/base.html" %}
+{% block title %}Archive files | BioQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>Archive files </h1>
+<!--        {% if connect_tag == 1 %}-->
+<!--        <div class="warning alert-warning" role="alert">-->
+<!--            <i class="fas fa-exclamation-triangle"></i>-->
+<!--            <span class="sr-only">Note:</span>-->
+<!--            Please connect your BioQueue account with Google Drive account.-->
+<!--        </div>-->
+<!--        {% endif %}-->
+    </div>
+    <div class="panel-group" id="accordion-page" role="tablist" aria-multiselectable="true">
+    <div class="card">
+        <div class="card-header" role="tab" id="head-save">
+            <h5 class="panel-title mb-0">
+                <button class="btn" role="button" data-toggle="collapse" href="#collapse-save"
+                    {% if lf == 0 %}aria-expanded="true"{% endif %} aria-controls="collapse-save">
+                    Archive files
+                </button>
+            </h5>
+        </div>
+        <div id="collapse-save" class="collapse show {% if lf == 0 %}in{% endif %}" role="tabpanel" aria-labelledby="head-save" data-parent="#accordion-page">
+            <div class="card-body">
+                <div class="row-fluid">
+                    <form class="form" id="single-tar-form" method="post" action="."
+                        style="margin-top:9px; margin-bottom:0;">
+                        <div id="jobfile-container" class="form-group alert alert-info" role="alert">
+                            <div class="form-group">
+                                <label>Name of the job that you want to store</label>
+                                <input type="text" class="form-control advancedAutoComplete"
+                                    data-url="{% url 'ui:get_job_list' %}" autocomplete="off" id="prev_jobs"
+                                    name="job" />
+                            </div>
+                            <div class="form-group">
+                                <label>Select the file</label>
+                                <select class="form-control" id="job-file-selector">
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="input_files">Selected files</label>
+                            <input type="text" class="form-control" id="input_files" name="input_files" required />
+                            <small class="form-text text-muted">Files to be archived.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="shared_with">After archiving, share the archived file with: (not implemented yet)</label>
+                            <input type="text" class="form-control" id="shared_with" name="shared_with" />
+                            <small class="form-text text-muted">Must be in this format: <code>abc@yaobio.com,def@yaobio.com,</code>
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description about this archive</label>
+                            <textarea name="description" id="description" class="form-control" rows="3"
+                                required></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 9px;">
+                            <button type="submit" class="btn btn-success btn-large btn-block">Archive</button>
+                        </div>
+                        {% csrf_token %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header" role="tab" id="head-list">
+            <h5 class="mb-0">
+                <button class="btn" role="button" data-toggle="collapse"
+                    {% if lf == 1 %}aria-expanded="false"{% endif %} href="#collapse-list" aria-controls="collapse-list">
+                    Archived files
+                </button>
+            </h5>
+        </div>
+        <div id="collapse-list" class="collapse show {% if lf == 1 %}in{% endif %}" role="tabpanel" aria-labelledby="head-list" data-parent="#accordion-page">
+            <div class="card-body">
+                <div class="row-fluid">
+                    <div class="panel-group" id="accordion-archives" role="tablist" aria-multiselectable="true">
+                        {% for rxv in rxvs %}
+                        <div class="card">
+                            <div class="card-header {% if rxv.audit %}alert-warning{% endif %}" role="tab" id="rxvh-{{rxv.id}}" {% if rxv.audit %}title="Archived files were not generated from the latest files"{% endif %}>
+                                <h5 class="mb-0">
+                                    <button class="btn" role="button" data-toggle="collapse"
+                                        data-parent="#accordion-archives" href="#rxv-{{rxv.id}}" aria-expanded="true"
+                                        aria-expanded="false" aria-controls="rxv-{{rxv.id}}">
+                                        {% if rxv.status == 0 %}<i class="fas fa-spinner" title="In queue"></i>{% elif rxv.status < 0 %}<i class="fas fa-cloud-upload-alt" title="Archiving"></i>{% else %}<i class="fas fa-smile" title="Archived"></i>{% endif %} {{rxv.id}} - {{rxv.job.job_name }} ({% if rxv.status == 0 %}In queue{% elif rxv.status < 0 %}Archiving{% else %}Archived{% endif %})
+                                    </button>
+                                </h5>
+                            </div>
+                            <div id="rxv-{{rxv.id}}" class="panel-collapse collapse" role="tabpanel"
+                                aria-labelledby="rxvh-{{rxv.id}}">
+                                <div class="card-body">
+                                    <ul class="unstyle">
+                                        <li><b>Protocol:</b> {{ rxv.protocol.name }}</li>
+                                        <li><b>Protocol version:</b> {{ rxv.protocol_ver }}</li>
+                                        <li><b>Shared with:</b> {{ rxv.shared_with }}</li>
+                                        <li><b>Created at:</b> {{ rxv.create_time }}</li>
+                                        <li><b>Archived files:</b> {{ rxv.raw_files }}</li>
+                                        <li><b>Description:</b>
+                                            <p>{{ rxv.description }}</p>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <nav aria-label="Page navigation" class="mx-auto mt-3">
+        <ul class="pagination justify-content-center">
+            {% if rxvs.has_previous %}
+            <li class="page-item">
+                <a href="?page={{ rxvs.previous_page_number }}" aria-label="Previous" class="page-link">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">
+                    <span aria-hidden="true">Page {{ rxvs.number }} of {{ rxvs.paginator.num_pages }}</span>
+                </span>
+            </li>
+            {% if rxvs.has_next %}
+            <li class="page-item">
+                <a href="?page={{ rxvs.next_page_number }}" aria-label="Next" class="page-link">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+</div>
+{% endblock %}
+{% block script %}
+$("#archive-job-files").addClass("active");
+$(".job-nav").addClass("active");
+$('#prev_jobs').autoComplete({
+    resolver: 'custom',
+    events: {
+        search: function (qry, callback) {
+            $.ajax('{% url 'ui:get_job_list' %}',
+                {
+                    data: {'q': qry}
+                }
+        ).
+            done(function (res) {
+                callback(res.results)
+            });
+        }
+    }
+});
+$('#prev_jobs').on('autocomplete.select', function(evt, item) {
+    $.ajax({
+        dataType: "json",
+        url: "{% url 'ui:get_job_file_list' %}?id="+item.id,
+        success: function(data){
+            $("#job-file-selector").html('<option value="--">Select a file</option>');
+            $.each(data, function(){
+                $("#job-file-selector").append('<option value="'+item.id+'-'+ this.name +'">'+ this.name +'</option>');
+            });
+        },
+        statusCode: {
+            403: function() {
+                return false;
+            }
+        }
+    });
+});
+$("#job-file-selector").change(function() {
+    if($("#job-file-selector").val()!="--"){
+    {% verbatim %}
+        if($("#input_files").val()==""){
+            $("#input_files").val("{{History:"+$("#job-file-selector").val()+"}}");
+        }else{
+            $("#input_files").val($("#input_files").val()+";{{History:"+$("#job-file-selector").val()+"}}")
+        }
+    {% endverbatim %}
+    }
+});
+$("#single-tar-form").submit(function () {
+    generic_form_post(this);
+    return false;
+});
+
+$(function () {
+    $('[data-toggle="popover"]').popover();
+});
+{% endblock %}

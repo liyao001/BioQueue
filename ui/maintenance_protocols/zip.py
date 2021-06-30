@@ -9,7 +9,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='unzip',
-                        parameter='{LastOutput}',
+                        parameter='{{LastOutput}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='728ab46516121c0215887cd60bcbb8bd',

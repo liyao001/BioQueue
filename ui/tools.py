@@ -1,26 +1,7 @@
 from django.http import JsonResponse, StreamingHttpResponse
-from worker.baseDriver import get_config, rand_sig, get_user_folder_size
+from worker.bases import get_config, rand_sig, get_user_folder_size
+from django.core.paginator import EmptyPage, PageNotAnInteger
 import os
-
-
-def success(message, jump_url='.', msg_title="success", status=1, wait_second=1):
-    json_data = dict()
-    json_data['msg_title'] = msg_title
-    json_data['info'] = message
-    json_data['url'] = jump_url
-    json_data['status'] = status
-    json_data['wait_second'] = wait_second
-    return JsonResponse(json_data)
-
-
-def error(message, jump_url='.', msg_title="error", status=0, wait_second=3):
-    json_data = dict()
-    json_data['msg_title'] = msg_title
-    json_data['info'] = str(message)
-    json_data['url'] = jump_url
-    json_data['status'] = status
-    json_data['wait_second'] = wait_second
-    return JsonResponse(json_data)
 
 
 def build_json_protocol(protocol):
@@ -41,18 +22,6 @@ def build_json_reference(ref):
     return JsonResponse(','.join(result), safe=False)
 
 
-def delete_file(file_path):
-    import os
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            return success('Deleted')
-        else:
-            return error('File can not be found.')
-    except Exception as e:
-        return error(e)
-
-
 def check_user_existence(username):
     from django.contrib.auth.models import User
     try:
@@ -60,15 +29,6 @@ def check_user_existence(username):
         return u.id
     except Exception as e:
         return 0
-
-
-def handle_uploaded_file(f):
-    import os
-    file_name = os.path.join(get_config('env', 'batch_job'), rand_sig()+'.txt')
-    with open(file_name, 'wb+') as destination:
-        for chunk in f.chunks():
-            destination.write(chunk)
-    return file_name
 
 
 def check_disk_quota_lock(user):
@@ -82,24 +42,27 @@ def check_disk_quota_lock(user):
         return 1
 
 
+def delete_file(file_path):
+    import os
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return success('Deleted')
+        else:
+            return error('File can not be found.')
+    except Exception as e:
+        return error(e)
+
+
 def get_disk_quota_info(user):
     try:
         disk_pool = int(get_config('env', 'disk_quota'))
         disk_used = get_user_folder_size(user)
         disk_perc = int(round(disk_used / disk_pool * 100))
-    except:
+    except Exception as e:
+        print(e)
         disk_pool = disk_used = disk_perc = 0
     return disk_pool, disk_used, disk_perc
-
-
-def os_to_int():
-    import platform
-    if platform.system() == 'Linux':
-        return 1
-    elif platform.system() == 'Darwin':
-        return 3
-    else:
-        return 2
 
 
 def get_maintenance_protocols():
@@ -114,3 +77,53 @@ def get_maintenance_protocols():
             continue
         protocols.append(model_name.replace('.py', ''))
     return protocols
+
+
+def error(message, jump_url='.', msg_title="error", status=0, wait_second=3):
+    json_data = dict()
+    json_data['msg_title'] = msg_title
+    json_data['info'] = str(message)
+    json_data['url'] = jump_url
+    json_data['status'] = status
+    json_data['wait_second'] = wait_second
+    return JsonResponse(json_data)
+
+
+def handle_uploaded_file(f):
+    import os
+    file_name = os.path.join(get_config('env', 'batch_job'), rand_sig()+'.txt')
+    with open(file_name, 'wb+') as destination:
+        for chunk in f.chunks():
+            destination.write(chunk)
+    return file_name
+
+
+def os_to_int():
+    import platform
+    if platform.system() == 'Linux':
+        return 1
+    elif platform.system() == 'Darwin':
+        return 3
+    else:
+        return 2
+
+
+def page_info(page_model, page):
+    try:
+        items = page_model.page(page)
+    except PageNotAnInteger:
+        items = page_model.page(1)
+    except EmptyPage:
+        items = page_model.page(page_model.num_pages)
+    return items
+
+
+def success(message, jump_url='.', msg_title="success", status=1, wait_second=1):
+    json_data = dict()
+    json_data['msg_title'] = msg_title
+    json_data['info'] = message
+    json_data['url'] = jump_url
+    json_data['status'] = status
+    json_data['wait_second'] = wait_second
+    return JsonResponse(json_data)
+

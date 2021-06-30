@@ -1,4 +1,4 @@
-{% load staticfiles %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,9 +6,9 @@
 <title>{% block title %}{% endblock %}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="author" content="Li Yao">
-<link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
+<link href="{% static "ui/css/bootstrap.min.css" %}" rel="stylesheet" media="screen">
 <link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-<link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
+<link href="{% static "ui/fontawesome/css/all.min.css" %}" rel="stylesheet">
 <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -41,8 +41,8 @@
   </div>
   <hr>
 <footer class="well" style="text-align:center;">Created By Li Yao.</footer>
-<script src="{% static "ui/js/jquery.js" %}"></script>
-<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
+<script src="{% static "ui/js/jquery-3.6.0.min.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.bundle.min.js" %}"></script>
 <script>
 {% block script %}{% endblock %}
 </script>

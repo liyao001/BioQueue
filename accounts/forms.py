@@ -84,19 +84,23 @@ class UserRegisterForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'email')
+        fields = ('username', 'first_name', 'last_name', 'email')
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}),
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username / Project name'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First name'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last name'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'E-mail'}),
         }
         labels = {
             'username': False,
             'first_name': False,
+            'last_name': False,
             'email': False,
         }
         help_texts = {
             'username': False,
+            'first_name': False,
+            'last_name': False,
         }
 
     def clean_password2(self):

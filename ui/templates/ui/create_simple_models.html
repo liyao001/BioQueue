@@ -1,0 +1,73 @@
+{% extends 'ui/base.html' %}
+{% block title %}{{ model_name }} | BioQueue{% endblock %}
+{% block content %}
+<div class="row-fluid">
+    <div class="page-header">
+        <h1>{{ model_name }}</h1>
+        {% if page_help %}<p>{{ page_help|safe }}</p>{% endif %}
+    </div>
+    <div class="accordion" id="accordion{{ model_name }}">
+        <div class="card">
+            <div class="card-header" id="headingCreate{{ model_name }}">
+                <h2 class="mb-0">
+                    <button class="btn btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseCreate{{ model_name }}" aria-expanded="true" aria-controls="collapseCreate{{ model_name }}">
+                        Add new {{ model_name_lower }}
+                    </button>
+                </h2>
+            </div>
+            <div id="collapseCreate{{ model_name }}" class="collapse show" aria-labelledby="headingCreate{{ model_name }}" data-parent="#accordion{{ model_name }}">
+                <div class="card-body">
+                    <form class="form" method="post" action="{% url 'ui:manage_simple_models' 'create' model_name %}">
+                        {% for field in form %}
+                        <div class="form-group">
+                            {{ field.errors }}
+                            {{ field.label_tag }} {{field}}
+                            {% if field.help_text %}
+                            <small class="form-text text-muted">{{ field.help_text|safe }}</small>
+                            {% endif %}
+                        </div>
+                        {% csrf_token %}
+                        {% endfor %}
+                        <input type="submit" class="btn btn-success btn-large btn-block" value="Add" />
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header" id="heading{{ model_name }}List">
+                <h2 class="mb-0">
+                    <a class="btn btn-block text-left collapsed" aria-expanded="false" aria-controls="heading{{ model_name }}List" href="{% url 'ui:manage_simple_models' 'view' model_name %}">
+                        {{ model_name }} list
+                    </a>
+                </h2>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+    $("#topNav{{model_name}}").addClass("active");
+    if ("{{model_name}}"=="Environment" || "{{model_name}}" == "Workspace"){
+        $(".scaffold-nav").addClass("active");
+    }
+    var csrftoken = $.cookie('csrftoken');
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings){
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    });
+    $("form").submit(function(){
+		var self = $(this);
+		$.post(self.attr("action"), self.serialize(), success, "json");
+		return false;
+
+		function success(data){
+			if(data.status){
+                post_msg(data.info);
+				self[0].reset();
+			} else {
+                post_msg(data.info, 1);
+			}
+		}
+    });
+{% endblock %}

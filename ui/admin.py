@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Author: Li Yao
+# @Date: 12/01/16
 from django.contrib import admin
-
-from .models import Queue, Training, Prediction, Resource, Protocol, ProtocolList, VirtualEnvironment
+from QueueDB.models import Job, Training, Prediction, Step, ProtocolList, VirtualEnvironment, Experiment, \
+    Audition, Sample, Profile, FileArchive, Reference, Workspace #, GoogleDriveConnection
 
 '''
 class QueueInline(admin.StackedInline):
@@ -10,7 +14,8 @@ class QueueInline(admin.StackedInline):
 
 class QueueAdmin(admin.ModelAdmin):
     # inlines = [QueueInline]
-    list_display = ('id', 'protocol', 'status', 'resume', 'create_time')
+    list_display = ('id', 'job_name', 'protocol', 'status', 'result', 'create_time')
+    search_fields = ('result', 'job_name',)
 
 
 class TrainingAdmin(admin.ModelAdmin):
@@ -33,10 +38,32 @@ class ProtocolListAdmin(admin.ModelAdmin):
     list_display = ('name', 'user_id')
 
 
-admin.site.register(Queue, QueueAdmin)
+class FileArchiveAdmin(admin.ModelAdmin):
+    list_display = ('protocol', 'protocol_ver', 'create_time', 'shared_with')
+
+
+class ReferenceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'user_id')
+
+
+class AuditionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'operation', 'job_name', 'create_time')
+    readonly_fields = ['id', 'operation', 'related_job', 'job_name', 'prev_par',
+                       'new_par', 'prev_input', 'current_input', 'protocol',
+                       'protocol_ver', 'resume_point', 'create_time', 'user']
+
+
+admin.site.register(Job, QueueAdmin)
 admin.site.register(Prediction, PredictionAdmin)
 admin.site.register(Training, TrainingAdmin)
-admin.site.register(Resource, ResourceAdmin)
 admin.site.register(ProtocolList, ProtocolListAdmin)
-admin.site.register(Protocol, ProtocolAdmin)
+admin.site.register(Step, ProtocolAdmin)
 admin.site.register(VirtualEnvironment)
+admin.site.register(Experiment)
+admin.site.register(Sample)
+admin.site.register(Profile)
+admin.site.register(FileArchive, FileArchiveAdmin)
+admin.site.register(Reference, ReferenceAdmin)
+admin.site.register(Workspace)
+# admin.site.register(GoogleDriveConnection)
+admin.site.register(Audition, AuditionAdmin)

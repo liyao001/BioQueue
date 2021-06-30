@@ -5,77 +5,82 @@
     <div class="page-header">
         <h1>Protocol List</h1>
     </div>
-    <table class="table table-bordered table-hover">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Protocol</th>
-                <th>Operation</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for protocol in protocol_list %}
-            <tr class="pending-user protocol-rows" id="protocol-row-{{ protocol.id }}">
-                <td>{{ protocol.id }}</td>
-                <td>{{ protocol.name }}</td>
-                <td>
-                    <span class="user-actions">
-                        <span data-pid="{{ protocol.id }}" style="cursor:pointer;" onclick="delProtocol(this);" class="label label-danger">Delete</span>
-                        <span style="display: inline-block; cursor:pointer;" class="label label-warning" onclick="showNewStep({{ protocol.id }});">Add Step</span>
-                        <span style="display: inline-block; cursor:pointer;" class="label label-success" onclick="showSteps({{ protocol.id }});">Edit Protocol</span>
-                        <span data-pid="{$hit.id}" style="cursor:pointer;" onclick="showShare({{ protocol.id }});" class="label label-info">Share</span>
-                    </span>
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    <ul class="pager">
-        {% if protocol_list.has_previous %}
-            <li><a href="?page={{ protocol_list.previous_page_number }}">&lt;</a></li>
-        {% endif %}
-        <li><a>Page {{ protocol_list.number }} of {{ protocol_list.paginator.num_pages }}</a></li>
-        {% if protocol_list.has_next %}
-            <li><a href="?page={{ protocol_list.next_page_number }}">&gt;</a></li>
-        {% endif %}
-    </ul>
-    <div id="stepsContainer" style="display:none;"></div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12" id="protocolList">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Protocol</th>
+                                <th>Operation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for protocol in protocol_list %}
+                            <tr class="protocol-rows {% if protocol.user is None %}table-success{% endif %}" id="protocolRow{{ protocol.id }}">
+                                <td>{{ protocol.name }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Operations available">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="showSteps({{ protocol.id }});" title="{% if protocol.user is None or request.user.is_staff %}Edit this protocol{% else %}View steps in this protocol{% endif %}"><i class="fas fa-list-ol"></i></button>
+                                        {% if protocol.user is not None or request.user.is_staff %}
+                                        <button type="button" class="btn btn-outline-secondary" onclick="showNewStep({{ protocol.id }});" title="Add a new step to this protocol"><i class="fas fa-plus-square"></i></button>
+                                        {% endif %}
+                                        {% if protocol.user is not None or request.user.is_staff %}
+                                        <button type="button" data-target="{% url 'ui:delete_protocol' %}" data-id="{{ protocol.id }}" class="btn btn-outline-secondary" onclick="delProtocol(this);" title="Delete this protocol"><i class="fas fa-trash-alt"></i></button>
+                                        {% endif %}
+                                        {% if protocol.user is not None or request.user.is_staff %}
+                                        <button type="button" class="btn btn-outline-secondary" data-pid="{$hit.id}" onclick="showShare({{ protocol.id }});" title="Share this protocol"><i class="fas fa-share-alt-square"></i></button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="col-8" id="stepsContainer" style="display:none;"></div>
+        </div>
+    </div>
+
+    <nav aria-label="Page navigation" class="mx-auto">
+        <ul class="pagination justify-content-center">
+            {% if protocol_list.has_previous %}
+            <li class="page-item">
+                <a href="?page={{ protocol_list.previous_page_number }}" aria-label="Previous" class="page-link">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">
+                    <span aria-hidden="true">Page {{ protocol_list.number }} of {{ protocol_list.paginator.num_pages }}</span>
+                </span>
+            </li>
+            {% if protocol_list.has_next %}
+            <li class="page-item">
+                <a href="?page={{ protocol_list.next_page_number }}" aria-label="Next" class="page-link">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
 </div>
 <div class="modal fade" id="newStep" tabindex="-1" role="dialog" aria-labelledby="newStep">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
+                <h5 class="modal-title" id="nsh">Add New Step</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="nsh">Add New Step</h4>
             </div>
             <div class="modal-body">
                 <form class="form" method="post" id="new-step-form" action="{% url 'ui:add_step' %}">
+                    {% include 'ui/step_atom.html' %}
                     <div class="form-group">
-                        <label for="software">Software*:</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control input-xlarge" id="software" name="software" required />
-                            <span class="input-group-btn"><button type="button" onclick="fetchKB(this);" class="btn btn-default">How to use the software?</button></span>
-                        </div>
-                    </div>
-                    <div class="hints" style="display: none;">
-                        <a class="close" onclick="$(this).parent().hide();" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></a>
-                        <div class="hints-container"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="parameter">Parameters*:</label>
-                        <input type="text" class="form-control" id="parameter" name="parameter" />
-                    </div>
-                    <div class="form-group">
-                        <label for="parameter">Insert to: (0 means the first step, -1 means the last step)</label>
+                        <label for="insert_to">Insert to: (0 means the first step, -1 means the last step)</label>
                         <input type="number" class="form-control" id="insert_to" name="insert_to" value="-1"/>
-                    </div>
-                    <div class="form-group">
-                        <label for="force_local">Force BioQueue to run the step locally instead of submitting it to clusters? <a><i id="force_local_hit" class="icon-question-sign" data-toggle="popover" title="" data-content="When you run BioQueue in clusters, the computing nodes may not be connected to the internet, so software, like wget, may not work. Under this circumstance, you can force BioQueue to run this step in local machine."></i></a></label>
-                        <select name="force_local" id="force_local" class="form-control">
-                            <option value="0">No</option>
-                            <option value="1">Yes</option>
-                        </select>
-                        <span class="help-block">It will work only in cluster mode.</span>
                     </div>
                     <hr />
                     <input type="hidden" name="parent" id="step-parent">
@@ -90,55 +95,53 @@
 </div>
 <div class="modal fade" id="ml" tabindex="-1" role="dialog" aria-labelledby="ml">
   <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="mlh">Step Check Point</h4>
-      </div>
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="mlh">Resource usage</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          </div>
       <div class="modal-body"> </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-      </div>
     </div>
   </div>
 </div>
 <div class="modal fade" id="share" tabindex="-1" role="dialog" aria-labelledby="share">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="share-head">Share your protocols with others</h4>
-      </div>
-      <div class="modal-body">
-          <h3>Share with a peer</h3>
-          <form class="form" method="post" action="{% url 'ui:share_with_peer' %}">
-              <div class="form-group">
-                  <label>Peer's username</label>
-                  <input type="text" id="peer" name="peer" class="form-control" placeholder="Enter peer's username here" required>
-              </div>
-              <input type="hidden" id="pro" name="pro">
-              <span class="help-block">You can only share your protocol with one peer at a time.</span>
-              <button type="submit" class="btn btn-default btn-block">Share with a peer</button>
-          </form>
-          <hr>
-          <h3>Share with public</h3>
-          <a class="btn btn-default btn-block" id="upload-protocol-link" onclick="uploadProtocol(this);">Upload to BioQueue Open Platform</a>
-          <p>
-              Or, you can click the following button you can build a flattened protocol file which can be uploaded to <a href="http://bioqueue.nefu.edu.cn" target="_blank">our open platform</a> or any other place on the Internet. And other people can use the import function to cite your protocol.
-          </p>
-          <a class="btn btn-default btn-block" id="export-protocol-link" href="">Build a sharable protocol</a>
-      </div>
-      <div class="modal-footer">
-        <button type="submit" class="btn btn-default" data-dismiss="modal">Close</button>
-      </div>
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="share-head">Share your protocols with others</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <h3>Share within BioQueue</h3>
+                <form class="form" method="post" action="{% url 'ui:share_with_peer' %}">
+                    <div class="form-group">
+                        <label>Username of the peer/project that you want to share the protocol with</label>
+                        <input type="text" id="peer" name="peer" class="form-control" placeholder="Enter peer's username here" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" id="pro" name="pro">
+                        <small class="form-text text-muted">You can only share your protocol with one peer at a time.</small>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">Share with a peer</button>
+                </form>
+                <hr>
+                <h3>Share with public</h3>
+                <a class="btn btn-success btn-block" id="upload-protocol-link" onclick="uploadProtocol(this);">Upload to BioQueue Open Platform</a>
+                <hr>
+                <h3>Or</h3>
+                <p>
+                    You can click the following button you can build a flattened protocol file which can be uploaded to <a href="https://www.bioqueue.org" target="_blank">our open platform</a> or any other place on the Internet. And other people can use the import function to cite your protocol.
+                </p>
+                <a class="btn btn-success btn-block" id="export-protocol-link" href="">Build a sharable protocol</a>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 {% endblock %}
 {% block script %}
     $(".protocol-nav").addClass("active");
     var before_software = "";
-    $("#edit-job").addClass("active");
+    $("#edit-protocol").addClass("active");
     $("#force_local_hit").popover();
     var csrftoken = $.cookie('csrftoken');
     $.ajaxSetup({
@@ -154,83 +157,31 @@
 
 		function success(data){
 			if(data.status){
-				Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
+                post_msg(data.info);
                 self[0].reset();
                 if (self.attr('id') == 'new-step-form'){
                     showSteps($("#step-parent").val());
                     $('#newStep').modal('hide');
                 }
 			} else {
-				Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
+				post_msg(data.info, 1);
 			}
 		}
     });
     function delProtocol(obj){
-        var self = $(obj);
-        $.get("{% url 'ui:delete_protocol' %}", {id: self.attr("data-pid")}, function(data){
-            if(data.status){
-                self.parent().parent().parent().hide("slow");
-            };
-        });
+        let self = $(obj);
+        generic_get(obj, false);
+        $("#protocolRow"+self.data("id")).hide("slow");
+        $("#stepsContainer").html("");
+        $("#protocolList").removeClass("col-4").addClass("col-12");
+        $("#stepsContainer").hide();
 	}
-    function edit(obj){
-        var new_id = "parameter" + Math.random();
-        var self = $(obj);
-        var txt = $.trim(self.text());
-        var input = $("<input class='form-control' id='"+new_id+"' type='text'>");
-        input.attr("value", txt);
-        self.html(input);
-        var oTextbox = new AutoSuggestControl(new_id);
-        input.click(function(){return false;});
-        input.trigger("focus");
-        input.blur(function(){
-            var newTxt = input.val();
-            if (newTxt != txt){
-                self.html(newTxt);
-                $.get("{% url 'ui:update_parameter' %}", {parent:self.attr("data-pid"), id:self.attr("data-sid"), parameter:encodeURI(newTxt)}, function(data){
-                    if (data.status){
-                        Messenger().post({
-                            message: data.info,
-                            showCloseButton: true
-				        });
-                    }else{
-                        Messenger().post({
-                            message: data.info,
-                            type: 'error',
-                            showCloseButton: true
-				        });
-                    }
-                });
-            }else{
-              self.html(newTxt);
-            }
-        });
-    };
     function showML(obj){
-        var self = $(obj);
-        if (self.text() == 'CPU'){
-            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 3}, function(data){
-                $('#ml .modal-body').html(data.info);
-                $('#ml').modal();
-            });
-        }else if(self.text() == 'Memory'){
-            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 2}, function(data){
-                $('#ml .modal-body').html(data.info);
-                $('#ml').modal();
-            });
-        }else if(self.text() == 'Disk'){
-            $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash'), type: 1}, function(data){
-                $('#ml .modal-body').html(data.info);
-                $('#ml').modal();
-            });
-        }
+        let self = $(obj);
+        $.get('{% url 'ui:get_learning_result' %}', {stephash: self.attr('data-hash')}, function(data){
+            $('#ml .modal-body').html(data.info);
+            $('#ml').modal();
+        });
     }
     function showNewStep(recId){
         $('#newStep #step-parent').val(recId);
@@ -247,39 +198,32 @@
         var self = $(obj);
         $.get('{% url 'ui:upload_protocol' %}', {id: self.attr('data-pid')}, function(data){
             if (data.status){
-                Messenger().post({
-                    message: data.info,
-                    showCloseButton: true
-                });
+                post_msg(data.info);
             }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-                });
+                post_msg(data.info, 1);
             }
         });
     }
     function showSteps(recId){
+        $(".btn").attr("disabled", true);
         $('#stepsContainer').html('');
         $.post("{% url 'ui:show_step' %}", {parent: recId}, function(data){
             if(data.status){
                 if ($('#stepsContainer').css("display") != 'none'){
                     $('#stepsContainer').hide("fast");
                 }
-                $(".protocol-rows").removeClass("warning");
-                $("#protocol-row-"+recId).addClass("warning");
+                $(".protocol-rows").removeClass("table-warning");
+                $("#protocolRow"+recId).addClass("table-warning");
                 $("#stepsContainer").html(data.info);
+                $("#protocolList").removeClass("col-12");
+                $("#protocolList").addClass("col-4", {duration:1000});
                 $("#stepsContainer").show("slow");
-                $("html,body").animate({scrollTop:$("#stepsContainer").offset().top},1000)
+                $("html,body").animate({scrollTop:$("#protocolDescription").offset().top-100},1000)
 		    }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-				});
+                post_msg(data.info, 1);
             };
         });
+        $(".btn").attr("disabled", false);
     }
     function fetchKB(obj){
         var self = $(obj);

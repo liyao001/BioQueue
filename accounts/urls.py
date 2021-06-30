@@ -2,6 +2,7 @@ from django.conf.urls import url
 from . import views
 import django.contrib.auth.views
 
+app_name = "accounts"
 
 urlpatterns = [
     url(r'^login/$', views.user_login, name='login'),

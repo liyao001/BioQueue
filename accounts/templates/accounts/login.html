@@ -13,7 +13,7 @@
                         </div>
                         <input type="hidden" name="next" value="{{ next }}" />
                         {% csrf_token %}
-                        <button type="submit" class="login-button"><i class="glyphicon glyphicon-chevron-right"></i></button>
+                        <button type="submit" class="login-button"><i class="fas fa-angle-right fa-2x" style="margin-top: -6px;"></i></button>
                     </div>
                     <div class="etc-login-form">
                         <p>new user? <a href="{% url 'accounts:register' %}">create new account</a></p>

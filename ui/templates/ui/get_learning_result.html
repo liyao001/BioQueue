@@ -1,14 +1,66 @@
+<h6>Prior</h6>
+<form class="mb-3" method="post" action="{% url 'ui:update_step_prior' %}" id="stepPriorForm">
+    {% csrf_token %}
+    <div class="row mb-2">
+        <div class="col-auto">
+            <label>CPU</label>
+            <input type="text" class="form-control" name="cpu_prior" placeholder="CPU" value="{{ prior.cpu_prior }}">
+        </div>
+        <div class="col-auto">
+            <label>Memory</label>
+            <input type="text" class="form-control" name="mem_prior" placeholder="Memory" value="{{ prior.mem_prior }}">
+        </div>
+        <div class="col-auto">
+            <label>Disk</label>
+            <input type="text" class="form-control" name="disk_prior" placeholder="Disk" value="{{ prior.disk_prior }}">
+        </div>
+    </div>
+    <input type="hidden" name="step" value="{{ prior.id }}">
+    <button type="submit" class="btn btn-primary mb-2" {% if not prior %}disabled{% endif %}>Change</button>
+</form>
+<h6>Predicted resource usage</h6>
 <table class="table">
+    <thead>
+        <tr>
+            <td>Resource</td>
+            <td>Slope</td>
+            <td>Intercept</td>
+            <td>r</td>
+        </tr>
+    </thead>
     <tbody>
-    <tr>
-        <td>a</td>
-        <td>b</td>
-        <td>r</td>
-    </tr>
-    <tr>
-        <td>{{ hit.a }}</td>
-        <td>{{ hit.b }}</td>
-        <td>{{ hit.r }}</td>
-    </tr>
-</tbody>
+        {% for hit in hits %}
+        <tr>
+            <td>{{ hit.get_type_display }}</td>
+            <td>{{ hit.a }}</td>
+            <td>{{ hit.b }}</td>
+            <td>{{ hit.r }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
+<script>
+    $("#stepPriorForm").submit(function () {
+        let self = $(this);
+        $.ajax({
+            type: "POST",
+            url: self.attr("action"),
+            data: self.serialize(),
+            success: success,
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
+        });
+        return false;
+
+        function success(data) {
+            if (data.status) {
+                post_msg(data.info);
+            } else {
+                post_msg(data.info, 1);
+            }
+        }
+    });
+</script>

@@ -26,6 +26,10 @@
                             <input type="number" class="form-control" id="cpu" name="cpu" value="{{ cpu }}" required />
                         </div>
                         <div class="form-group">
+                            <label class="control-label" for="cpu_m">Extra threads</label>
+                            <input type="number" class="form-control" id="cpu_m" name="cpu_m" value="{{ cpu_m }}" required />
+                        </div>
+                        <div class="form-group">
                             <label class="control-label" for="mem">Memory(Gb)</label>
                             <input type="number" class="form-control" id="mem" name="mem" value="{{ memory }}" required />
                         </div>
@@ -65,12 +69,12 @@
                         <div class="form-group">
                             <label class="control-label" for="mailhost">Mail host (SMTP Server)</label>
                             <input type="text" class="form-control" id="mail-host" name="mailhost" value="{{ mail_host }}" placeholder="Mail host" />
-                            <p class="help-block">Leave it blank to turn off notification.</p>
+                            <small class="form-text text-muted">Leave it blank to turn off notification.</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="mailport">Mail port</label>
                             <input type="text" class="form-control" id="mail-port" name="mailport" value="{{ mail_port }}" placeholder="Mail port" />
-                            <p class="help-block">Leave it blank to turn off notification.</p>
+                            <small class="form-text text-muted">Leave it blank to turn off notification.</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="mailuser">Use SSL/TLS?</label>
@@ -102,12 +106,12 @@
                         <div class="form-group">
                             <label class="control-label" for="mailuser">Mail user</label>
                             <input type="text" class="form-control" id="mail-user" name="mailuser" value="{{ mail_user }}" placeholder="Mail user" />
-                            <p class="help-block">Leave it blank to turn off notification.</p>
+                            <small class="form-text text-muted">Leave it blank to turn off notification.</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="mailpassword">Mail password</label>
                             <input type="password" class="form-control" id="mail-password" name="mailpassword" value="{{ mail_password }}" placeholder="Mail password" />
-                            <p class="help-block">Leave it blank to turn off notification.</p>
+                            <small class="form-text text-muted">Leave it blank to turn off notification.</small>
                         </div>
                     </div>
                 </div>
@@ -142,22 +146,22 @@
                         <div class="form-group">
                             <label class="control-label" for="cluster-mem">Physical Memory:</label>
                             <input type="text" class="form-control cluster-control" id="cluster-mem" name="job_mem" value="{{ job_mem }}" disabled="disabled"/>
-                            <p class="help-block">Maximum amount of physical memory used by the job. e.g. 32GB, 64MB</p>
+                            <small class="form-text text-muted">Maximum amount of physical memory used by the job. e.g. 32GB, 64MB</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="cluster-vrt-mem">Virtual Memory:</label>
                             <input type="text" class="form-control cluster-control" id="cluster-vrt-mem" name="job_vrt" value="{{ job_vrt }}" disabled="disabled"/>
-                            <p class="help-block">Maximum amount of virtual memory used by the job. e.g. 32GB, 64MB</p>
+                            <small class="form-text text-muted">Maximum amount of virtual memory used by the job. e.g. 32GB, 64MB</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="cluster-dest">Destination:</label>
                             <input type="text" class="form-control cluster-control" id="cluster-dest" name="job_dest" value="{{ job_dest }}" disabled="disabled"/>
-                            <p class="help-block">Defines the destination of the job. The destination names a queue (high, low, FAT), a server, or a queue at a server.</p>
+                            <small class="form-text text-muted">Defines the destination of the job. The destination names a queue (high, low, FAT), a server, or a queue at a server.</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="cluster-cpu">Wall-time:</label>
                             <input type="text" class="form-control cluster-control" id="cluster-wt" name="job_wt" value="{{ job_wt }}" disabled="disabled"/>
-                            <p class="help-block">If not set for a generally available resource, the limit for CPU time is infinite.</p>
+                            <small class="form-text text-muted">If not set for a generally available resource, the limit for CPU time is infinite.</small>
                         </div>
                     </div>
                 </div>
@@ -176,7 +180,9 @@
                         <p><b>Current version:</b> <span id="local-version">{{ cv }}</span></p>
                         <p><button type="button" id="update-trigger" class="btn btn-default" disabled="disabled" onclick="update(this);">Update</button></p>
                         <p>If the jobs have indeed finished, but BioQueue still shows the jobs are running, you can click this button to reset the status of the jobs.</p>
-                        <a href="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger">Clean Dead Lock</a>
+                        <p><button data-target="{% url 'ui:clean_dead_lock' %}" class="btn btn-danger generic_get">Clean Dead Lock</button></p>
+                        <p>If protocol is changed, then you may want to put an 'audit' tag to jobs finished with an old protocol.</p>
+                        <p><button type="button" data-target="{% url 'ui:audit_check' %}" class="btn btn-danger generic_get">Audit check</button></p>
                     </div>
                 </div>
             </div>

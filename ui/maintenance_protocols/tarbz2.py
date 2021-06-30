@@ -7,7 +7,7 @@
 def get_sub_protocol(db_obj, protocol_parent, step_order_start=1):
     steps = list()
     steps.append(db_obj(software='tar',
-                        parameter='-jxvf {LastOutput}',
+                        parameter='-jxvf {{LastOutput}}',
                         parent=protocol_parent,
                         user_id=0,
                         hash='670fb21245414e6d79b43dbd59ae1fb9',

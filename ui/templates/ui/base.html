@@ -1,56 +1,305 @@
-{% load staticfiles %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <title>{% block title %}{% endblock %}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="author" content="Li Yao">
-    <link href="{% static "ui/css/bootstrap.css" %}" rel="stylesheet" media="screen">
+    <link href="{% static "ui/css/bootstrap.min.css" %}" rel="stylesheet" media="screen">
     <!--<link href="{% static "ui/css/bootstrap-theme.min.css" %}" rel="stylesheet" media="screen">-->
     <link href="{% static "ui/css/site.css" %}" rel="stylesheet" media="screen">
-    <link href="{% static "ui/css/font-awesome.min.css" %}" rel="stylesheet">
-    <link href="{% static "ui/css/messenger.css" %}" rel="stylesheet">
-    <link href="{% static "ui/css/messenger-theme-future.css" %}" rel="stylesheet">
+    <link href="{% static "ui/fontawesome/css/all.min.css" %}" rel="stylesheet">
+    <link href="{% static "ui/css/bootstrap-select.min.css" %}" rel="stylesheet">
     {% block stylesheet %}{% endblock %}
-    <!--[if lt IE 9]>
-        <script src="{% static "ui/js/respond.min.js" %}"></script>
-        <script src="{% static "ui/js/html5shiv.min.js" %}"></script>
-    <![endif]-->
 </head>
-<body style="background-color: #efefef; padding-top: 49px;">
+<!--<body style="background-color: #efefef; padding-top: 49px;">-->
+<body>
 {% include 'ui/navigation.html' %}
 <div class="container-fluid">
-  <div class="row-fluid">
-    <div class="col-xs-12 col-md-12">
-      {% block content %}{% endblock %}
+    <div class="row">
+        <div class="col-12 col-md-12">
+            {% block content %}{% endblock %}
+        </div>
     </div>
-  </div>
 </div>
 <hr>
 {% include 'ui/foot.html' %}
-<script src="{% static "ui/js/jquery.js" %}"></script>
-<script src="{% static "ui/js/bootstrap.min.js" %}"></script>
-<script src="{% static "ui/js/messenger.min.js" %}"></script>
+<div class="position-fixed bottom-0 right-0 p-3" style="z-index: 1051; right: 0; bottom: 0;">
+    <div id="globalToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true" data-delay="5000">
+        <div class="toast-header">
+            <span id="globalToastStatusIcon"></span>
+            <strong class="mr-auto"> Notification</strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div id="globalToastBody" class="toast-body">
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="genericModal" tabindex="-1" aria-labelledby="genericModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-body" id="genericModalBody">
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{% static "ui/js/jquery-3.6.0.min.js" %}"></script>
+<script src="{% static "ui/js/bootstrap.bundle.min.js" %}"></script>
 <script src="{% static "ui/js/jquery.cookie.js" %}"></script>
 <script src="{% static "ui/js/auto.micro.js" %}"></script>
-<script src="{% static "ui/js/bootstrap-slider.min.js" %}"></script>
 <script src="{% static "ui/js/job-complete.min.js" %}"></script>
+<script src="{% static "ui/js/bootstrap-select.min.js" %}"></script>
 <script>
-$(document).ajaxStart(function(){
-    $("button:submit").attr("disabled", true);
-}).ajaxStop(function(){
-	$("button:submit").attr("disabled", false);
-});
-{% block script %}{% endblock %}
-function queryJobNum(){
-    $.getJSON("{% url 'ui:query_running_jobs' %}", function(json){
-        $("#top-running-jobs").html(json.info);
+    $(document).ajaxStart(function () {
+        $("button:submit").attr("disabled", true);
+        $(".btn").attr("disabled", true);
+    }).ajaxStop(function () {
+        $("button:submit").attr("disabled", false);
+        $(".btn").attr("disabled", false);
     });
-}
-var jobT = window.setInterval(queryJobNum, 30000);
-queryJobNum();
+    {% block script %}{% endblock %}
+
+    function post_msg(msg, is_error=0) {
+        if (is_error===0) {
+            $("#globalToastStatusIcon").html('<i class="fas fa-smile"></i>');
+        }else{
+            $("#globalToastStatusIcon").html('<i class="fas fa-frown"></i>');
+        }
+        $("#globalToastBody").html(msg);
+        $("#globalToast").toast("show");
+    }
+    function serialize_data_attrs(obj) {
+        let data = {};
+        for (let i in $(obj).data()) {
+            data[i] = $(obj).data(i);
+        }
+        return data;
+    }
+
+    function generic_get(obj, async_get=true) {
+        let self = $(obj);
+        self.attr("disabled", true);
+        if (typeof self.data("target") === "undefined") {
+            post_msg("No action provided.", 1);
+            return;
+        }
+        $.ajax({
+            type: "GET",
+            url: self.data("target"),
+            data: serialize_data_attrs(obj),
+            async: async_get,
+            success: function (data) {
+                if (data.status) {
+                    post_msg(data.info);
+                } else {
+                    post_msg(data.info, 1);
+                }
+            },
+            statusCode: {
+                403: function () {
+                    post_msg("Permission denied!", 1);
+                }
+            }
+        });
+        return false;
+    }
+
+    function generic_get_modal(obj) {
+        let self = $(obj);
+        self.attr("disabled", true);
+        if (typeof self.data("target") === "undefined") {
+            post_msg("No action provided.", 1);
+            return;
+        }
+        $("#genericModalBody").html("<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\">\n<span class=\"sr-only\">Loading...</span>\n</div></div>");
+        $("#genericModal").modal();
+        $.ajax({
+            type: "GET",
+            url: self.data("target"),
+            data: serialize_data_attrs(obj),
+            success: function (data) {
+                if (data.status) {
+                    $("#genericModalBody").html(data.info);
+                } else {
+                    $("#genericModalBody").html(data.info);
+                }
+            },
+            statusCode: {
+                403: function () {
+                    $("#genericModalBody").html("Permission denied!");
+                }
+            }
+        });
+        return false;
+    }
+
+    function generic_form_post(obj, async_post=true) {
+        let self = $(obj);
+        self.attr("disabled", true);
+        $.ajax({
+            type: "POST",
+            url: self.attr("action"),
+            data: self.serialize(),
+            async: async_post,
+            success: function (data) {
+                if (data.status) {
+                    post_msg(data.info);
+                } else {
+                    post_msg(data.info, 1);
+                }
+            },
+            statusCode: {
+                403: function () {
+                    post_msg(data.info, 1);
+                }
+            }
+        });
+        return false;
+    }
+    $(".generic_ajax_post").submit(function () {
+        generic_form_post(this);
+        return false;
+    })
+
+    $(".generic_get").click(function () {
+        generic_get(this);
+        return false;
+    });
+    let re_cpu = /-*(thread[s]|core[s])N?[=\s](\d+)/gi;
+    $(".parameter-ac").change(function () {
+        let match = re_cpu.exec($("#parameter").val());
+        if (match && match[2]) {
+            let cpu = match[2];
+            let cpu_prior_ele = $(this).parent().parentsUntil("div").find(".prior_cpus")[0];
+            if (typeof cpu_prior_ele != "undefined") {
+                $(cpu_prior_ele).val(cpu * 100);
+            }
+        }
+    });
+
+    function edit(obj) {
+        let self = $(obj);
+        let new_id = self.attr("id") + Math.random();
+        let txt = $.trim(self.text());
+        let input = $("<textarea class='form-control' id='" + new_id + "' rows='5'></textarea>");
+        input.text(txt);
+        self.html(input);
+        let refresh_flag = 0;
+        if (typeof refT !== 'undefined') {
+            clearInterval(refT);
+            refresh_flag = 1;
+        }
+        let o_textbox = new AutoSuggestControl(new_id);
+        input.click(function () {
+            return false;
+        });
+        input.trigger("focus");
+        input.blur(function () {
+            let new_txt = input.val();
+            if (new_txt != txt) {
+                self.html(new_txt);
+                $.get(self.data("bind"), {
+                    parent: self.data("pid"),
+                    id: self.data("sid"),
+                    parameter: encodeURI(new_txt)
+                }, function (data) {
+                    if (data.status) {
+                        post_msg(data.info);
+                    } else {
+                        post_msg(data.info, 1);
+                    }
+                });
+            } else {
+                self.html(new_txt);
+            }
+            if (refresh_flag == 1) {
+                let refT = window.setInterval(refreshJob, 30000);
+            }
+        });
+    }
+
+    function edit_multiline(obj) {
+        let new_id = "parameter" + Math.random();
+        let self = $(obj);
+        let txt = $.trim(self.html()).replace(/<br>/g, "\n");
+        let input = $("<textarea class='form-control' id='" + new_id + "' rows='5'></textarea>");
+        input.text(txt);
+        self.html(input);
+        input.click(function () {
+            return false;
+        });
+        input.trigger("focus");
+        input.blur(function () {
+            let new_txt = input.val().replace(/\r\n|\r|\n/g, "<br>");
+            if (input.val() != txt) {
+                self.html(new_txt);
+                $.post(self.data("bind"), {
+                    id: self.data("id"),
+                    parameter: input.val()
+                }, function (data) {
+                    if (data.status) {
+                        post_msg(data.info);
+                    } else {
+                        self.html(txt);
+                        post_msg(data.info, 1);
+                    }
+                });
+            } else {
+                self.html(new_txt);
+            }
+        });
+    };
+
+    function notifyMe(msg) {
+        if (!("Notification" in window)) {
+            console.log("This browser does not support desktop notification");
+        } else if (Notification.permission === "granted") {
+            let notification = new Notification(msg);
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(function (permission) {
+                if (permission === "granted") {
+                    let notification = new Notification(msg);
+                }
+            });
+        }
+    }
+
+    function queryJobNum() {
+        if (!$.cookie('last_query_running_job')) {
+            let s30 = new Date();
+            s30.setTime(s30.getTime() + (30 * 1000));
+            $.ajax({
+                dataType: "json",
+                url: "{% url 'ui:query_running_jobs' %}",
+                success: function (json) {
+                    $("#top-running-jobs").html(json.info.n);
+                    $.cookie('last_query_running_job', json.info.n, {
+                        expires: s30,
+                        path: '/',
+                        sameSite: 'Lax',
+                        secure: true
+                    });
+                    json.info.m.forEach(function (msg, index, array) {
+                        notifyMe(msg);
+                    });
+                },
+                statusCode: {
+                    403: function () {
+                        $("#top-running-jobs").html("-");
+                    }
+                }
+            });
+        } else {
+            $("#top-running-jobs").html($.cookie('last_query_running_job'));
+        }
+    }
+
+    let jobT = window.setInterval(queryJobNum, 30000);
+    queryJobNum();
 </script>
 </body>
 </html>

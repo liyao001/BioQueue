@@ -1,20 +1,26 @@
 {% if user_files %}
-<table class="table table-bordered table-hover">
+<table class="table table-bordered table-hover table-sm">
     <thead>
         <tr>
-            <th>File Name</th>
-            <th>File Size</th>
-            <th>Create Time</th>
-            <th>Operate</th>
+            <th class="align-middle">File Name</th>
+            <th class="align-middle">File Size</th>
+            <th class="align-middle">Create Time</th>
+            <th class="align-middle">Operation</th>
         </tr>
     </thead>
     <tbody>
     {% for file_item in user_files %}
-        <tr>
-            <td>{{ file_item.name }}</td>
-            <td>{{ file_item.file_size | filesizeformat }}</td>
-            <td>{{ file_item.file_create }}</td>
-            <td><span class='label label-danger' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=delFile(this);><i class="icon-trash"></i> Delete</span> <a class='label label-success' href='/ui/download-file/f/{{ file_item.trace }}' style='cursor:pointer;'><i class="icon-download-alt"></i> Download</a> <span class='label label-info' data-path='{{ file_item.trace }}' style='cursor:pointer;' onclick=showQuickRef(this);><i class="icon-book"></i> Create a reference</span></td>
+        <tr id="fileRow{{ forloop.counter }}">
+            <td class="align-middle">{{ file_item.name }}</td>
+            <td class="align-middle">{{ file_item.file_size | filesizeformat }}</td>
+            <td class="align-middle">{{ file_item.file_create }}</td>
+            <td class="align-middle">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Operations available">
+                    <button type="button" data-path="{{ file_item.trace }}" data-row-id="{{ forloop.counter }}" class="btn btn-secondary" onclick=delFile(this); title="Delete file"><i class="fas fa-trash-alt"></i></button>
+                    <a class="btn btn-secondary" href="/ui/download-file/{{ jid }}/{{ file_item.trace }}" title="Download file"><i class="fas fa-download"></i></a>
+                    <button type="button" class="btn btn-secondary" data-path="{{ file_item.trace }}" onclick=showQuickRef(this); title="Create a reference"><i class="fas fa-book"></i></button>
+                </div>
+            </td>
         </tr>
     {% endfor %}
     </tbody>

@@ -3,6 +3,7 @@ from .forms import LoginForm, PasswordChangeForm, UserRegisterForm
 from django.contrib.auth import authenticate, login, update_session_auth_hash
 from ui.tools import success, error
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Group
 
 
 def user_login(request):
@@ -17,6 +18,8 @@ def user_login(request):
                     login(request, user)
                     if "next" in request.POST.keys():
                         red_url = request.POST["next"]
+                        if red_url == "":
+                            red_url = "/ui"
                     else:
                         red_url = "/ui"
                     return success('Authenticated successfully', red_url)
@@ -44,6 +47,11 @@ def register(request):
             )
             new_user.is_active = False
             new_user.save()
+            try:
+                group = Group.objects.get(name="normal")
+                new_user.groups.add(group)
+            except Exception as e:
+                return error(e)
             return success('Your account has been successfully created.', '/accounts/login')
         else:
             return error(str(user_form.errors))

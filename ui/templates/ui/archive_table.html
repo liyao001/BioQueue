@@ -1,0 +1,22 @@
+<ul class="list-unstyled">
+    <li>Protocol: {{ protocol }}</li>
+    <li>Protocol version: {{ ver }}</li>
+    <li>Inputs: {{ inputs }}</li>
+</ul>
+<table class="table table-striped table-hover">
+    <thead>
+    <tr>
+        <th>File</th>
+        <th>MD5</th>
+    </tr>
+    </thead>
+    {% for file, md5 in files %}
+        <tr>
+            <td>{{ file }}</td>
+            <td>{{ md5 }}</td>
+        </tr>
+    {% endfor %}
+</table>
+<ul class="list-unstyled">
+    <li><a href='/ui/download-file/f/{{ arv_link }}' target="_blank" ><i class="icon-link"></i> Download archived files</a></li>
+</ul>

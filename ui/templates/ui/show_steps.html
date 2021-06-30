@@ -1,77 +1,102 @@
-<table class="table table-bordered table-hover">
-    <thead>
-        <tr>
-            <th style="min-width: 70px;">Order</th>
-            <th>Software</th>
-            <th>Parameter</th>
-            <th>Check point</th>
-            <th>Operation</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for step in step_list %}
-        <tr class="pending-user">
-            <td>
-            <select class="step-order form-control" id="step-order-{{ step.step_order}}" data-sid="{{ step.id }}" data-raw="{{ step.step_order }}">
-                {% for s in step_list %}
-                <option value ="{{ forloop.counter }}" {% if forloop.counter == step.step_order %}selected{% endif %}>{{ forloop.counter }}</option>
-                {% endfor %}
-            </select>
-            </td>
-            <td>{{ step.software }}</td>
-            <td class="editble" onclick="edit(this);" data-sid="{{ step.id }}" data-pid="{{ step.parent }}">{{ step.parameter }}</td>
-            <td>
-                <span class="label label-warning cpu" data-hash="{{ step.hash }}" onclick="showML(this);" style="cursor:pointer;">CPU</span>
-                <span class="label label-info mem" data-hash="{{ step.hash }}" onclick="showML(this);" style="cursor:pointer;">Memory</span>
-                <span class="label label-success disk" data-hash="{{ step.hash }}" onclick="showML(this);" style="cursor:pointer;">Disk</span>
-            </td>
-            <td>
-                <span class="user-actions"><span class="label label-danger dels" style="cursor: pointer;" data-pid="{{ step.parent }}" data-sid="{{ step.id }}">Delete</span></span>
-                <span class="user-actions"><a href="/admin/ui/prediction" class="label label-info">Edit Checkpoint</a></span>
-            </td>
-        </tr>
-	{% endfor %}
-    </tbody>
-</table>
-<button class="btn btn-default" id="update-order" role="button">Update Order</button>
+<div class="" id="protocolDescription">
+    <p class="lead" onclick="edit_multiline(this);" data-id="{{ protocol.id }}" data-bind="{% url 'ui:update_protocol_description' %}" >{{protocol.description}}</p>
+</div>
+<div class="table-responsive">
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th style="min-width: 90px;">Order</th>
+                <th class="align-middle">Software</th>
+                <th class="align-middle">Parameter</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for step in step_list %}
+            <tr class="align-middle no-bottom-border">
+                <td class="align-middle">
+                    <select class="step-order form-control" id="step-order-{{ step.step_order}}" data-sid="{{ step.id }}" data-raw="{{ step.step_order }}">
+                        {% for s in step_list %}
+                        <option value ="{{ forloop.counter }}" {% if forloop.counter == step.step_order %}selected{% endif %}>{{ forloop.counter }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td class="align-middle">{{ step.software }}</td>
+                <td class="editable align-middle" onclick="edit(this);" data-sid="{{ step.id }}" data-pid="{{ step.parent }}" data-bind="{% url 'ui:update_parameter' %}">{{ step.parameter }}</td>
+            </tr>
+            <tr class="no-top-border">
+                <td colspan="3" class="align-middle">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <label class="input-group-text" for="envSelector{{ step.id }}">Operations: </label>
+                        </div>
+                        <select class="form-control env-selector" id="envSelector{{ step.id }}" name="env" data-pv="{{ step.env.id }}" data-step="{{ step.id }}" onchange="changeEnvironment(this);" title="Change the environment this step will be executed in">
+                            <option value="">Default environment</option>
+                            {% for env in user_envs %}
+                            <option value="{{ env.id }}" {% if step.env == env %}selected{% endif %}>{{ env.name }}{% if env.user is None %}*{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="input-group-append">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Operations available">
+                                <button type="button" data-target="{% url 'ui:delete_step' %}" data-pid="{{ step.parent }}" data-id="{{ step.id }}" class="btn btn-outline-secondary dels" title="Delete this step"><i class="fas fa-trash-alt"></i> Delete</button>
+                                <button type="button" data-pid="{{ step.parent }}" data-hash="{{ step.hash }}" class="btn btn-outline-secondary" onclick="showML(this);" title="Check resource usage for this step"><i class="fas fa-server"></i> Resource</button>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<button class="btn btn-outline-secondary" id="updateOrder" role="button">Update Order</button>
 <script type="text/javascript">
 $("table td .dels").click(function(){
-	var self = $(this);
-	$.get("{% url 'ui:delete_step' %}", {id: self.attr('data-sid')}, function(data){
-		if(data.status){
-		    showSteps({{ parent }});
-		}
-	});
+    generic_get(this, false);
+    showSteps("{{ parent.id }}");
 });
-$("#update-order").click(function () {
-    var order_chain = "";
-    $.each($('.step-order'), function (key, ele) {
+$("#updateOrder").click(function () {
+    let order_chain = "";
+    $.each($(".step-order"), function (key, ele) {
         if($(ele).val()!=$(ele).attr("data-raw")){
             order_chain += $(ele).attr("data-sid") + "=" + $(ele).val() + ";";
         }
     });
     if (order_chain == ""){
-        Messenger().post({
-            message: "The order is identical to the former one.",
-            type: 'error',
-            showCloseButton: true
-        });
+        post_msg("The order is identical to the former one.", 1);
     }else{
-        $.get('{% url 'ui:update_step_order' %}', {step_order: order_chain, protocol: {{ parent }} }, function(data){
+        $.get("{% url 'ui:update_step_order' %}", {step_order: order_chain, protocol: "{{ parent }}" }, function(data){
             if (data.status){
-                Messenger().post({
-                    message: data.info,
-                    showCloseButton: true
-                });
-                showSteps({{ parent }});
+                post_msg(data.info);
+                showSteps("{{ parent }}");
             }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-                });
+                post_msg(data.info, 1);
             }
         });
     }
 });
+function changeEnvironment(obj){
+    let self = $(obj);
+    $(".btn").attr("disabled", true);
+    $.ajax({
+        type: "GET",
+        url: "{% url 'ui:update_step_environment' %}",
+        data: {step: self.data("step"), env: self.val(), },
+        success: function(data){
+            if(data.status){
+                self.data("pv", self.val());
+                post_msg(data.info);
+            }else{
+                self.val(self.data("pv"));
+                post_msg(data.info, 1);
+            };
+            $(".btn").attr("disabled", false);
+        },
+        statusCode: {
+            403: function() {
+                post_msg("Permission required", 1);
+                $(".btn").attr("disabled", false);
+            }
+        }
+    });
+}
 </script>

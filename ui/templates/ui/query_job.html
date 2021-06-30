@@ -1,141 +1,213 @@
 {% extends "ui/base.html" %}
+{% load job_tags %}
 {% block title %}Job Status | BioQueue{% endblock %}
 {% block content %}
-    <div class="row-fluid">
+<div class="container-fluid">
+    <div class="row">
         <div class="page-header">
             <h1 id="task">Job Status</h1>
         </div>
-        <div class="disk-quota">
-            Disk Usage ({{ u_disk }} of {{ t_disk }}):
-            <div class="progress">
-                <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" aria-valuenow="{{ disk_per }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ disk_per }}%">
-                    <span class="sr-only">{{ disk_per }}% Used</span>
+        <div class="container-fluid">
+            <div class="row mb-3">
+                <div class="col-sm-12 disk-quota">
+                    Disk Usage ({{ u_disk }} of {{ t_disk }}):
+                    <div class="progress">
+                        <div class="progress-bar bg-{% if disk_per < 20 %}success{% elif disk_per < 40 %}info{% elif disk_per < 60 %}warning{% else %}danger{% endif %} progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="{{ disk_per }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ disk_per }}%"><span class="sr-only">{{ disk_per }}% Used</span></div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <form class="form-inline" style="margin-bottom: 10px;">
-            <div class="form-group">
-                <label for="batch-action">Action:</label>
-                <select class="form-control" id="batch-action" name="batch-action">
-                    <option>---------</option>
-                    <option value="d">Delete</option>
-                    <option value="t">Terminate</option>
-                    <option value="r">Rerun</option>
-                </select>
-            </div>
-            <button type="button" id="click-all" data-checked="0" class="btn btn-default">Select All</button>
-            <button type="button" class="btn btn-default" onclick="batchOperation()">Go</button>
-        </form>
-        <div class="row job-container">
-            {% if job_list %}
-            {% for job in job_list %}
-            <div class="col-sm-6 col-md-4" id="job-panel-parent-{{ job.id }}">
-                <div class="thumbnail" id="job-panel-{{ job.id }}">
-                    <div class="caption job-panel">
-                        <div class="text-center status" id="job-status-icon-{{ job.id }}">{% if job.status == -1 %}
-                            <i class="icon-ok icon-3x"></i>
-                        {% elif job.status == -2 %}
-                            <i class="icon-pause icon-3x"></i>
-                        {% elif job.status == -3 %}
-                            <i class="icon-remove icon-3x"></i>
-                        {% elif job.status == 0 %}
-                            <i class="icon-time icon-3x"></i>
-                        {% else %}
-                            <i class="icon-play icon-3x"></i>
-                        {% endif %}</div>
-                        <h3 style="margin-top: 0;">{% if job.job_name %}{{ job.job_name }}{% else %}{{ job.protocol }}{% endif %}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
-                        <p><ul class="list-unstyled">
-                        <li><b>ID:</b> {{ job.id }}</li>
-                        <li><b>Status:</b> <span class="status-text" id="job-status-txt-{{ job.id }}">{% if job.status == -1 %}
-                            Finished
-                        {% elif job.status == -2 %}
-                            Awaiting for {% if job.wait_for == 0 %}Ok{% elif job.wait_for == 1%}Disk{% elif job.wait_for == 2%}Memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}Former{% elif job.wait_for == 5%}Peer{% elif job.wait_for == 5%}Virtual Memory{% endif %} (Step {{ job.resume|add:2 }})
-                        {% elif job.status == -3 %}
-                            <span style="display: inline-block;margin-right:5px;cursor:pointer;" class="label label-warning" onclick="showLog({{ job.id }});">Logs (Error when executing step {{ job.resume|add:2 }})</span>
-                        {% elif job.status == 0 %}
-                            Waiting (Step {{ job.resume|add:2 }})
-                        {% else %}
-                            Running (Step {{ job.status }})
-                        {% endif %}</span></li>
-                        <li><b>Input files:</b> <span style="word-wrap: break-word;">{{ job.input_file }}</span></li>
-                        <li><b>Protocol:</b> <span style="word-wrap: break-word;">{{ job.protocol }}</span></li>
-                        <li><b>Job parameters:</b> <span style="word-wrap: break-word;">{{ job.parameter }}</span></li>
-                        <li><b>Create time:</b> {{ job.create_time }}</li>
-                        <li><b>Last update:</b> {{ job.update_time }}</li>
-                        <li><span class="label label-info show-folder" onclick="showFolder({{ job.id }});" data-toggle="tooltip" data-placement="top" title="{{ job.result }}"><i class="icon-folder-open"></i> Show output files</span></li>
-                    </ul></p>
+            <form class="qj-top-form1" action="#" method="get">
+                <div class="form-row">
+                    <div class="form-group col-md-4" id="jobFiltersForm">
+                        <div class="input-group">
+                            <span class="input-group-prepend">
+                                <button class="btn btn-outline-{% if only_running == 1 %}success{% else %}secondary{% endif %}" id="only-running-job-btn" type="button" title="{% if only_running == 1 %}Currently only running jobs will be shown. Click again to remove this filter.{% else %}Click to show only running jobs.{% endif %}"><i class="fas fa-running"></i></button>
+                                <button class="btn btn-outline-{% if only_wrong == 1 %}success{% else %}secondary{% endif %}" id="only-wrong-job-btn" type="button" title="{% if only_wrong == 1 %}Currently only wrong jobs will be shown. Click again to remove this filter.{% else %}Click to show only wrong jobs.{% endif %}"><i class="fas fa-times"></i></button>
+                            </span>
+                        <input type="text" class="form-control" placeholder="Search for... (Type Enter to search)" id="jn-filter" name="job_name">
+                        </div>
                     </div>
-                    <hr style="margin-bottom: 5px; margin-top: 5px;">
-                    <div class="text-center operation-buttons">
-                        {% if job.status == -1 %}
-                            <div class="btn-group" role="group" aria-label="...">
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="auditJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='icon-screenshot icon-white'></i></button>
-                            </div>
-                        {% elif job.status == 0 %}
-                            <div class="btn-group" role="group" aria-label="...">
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
-                            </div>
-                        {% elif job.status == -3 %}
-                            <div class="btn-group" role="group" aria-label="...">
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='icon-trash icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="showResumePanel({{ job.id }});" data-toggle="tooltip" data-placement="top" title="Rollback"><i class='icon-share-alt icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-success" onclick="resumeJob(this, {{ job.resume|add:2 }});" data-toggle="tooltip" data-placement="top" title="Resume"><i class='icon-play icon-white'></i></button>
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='icon-repeat icon-white'></i></button>
-                            </div>
-                            <div class="text-left" id="resume-{{ job.id }}" style="display: none;">
-                                <hr>
-                                <div class="alert alert-success">
-                                    <span href="#" class="close" onclick="$('#resume-{{ job.id }}').hide();">&times;</span>
-                                    <label for="rollback-{{ job.id }}">Rollback to step:</label>
-                                    <input id="rollback-{{ job.id }}" name="rollback-{{ job.id }}" class="sliderbar" data-slider-id='rollback-{{ job.id }}' type="text" data-slider-min="1" class="form-control" data-slider-max="{{ job.resume|add:2 }}" data-slider-step="1" data-slider-value="{{ job.resume|add:2 }}"/>
-                                    <button style="margin-top: 5px;" data-jid="{{ job.id }}" class="btn btn-warning btn-block" onclick="resumeJob(this);">Apply</button>
+                    <div class="form-group col-md-4">
+                        <div class="form-group">
+                            <select class="form-control" id="chooseWorkspace" name="ws">
+                                <option value="-1">Select workspace</option>
+                                {% for workspace in workspaces %}
+                                <option value="{{ workspace.id }}" {% if request.session.workspace == workspace.id %}selected{% endif %}>{{ workspace.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-prepend">
+                                <button type="button" id="click-all" data-checked="0" class="btn btn-outline-secondary">Select All</button>
+                            </span>
+                            <select class="form-control" id="batch-action" name="batch-action">
+                                <option>Batch actions</option>
+                                <option value="d">Delete</option>
+                                <option value="t">Terminate</option>
+                                <option value="r">Rerun</option>
+                            </select>
+                            <span class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary" onclick="batchOperation()">Apply</button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="container-fluid">
+            <div class="row job-container">
+                {% if job_list %}
+                {% for job in job_list %}
+                <div class="col-sm-6 col-md-4 job-panel-parent" id="jobPanelParent{{ job.id }}">
+                    <div class="card {% if job.audit == 1 %}alert-warning{% elif job.audit == 2 %}alert-danger{% endif %}" {% if job.audit == 1 %}title="Protocol / Reference changed."{% elif job.audit == 2 %}title="Input / Output changed."{% endif %} id="jobPanel{{ job.id }}">
+                        <div class="card-body job-panel">
+                            <div class="text-center status" id="job-status-ico-{{ job.id }}">{% if job.status == -1 %}
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
+                            {% elif job.status == -2 %}
+                                <i class="far fa-pause-circle fa-2x"></i>
+                            {% elif job.status == -3 %}
+                                <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
+                            {% elif job.status == 0 %}
+                                <i class="far fa-clock fa-2x"></i>
+                            {% else %}
+                                <i class="fas fa-running fa-2x"></i>
+                            {% endif %}</div>
+                            <h3 style="margin-top: 0;" title="{% if job.job_name %}{{ job.job_name }}{% else %}{{ job.protocol }}{% endif %}">{% if job.job_name %}{{ job.job_name }}{% else %}{{ job.protocol }}{% endif %}<input type="checkbox" class="batch_operation" style="float: right;" name="batch_operation" value="{{ job.id }}"></h3>
+                            <p><ul class="list-unstyled">
+                            <li><b>ID:</b> {{ job.id }}</li>
+                            <li><b>Status:</b> <span class="status-text" id="job-status-txt-{{ job.id }}">{% if job.status == -1 %}
+                                Finished
+                            {% elif job.status == -2 %}
+                                Awaiting for {% if job.wait_for == 0 %}ok{% elif job.wait_for == 1%}disk{% elif job.wait_for == 2%}memory{% elif job.wait_for == 3%}CPU{% elif job.wait_for == 4%}former job{% elif job.wait_for == 5%}peer{% elif job.wait_for == 6%}dependent job{% endif %} (Step {{ job.resume|add:1 }})
+                            {% elif job.status == -3 %}
+                                Error (step {{ job.resume|add:1 }})
+                            {% elif job.status == 0 %}
+                                Waiting (Step {{ job.resume|add:1 }})
+                            {% else %}
+                                Running (Step {{ job.resume|add:1 }})
+                            {% endif %}</span><i class="fas fa-clipboard-list" role="button" title="STDOUT for {{job.id}}" onclick="showLog({{ job.id }}, 1);"></i> <i class="fas fa-bug" role="button" title="STDERR for {{job.id}}" onclick="showLog({{ job.id }});"></i> </li>
+                            <li><b>Protocol:</b> <span style="word-wrap: break-word;" title="{{ job.protocol_ver }}">{{ job.protocol }}</span></li>
+                            <li><b>Folder:</b> {{ job.result }}</li>
+                            <li><b>Job parameters:</b> <span class="editable" onclick="edit(this);" data-sid="{{ job.id }}" data-pid="{{ job.id }}" data-bind="{% url 'ui:update_job_parameter' %}" style="word-wrap: break-word;">{{ job.parameter }}</span></li>
+                            <li><b>Create time:</b> {{ job.create_time }}</li>
+                            <li><b>Last update:</b> {{ job.update_time }}</li>
+                            <li class="form-inline"><b>Workspace:</b> <select class="form-control input-sm" id="chooseWorkspace-j{{ job.id }}" data-job="{{ job.id }}" name="ws-j{{ job.id }}" onchange="changeWorkspace(this);">
+                                <option value="-1">---------</option>
+                                {% for workspace in workspaces %}
+                                    <option value="{{ workspace.id }}" {% if job.workspace.id == workspace.id %}selected{% endif %}>{{ workspace.name }}</option>
+                                {% endfor %}
+                            </select></li>
+                            <li><b>Input files:</b> <span class="editable" onclick="edit(this);" data-sid="{{ job.id }}" data-pid="{{ job.id }}" data-bind="{% url 'ui:update_job_inputs' %}" style="word-wrap: break-word;">{{ job.input_file }}</span><i class="fas fa-search-location btn" onclick="showSample({{job.id}});"></i></li>
+                        </ul></p>
+                        </div>
+    <!--                    <hr style="margin-bottom: 5px; margin-top: 5px;">-->
+                        <div class="card-footer text-center operation-buttons">
+                            {% if job.status == -1 %}
+                                <div class="btn-group" role="group" aria-label="...">
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='fas fa-trash fa-white'></i></button>
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='fas fa-redo fa-white'></i></button>
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="auditJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='fas fa-crosshairs fa-white'></i></button>
+                                    <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
                                 </div>
-                            </div>
-                        {% elif job.status > 0 %}
-                            <div class="btn-group" role="group" aria-label="...">
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='icon-stop icon-white'></i></button>
-                            </div>
-                        {% elif job.status == -2 %}
-                            <div class="btn-group" role="group" aria-label="...">
-                                <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='icon-stop icon-white'></i></button>
-                            </div>
-                        {% endif %}
+                            {% elif job.status == 0 %}
+                                <div class="btn-group" role="group" aria-label="...">
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='fas fa-trash fa-white'></i></button>
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='fas fa-redo fa-white'></i></button>
+                                    <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
+                                </div>
+                            {% elif job.status == -3 %}
+                                <div class="btn-group" role="group" aria-label="...">
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="delJob(this);" data-toggle="tooltip" data-placement="top" title="Delete"><i class='fas fa-trash fa-white'></i></button>
+                                    {% if job.resume > 0 %}
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="showResumePanel({{ job.id }});" data-toggle="tooltip" data-placement="top" title="Rollback"><i class='fas fa-history fa-white'></i></button>
+                                    {% endif %}
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-primary" onclick="resumeJob(this, {{ job.resume }});" data-toggle="tooltip" data-placement="top" title="Resume"><i class='fas fa-play fa-white'></i></button>
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='fas fa-redo fa-white'></i></button>
+                                    <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
+                                </div>
+                                <div class="text-left" id="resume-{{ job.id }}" style="display: none;">
+                                    <hr>
+                                    <div class="alert alert-success">
+                                        <button type="button" class="close" aria-label="Close"><span aria-hidden="true" onclick="$('#resume-{{ job.id }}').hide();">&times;</span></button>
+                                        <label for="rollback-{{ job.id }}">Rollback to step: </label><output>{{ job.resume|add:0 }}</output>
+                                        <input id="rollback-{{ job.id }}" name="rollback-{{ job.id }}" type="range" min="1" class="form-control-range" max="{{ job.resume|add:0 }}" step="1" value="{{ job.resume|add:0 }}" oninput="this.previousElementSibling.value = this.value"/>
+                                        <button style="margin-top: 5px;" data-jid="{{ job.id }}" class="btn btn-warning btn-block" onclick="resumeJob(this);">Apply</button>
+                                    </div>
+                                </div>
+                            {% elif job.status > 0 %}
+                                <div class="btn-group" role="group" aria-label="...">
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='fas fa-stop-circle fa-white'></i></button>
+                                    <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
+                                </div>
+                            {% elif job.status == -2 %}
+                                <div class="btn-group" role="group" aria-label="...">
+                                    <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-danger" onclick="terJob(this);" data-toggle="tooltip" data-placement="top" title="Terminate"><i class='fas fa-stop-circle fa-white'></i></button>
+                                    <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+                {% endfor %}
+                {% endif %}
             </div>
-            {% endfor %}
-            {% endif %}
         </div>
-        <ul class="pager">
-            {% if job_list.has_previous %}
-                <li><a href="?page={{ job_list.previous_page_number }}">&lt;</a></li>
-            {% endif %}
-            <li><a>Page {{ job_list.number }} of {{ job_list.paginator.num_pages }}</a></li>
-            {% if job_list.has_next %}
-                <li><a href="?page={{ job_list.next_page_number }}">&gt;</a></li>
-            {% endif %}
-        </ul>
     </div>
+    <div class="align-items-center">
+        <nav aria-label="Page navigation" class="mx-auto">
+            <ul class="pagination justify-content-center">
+                {% if job_list.has_previous %}
+                <li class="page-item">
+                    <a href="?{% keep_par_paginator page=job_list.previous_page_number %}" aria-label="Previous" class="page-link">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% for l in job_list.page_range %}
+                {% if l <= job_list.number|add:3 and l >= job_list.number|add:-3 %}
+                <li class="page-item {% if forloop.counter == current_page %}active{% endif %}">
+                    <a href="?{% keep_par_paginator page=forloop.counter %}" class="page-link">{{forloop.counter}}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item disabled">
+                    <span class="page-link">
+                        <span aria-hidden="true">Page {{ job_list.number }} of {{ job_list.paginator.num_pages }}</span>
+                    </span>
+                </li>
+                {% if job_list.has_next %}
+                <li class="page-item">
+                    <a href="?{% keep_par_paginator page=job_list.next_page_number %}" aria-label="Next" class="page-link">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a href="?{% keep_par_paginator page=job_list.num_pages %}" class="page-link">last &raquo;</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
 <div class="modal fade" id="showLog" tabindex="-1" role="dialog" aria-labelledby="showLog">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <div class="modal-header">
+                <h5 class="modal-title" id="show-logs-head">Logs</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="show-logs-head">Logs</h4>
             </div>
             <div class="modal-body"> </div>
         </div>
     </div>
 </div>
 <div class="modal fade" id="showFd" tabindex="-1" role="dialog" aria-labelledby="showFd">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <div class="modal-header">
+                <h5 class="modal-title" id="show-fd-head">Output Files</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="show-fd-head">Output Files</h4>
             </div>
             <div class="modal-body">
                 <div class="file-list"></div>
@@ -145,7 +217,7 @@
                         <div class="form-group">
                             <label class="control-label" for="name">Reference Name</label>
                             <input type="text" class="form-control" id="name" name="name" required />
-                            <p class="help-block">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</p>
+                            <small class="form-text text-muted">Recommended format: <em>NAME_VERSION_FORMAT</em>, for example, GENOME_HG38_FA.</small>
                         </div>
                         <div class="form-group">
                             <label class="control-label" for="name">Description (optional)</label>
@@ -162,6 +234,29 @@
 </div>
 {% endblock %}
 {% block script %}
+    var query_dict = {};
+    location.search.substr(1).split("&").forEach(function(item) {query_dict[item.split("=")[0]] = item.split("=")[1]});
+    if (typeof(query_dict.job_name)!="undefined"){
+        $("#jn-filter").val(query_dict.job_name);
+    }
+    $("#only-running-job-btn").click(function(){
+        if ($("#only-running-job-btn").hasClass("btn-outline-success")){
+            $.cookie("only_running", 0);
+        }else{
+            $.cookie("only_running", 1);
+            $.cookie("only_wrong", 0);
+        }
+        refreshJob();
+    });
+    $("#only-wrong-job-btn").click(function(){
+        if ($("#only-wrong-job-btn").hasClass("btn-outline-success")){
+            $.cookie("only_wrong", 0);
+        }else{
+            $.cookie("only_wrong", 1);
+            $.cookie("only_running", 0);
+        }
+        refreshJob();
+    });
     function refreshJob(){
         location.reload();
     }
@@ -179,146 +274,189 @@
             xhr.setRequestHeader("X-CSRFToken", csrftoken);
         }
     });
+    $("#jobFiltersForm input").on("focusout", function(e){
+        $("#jobFiltersForm").addClass("form-inline").css({display: "inline-block"});
+        $("#jobFiltersForm").addClass("col-md-4").removeClass("col-md-12");
+        refT = window.setInterval(refreshJob, 30000);
+    }).on("focusin", function(e){
+        $("#jobFiltersForm").removeClass("form-inline").css({display: "block"});
+        $("#jobFiltersForm").removeClass("col-md-4").addClass("col-md-12");
+        clearInterval(refT);
+    });
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     });
-    $('.sliderbar').slider({
-        formatter: function(value) {
-            return value;
-        },
-        tooltip_position:'bottom',
-    });
     function delJob(obj){
+        if(!confirm("Are you sure you want to delete this job?")){
+            return false;
+        }
         var self = $(obj);
         var jid = self.attr("data-jid");
-        $.post("{% url 'ui:delete_job' %}", {job: jid}, function(data){
-            if(data.status){
-                Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
-                $("#job-panel-parent-"+jid).hide("slow");
-		    }else{
-                Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-            };
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:delete_job' %}",
+            data: {job: jid},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    $("#jobPanelParent"+jid).hide("slow");
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
         });
     }
     function reRunJob(obj){
+        if(!confirm("Are you sure you want to rerun this job?")){
+            return false;
+        }
         var self = $(obj);
         var jid = self.attr("data-jid");
-        $.post("{% url 'ui:rerun_job' %}", {job: self.attr("data-jid")}, function(data){
-            if(data.status){
-                Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
-                $('#job-status-icon-'+jid).html('<i class="icon-time icon-3x"></i>');
-                $('#job-status-txt-'+jid).html('Reruning');
-		    }else{
-                Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-            };
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:rerun_job' %}",
+            data: {job: self.attr("data-jid")},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    $('#job-status-ico-'+jid).html('<i class="far fa-clock fa-2x"></i>');
+                    $('#job-status-txt-'+jid).html('Reruning');
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
         });
 	};
     function auditJob(obj){
+        if(!confirm("Are you sure you want to audit this job?")){
+            return false;
+        }
         var self = $(obj);
         var jid = self.attr("data-jid");
-        $.post("{% url 'ui:mark_wrong_job' %}", {job: self.attr("data-jid")}, function(data){
-            if(data.status){
-                Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
-                $('#job-status-icon-'+jid).html('<i class="icon-remove icon-3x"></i>');
-		    }else{
-                Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-            };
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:mark_wrong_job' %}",
+            data: {job: self.attr("data-jid")},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    $('#job-status-ico-'+jid).html('<i class="fas fa-exclamation-circle fa-2x text-warning"></i>');
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
         });
 	};
     function showResumePanel(job){
         $('#resume-'+job).show();
-        $('#job-panel-'+job).animate({scrollTop:$('#resume-'+job).offset().top},1000);
+        $('#jobPanel'+job).animate({scrollTop:$('#resume-'+job).offset().top},1000);
     }
     function resumeJob(obj, spec=0){
-        var self = $(obj);
-        var jid = self.attr("data-jid");
-        if(spec==0){
-            spec=$("#rollback-"+jid).text();
+        if(!confirm("Are you sure you want to resume this job?")){
+            return false;
         }
-        $.post("{% url 'ui:resume_job' %}", {job: jid, step:spec}, function(data){
-            if(data.status){
-                Messenger().post({
-					message: data.info,
-					showCloseButton: true
-				});
-                $('#job-status-icon-'+jid).html('<i class="icon-time icon-3x"></i>');
-                $('#job-status-txt-'+jid).html('Resuming');
-                $('#resume-'+jid).hide();
-		    }else{
-                Messenger().post({
-					message: data.info,
-					type: 'error',
-					showCloseButton: true
-				});
-            };
+        var self = $(obj);
+        var jid = self.data("jid");
+        if(spec==0){
+            spec=$("#rollback-"+jid).val();
+        }
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:resume_job' %}",
+            data: {job: jid, step:spec},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    $('#job-status-ico-'+jid).html('<i class="far fa-clock fa-2x"></i>');
+                    $('#job-status-txt-'+jid).html('Resuming');
+                    $('#resume-'+jid).hide();
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
         });
     }
     function terJob(obj){
+        if(!confirm("Are you sure you want to terminate this job?")){
+            return false;
+        }
 		var self = $(obj);
         var jid = self.attr("data-jid");
-        $.post("{% url 'ui:terminate_job' %}", {job: self.attr("data-jid")}, function(data){
-            if(data.status){
-                Messenger().post({
-                    message: data.info,
-                    showCloseButton: true
-                });
-                $('#job-status-icon-'+jid).html('<i class="icon-time icon-3x"></i>');
-                $('#job-status-txt-'+jid).html('Terminating');
-		    }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-				});
-            };
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:terminate_job' %}",
+            data: {job: self.attr("data-jid")},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    $('#job-status-ico-'+jid).html('<i class="far fa-clock fa-2x"></i>');
+                    $('#job-status-txt-'+jid).html('Terminating');
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
         });
 	};
-    function showLog(recId){
-        $.post("{% url 'ui:show_job_log' %}", {job: recId}, function(data){
+    function showLog(recId, stdout=0){
+        $.post("{% url 'ui:show_job_log' %}", {job: recId, std_out: stdout}, function(data){
             if(data.status){
                 $('#showLog .modal-body').html(data.info);
                 $('#showLog').modal();
 		    }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-				});
+                post_msg(data.info, 1);
             };
         });
     }
     function showFolder(recId){
         $.post("{% url 'ui:show_job_folder' %}", {job: recId}, function(data){
             if(data.status){
+                $("#jobPanel"+recId).toggleClass("highlight-job");
                 $('#showFd .modal-body .file-list').html(data.info);
+                $("#showFd #show-fd-head").html("<kbd title='Job ID'>"+recId+"</kbd> | "+$("#jobPanel"+recId+" h3").text());
                 $('#showFd').modal();
 		    }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-				});
+                post_msg(data.info, 1);
+            };
+        });
+    }
+    function showSample(recId){
+        let inputs = $("#jobPanel"+recId+" .input-files").text();
+        let re_uploads = /\{\{Uploaded\:(.*?)\}\};/g;
+        let samples = "";
+        for (const v of inputs.matchAll(re_uploads)) {
+            samples += btoa(v[1])+";";
+        }
+        $.post("{% url 'ui:query_job_samples' %}", {files: samples}, function(data){
+            if(data.status){
+                $('#showLog .modal-body').html(data.info);
+                $('#showLog').modal();
+		    }else{
+                post_msg(data.info, 1);
             };
         });
     }
@@ -326,7 +464,7 @@
         var self = $(obj);
         $.get("/ui/delete-job-file/"+self.attr("data-path"), function(data){
             if(data.status){
-                self.parent().parent().hide('fast');
+                $("#fileRow"+self.data("row-id")).hide("fast");
             };
         });
     };
@@ -334,17 +472,10 @@
         var self = $("#cf-form");
         $.post(self.attr("action"), self.serialize(), function(data){
             if(data.status){
-                Messenger().post({
-                    message: "Created.",
-                    showCloseButton: true,
-				});
+                post_msg("Created", 1);
                 $('#showFd').modal('hide');
 		    }else{
-                Messenger().post({
-                    message: data.info,
-                    type: 'error',
-                    showCloseButton: true
-				});
+                post_msg(data.info, 1);
             };
         });
     };
@@ -366,19 +497,69 @@
         });
 		var values = valArr.join(',');
       	if (values){
-            $.post("{% url 'ui:batch_operation' %}", {operation: $("#batch-action").val(), jobs: values}, function(data){
+            $.ajax({
+            type: "POST",
+            url: "{% url 'ui:batch_operation' %}",
+            data: {operation: $("#batch-action").val(), jobs: values},
+            success: function(data){
                 if(data.status){
                     location.reload();
 		        }else{
-                    Messenger().post({
-					    message: data.info,
-					    type: 'error',
-					    showCloseButton: true
-                });
-            };
-        });
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
+            });
         }else{
-            alert("Please check items!");
+            post_msg("Please check items!", 1);
         }
     }
+    $("#chooseWorkspace").change(function() {
+        if($("#chooseWorkspace").val()!="--"){
+            $.ajax({
+            type: "POST",
+            url: "{% url 'ui:set_workspace' %}",
+            data: {ws: $("#chooseWorkspace").val(), },
+            success: function(data){
+                if(data.status){
+                    location.reload();
+		        }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
+            });
+        }
+    });
+    function changeWorkspace(obj){
+        var self = $(obj);
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:update_workspace' %}",
+            data: {id: self.data("job"), ws: self.val(), },
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+		        }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
+            });
+    }
+    $('#showFd').on('hidden.bs.modal', function (e) {
+        $(".card").removeClass("highlight-job");
+    });
 {% endblock %}
