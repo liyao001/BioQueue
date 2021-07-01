@@ -161,21 +161,14 @@
 
             function success(data) {
                 if (data.status) {
-                    Messenger().post({
-                        message: 'Created.',
-                        showCloseButton: true
-                    });
+                    post_msg(data.info);
                     self[0].reset();
                     $('#uploaded-file-table :checkbox:enabled').prop('checked', false);
                     $('#showCR').modal('hide');
                     $('#register-sample').modal('hide');
                     location.reload();
                 } else {
-                    Messenger().post({
-                        message: data.info,
-                        type: 'error',
-                        showCloseButton: true,
-                    });
+                    post_msg(data.info, 1);
                 }
             }
         });
