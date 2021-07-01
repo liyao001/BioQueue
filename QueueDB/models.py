@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Li Yao
 # @Date: 12/01/16
+
+
 from __future__ import unicode_literals
 from django.db import models
 from django.contrib.auth.models import User
@@ -459,12 +461,44 @@ class Profile(models.Model):
     delegate = models.ForeignKey(User, on_delete=models.CASCADE, related_name="%(app_label)s_delegate_related")
     api_key = models.CharField(default=uuid4, max_length=64, unique=True)
     api_secret = models.CharField(default=uuid4, max_length=64)
-    upload_folder = models.CharField(default="", max_length=1024)
-    archive_folder = models.CharField(default="", max_length=1024)
+    upload_folder = models.CharField(default="", blank=True, max_length=1024)
+    archive_folder = models.CharField(default="", blank=True, max_length=1024)
     notification_enabled = models.SmallIntegerField(choices=((0, "No"), (1, "Yes")), default=0)
 
     def __str__(self):
         return self.user.username
+
+    def check_owner(self, user, read_only=True):
+        """
+        Check whether the requesting user has the permission to read/change the record
+
+        :param user: int or User
+            either or int (id of the user) or a User object
+        :param read_only: bool
+            If the ongoing operation only requires for read permission
+        :return:
+        has_perm : bool
+            True for having permission to access the record
+        """
+        if not isinstance(user, User):
+            if type(user) is int:
+                user = User.objects.get(id=user)
+            else:
+                raise AssertionError("user should be a User object or an integer")
+        if self.user is None:
+            if read_only:  # public
+                return True
+            else:
+                if user.is_staff:
+                    return True
+                else:
+                    return False
+        elif int(self.user.id) == user.id:  # owner
+            return True
+        elif user.is_staff:  # administrators
+            return True
+        else:
+            return False
 
 
 class Notification(_OwnerModel):

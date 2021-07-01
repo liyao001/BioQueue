@@ -25,17 +25,19 @@ from .Protocol import query_protocol_atom
 
 class SharedSimpleViews:
     error_flag = 0
-    supported_models = ("Experiment", "Sample", "Environment", "Workspace", "Reference")
-    internal_names = ("Experiment", "Sample", "VirtualEnvironment", "Workspace", "Reference")
-    models = (Experiment, Sample, VirtualEnvironment, Workspace, Reference)
-    create_forms = (None, None, CreateVEForm, CreateWorkspaceForm, CreateReferenceForm)
-    update_forms = (None, None, CreateVEForm, CreateWorkspaceForm, CreateReferenceForm)
+    supported_models = ("Experiment", "Sample", "Environment", "Workspace", "Reference", "Profile")
+    internal_names = ("Experiment", "Sample", "VirtualEnvironment", "Workspace", "Reference", "Profile")
+    models = (Experiment, Sample, VirtualEnvironment, Workspace, Reference, Profile)
+    create_forms = (None, None, CreateVEForm, CreateWorkspaceForm, CreateReferenceForm, None)
+    update_forms = (None, None, CreateVEForm, CreateWorkspaceForm, CreateReferenceForm, UpdateUserFoldersForm)
+    update_action = ("redirect", "redirect", "redirect", "redirect", "redirect", "msg", )
     helper_msgs = (
         "",
         "",
         """BioQueue supports running steps in environments created by <a href="https://docs.python.org/3/library/venv.html" target="_blank"><code>venv</code></a> and <a href="https://docs.conda.io/en/latest/" target="_blank"><code>conda</code></a>. You can configure environments for steps to use in this page.""",
         "BioQueue supports putting jobs into different workspaces to make them more manageable.",
-        "Specific files are likely to be used in multiple protocols (like gene annotation files, genome sequences files). To avoid the cumbersome typing of the entire path repeatedly, BioQueue allows users to create a dictionary of aliases (references) of these files so that you can refer to them with ease. "
+        "Specific files are likely to be used in multiple protocols (like gene annotation files, genome sequences files). To avoid the cumbersome typing of the entire path repeatedly, BioQueue allows users to create a dictionary of aliases (references) of these files so that you can refer to them with ease. ",
+        ""
     )
 
     def __init__(self, request, model):
@@ -118,8 +120,10 @@ class SharedSimpleViews:
                             if instance.check_owner(self.request.user.queuedb_profile_related.delegate,
                                                     read_only=False):
                                 form.save()
-                                # return success("%s updated successfully." % self.model_name)
-                                return redirect("ui:manage_simple_models", operation="view", model=self.model_name)
+                                if self.update_action[self.order_i] == "redirect":
+                                    return redirect("ui:manage_simple_models", operation="view", model=self.model_name)
+                                else:
+                                    return success("%s updated successfully." % self.model_name)
                             else:
                                 return error("You are not the owner of the record")
                     except Exception as e:
@@ -483,9 +487,11 @@ def index(request):
     else:
         running_job = Job.objects.filter(user=request.user.queuedb_profile_related.delegate).filter(status__gt=0).count()
 
-    context = {'running_jobs': running_job}
+    context = {"running_jobs": running_job,
+               "qid": request.user.queuedb_profile_related.delegate.id,
+               "change_folder_form": UpdateUserFoldersForm(instance=request.user.queuedb_profile_related.delegate.queuedb_profile_related)}
 
-    return render(request, 'ui/index.html', context)
+    return render(request, "ui/index.html", context)
 
 
 @login_required

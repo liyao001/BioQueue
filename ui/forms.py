@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 # @Author: Li Yao
 # @Date: 12/01/16
+
+
 from django import forms
 from django.template.defaultfilters import filesizeformat
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.forms import TextInput, Select, Textarea
 from django.core.validators import RegexValidator
-from QueueDB.models import Workspace, VirtualEnvironment, Experiment, Step, ProtocolList, Reference
+from QueueDB.models import Workspace, VirtualEnvironment, Experiment, Step, ProtocolList, Reference, Profile
 
 mail_list_validator = RegexValidator(r"[\w!#$%&'*+/=?^_`{|}~-]+(?:\.[\w!#$%&'*+/=?^_`{|}~-]+)*@(?:[\w](?:[\w-]*[\w])?\.)+[\w](?:[\w-]*[\w])?,",
                                      "Contacts must follow the format: abc@cornell.edu,def@cornell.edu,")
@@ -381,6 +383,20 @@ class CreateWorkspaceForm(forms.ModelForm):
 class UpdateWorkspaceForm(forms.Form):
     id = forms.IntegerField(required=True)
     ws = forms.IntegerField(required=True)
+
+
+class UpdateUserFoldersForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ["upload_folder", "archive_folder"]
+        widgets = {
+            "upload_folder": TextInput(attrs={"class": "form-control"}),
+            "archive_folder": TextInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
+        super(UpdateUserFoldersForm, self).__init__(*args, **kwargs)
 
 
 class GenericDeleteForm(forms.Form):
