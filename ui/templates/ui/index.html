@@ -27,7 +27,7 @@
 				<div class="text-center">
 					<i class="fas fa-key fa-4x"></i>
 				</div>
-				<div class="col1">Change password</div>
+				<div class="col1">Update account info</div>
 		    </a>
 		</div>
 		<div class="col-md-2 v4-metro v4-metro-deep-terques d-flex align-items-center">
@@ -94,12 +94,12 @@
 	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h4 class="modal-title" id="cyp">Change your password</h4>
+				<h4 class="modal-title" id="cyp">Update account info</h4>
 				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			</div>
 			<div class="modal-body">
 				<form action="{% url 'accounts:password_change' %}" method="post">
-					<div class="Validform_checktip alert" style="display: none;"></div>
+					<div class="validform-checktip alert alert-danger" role="alert" style="display: none;"></div>
 					<div class="form-group">
 						<label>Old Password</label>
 						<input type="password" class="form-control" name="old_password" id="old_password" placeholder="Old password" required>
@@ -113,11 +113,25 @@
 						<input type="password" class="form-control" name="new_password_2" id="new_password_2" placeholder="Type your new password again" required>
 					</div>
 					{% csrf_token %}
-					<div><button type="submit" class="btn btn-info">Change password</button></div>
+					<div><button type="submit" class="btn btn-success btn-lg btn-block">Change password</button></div>
 				</form>
-			</div>
-			<div class="modal-footer">
-				<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+				<hr>
+				<form class="form" method="post" action="{% url 'ui:manage_simple_models' 'update' 'Profile' %}">
+					<div class="validform-checktip alert alert-danger" role="alert" style="display: none;"></div>
+					{% for field in change_folder_form %}
+					<div class="form-group">
+						{{ field.errors }}
+						{{ field.label_tag }} {{field}}
+						{% if field.help_text %}
+						<small class="form-text text-muted">{{ field.help_text|safe }}</small>
+						{% endif %}
+					</div>
+					{% csrf_token %}
+					<input type="hidden" name="qid" value="{{ qid }}">
+					{% endfor %}
+					<input type="hidden" name="qid" value="{{ qid }}">
+					<button type="submit" class="btn btn-success btn-lg btn-block">Update path</button>
+				</form>
 			</div>
 		</div>
 	</div>
@@ -127,8 +141,8 @@
 <script src="{% static "ui/js/bootstrap.bundle.min.js" %}"></script>
 <script>
 $("form").submit(function(){
-    var self = $(this);
-    self.find(".Validform_checktip").hide();
+    let self = $(this);
+    self.find(".validform-checktip").hide();
     $.post(self.attr("action"), self.serialize(), success, "json");
     return false;
 
@@ -136,7 +150,7 @@ $("form").submit(function(){
         if(data.status){
             window.location.href = '{% url 'accounts:login' %}';
         } else {
-            self.find(".Validform_checktip").removeClass('alert-success').text(data.info).show();
+            self.find(".validform-checktip").removeClass('alert-success').text(data.info).show();
         }
     }
 });
