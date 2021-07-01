@@ -37,7 +37,7 @@
                         </thead>
                         <tbody>
                         {% for ve in objects %}
-                            <tr class="align-middle {% if ve.user is None %}table-success{% endif %}" id="recRow{{ve.id}}">
+                        <tr class="align-middle {% if ve.user is None %}table-success{% endif %}" id="recRow{{ve.id}}" title="{% if ve.user is None %}Shared environment{% endif %}">
                                 <td class="align-middle">{{ ve.id }}</td>
                                 <td class="align-middle">{{ ve.name }}</td>
                                 <td class="align-middle" onclick="edit(this);" data-sid="{{ ve.id }}">{{ ve.value }}</td>

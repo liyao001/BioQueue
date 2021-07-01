@@ -510,7 +510,7 @@ def resume_job(request):
             try:
                 job = Job.objects.get(id=cd['job'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
-                    rollback_to = max(int(cd['step']) - 1, 0)
+                    rollback_to = max(int(cd['step']), 0)
                     if rollback_to <= job.resume:
                         job.resume_job(rollback_to)
                     else:

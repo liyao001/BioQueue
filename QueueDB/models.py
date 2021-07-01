@@ -248,7 +248,9 @@ class Job(_OwnerModel):
     create_time = models.DateTimeField(auto_now_add=True)
     resume = models.SmallIntegerField(default=0)
     ter = models.SmallIntegerField(default=_NO, choices=YES_OR_NO)
-    audit = models.SmallIntegerField(default=_NO, choices=YES_OR_NO)
+    audit = models.SmallIntegerField(default=_NO, choices=((0, "Ok"),
+                                                           (1, "Protocol/Reference changed"),
+                                                           (2, "Input/Output changed")))
     wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
     workspace = models.ForeignKey("Workspace", blank=True, null=True, on_delete=models.CASCADE)
 

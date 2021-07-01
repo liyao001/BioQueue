@@ -37,7 +37,7 @@
                         </thead>
                         <tbody>
                         {% for obj in objects %}
-                            <tr class="align-middle {% if obj.user is None %}table-success{% endif %}" id="recRow{{obj.id}}">
+                        <tr class="align-middle {% if obj.user is None %}table-success{% endif %}" id="recRow{{obj.id}}" title="{% if obj.user is None %}Shared reference{% endif %}">
                                 <td class="align-middle">{{ obj.name }}</td>
                                 <td class="align-middle text-break">{{ obj.path }}</td>
                                 <td class="align-middle text-break">{{ obj.description }}</td>
