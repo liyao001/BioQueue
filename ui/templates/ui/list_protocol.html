@@ -18,7 +18,7 @@
                         </thead>
                         <tbody>
                         {% for protocol in protocol_list %}
-                            <tr class="protocol-rows {% if protocol.user is None %}table-success{% endif %}" id="protocolRow{{ protocol.id }}">
+                        <tr class="protocol-rows {% if protocol.user is None %}table-success{% endif %}" id="protocolRow{{ protocol.id }}" title="{% if protocol.user is None %}Shared protocol{% endif %}">
                                 <td>{{ protocol.name }}</td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group" aria-label="Operations available">

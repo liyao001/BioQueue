@@ -307,7 +307,7 @@ class Task(object):
                     step.resources["order"] = self.resume
                 return step
             else:
-                logger.warning("No remaining steps available")
+                logger.warning("No remaining steps available (%d)" % self.job_id)
                 return None
 
     def _set_error(self):
@@ -439,7 +439,7 @@ class Task(object):
                     snapshot['output'][f] = "%d;%d;%d" % (ctime, mtime, fbytes)
 
             parsed_uploaded_files, _ = _Step._upload_file_map(self._job_input, self.user_folder)
-            parsed_history_files, _, _ = _Step._history_map(parsed_uploaded_files, self._user.id, self.user_folder)
+            parsed_history_files, _, _ = _Step._history_map(parsed_uploaded_files, self._user)
             parsed_inputs = parsed_history_files.split(";")
             for input_file in parsed_inputs:
                 if os.path.exists(input_file) and os.path.isfile(input_file):
@@ -506,12 +506,15 @@ class JobQueue(object):
                     self._failed_tasks.add((self.dequeue, job.job_id))
                     logger.warning(self._db_fail_msg_tpl.format(job=job.job_id, operation="dequeue"))
                     logger.warning(e)
-
-            self.remove_resources(job.job_id)
-            if not is_error:
-                job.snapshot()
-            bases.save_output_dict(job.file_map, job.job_id)
-            del self._QUEUE[job.job_id]
+            try:
+                self.remove_resources(job.job_id)
+                if not is_error:
+                    job.snapshot()
+                bases.save_output_dict(job.file_map, job.job_id)
+            except Exception as e:
+                logger.exception(e)
+            finally:
+                del self._QUEUE[job.job_id]
 
     def enqueue(self, job):
         """
@@ -532,7 +535,7 @@ class JobQueue(object):
         """
         # check
         uf, rf, result = job.prepare_workspace()
-        job.initialize_job_parameters(ref_dict=self._get_user_references(job._user.id))
+        job.initialize_job_parameters(ref_dict=self._get_user_references(job._user))
 
         with self._lock:
             self._QUEUE[job.job_id] = job
@@ -600,7 +603,7 @@ class JobQueue(object):
         except:
             self._n_retries = 1
 
-    def _get_user_references(self, user_id):
+    def _get_user_references(self, user):
         """
 
         Parameters
@@ -613,7 +616,7 @@ class JobQueue(object):
         @ todo: there's a conflict between user's ref and global ref, keep user's
         @ todo: cache queries?
         """
-        results = Reference.objects.filter(Q(user_id=user_id) | Q(user_id=0)).order_by("user_id")
+        results = Reference.objects.filter(Q(user=user) | Q(user=None)).order_by("user_id")
         refs = {}
         for ref in results:
             refs[ref.name] = ref.path
