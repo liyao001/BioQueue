@@ -488,7 +488,8 @@ def index(request):
         running_job = Job.objects.filter(user=request.user.queuedb_profile_related.delegate).filter(status__gt=0).count()
 
     context = {"running_jobs": running_job,
-               "qid": request.user.queuedb_profile_related.delegate.id,
+               "uid": request.user.queuedb_profile_related.delegate.id,
+               "pid": request.user.queuedb_profile_related.delegate.queuedb_profile_related.id,
                "change_folder_form": UpdateUserFoldersForm(instance=request.user.queuedb_profile_related.delegate.queuedb_profile_related)}
 
     return render(request, "ui/index.html", context)

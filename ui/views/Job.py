@@ -245,7 +245,7 @@ def delete_job(request):
                         if n_archive == 0:
                             job.delete()
                             delete_job_file_tree(request, job.result)
-                            return success('Your job have been deleted.')
+                            return success('Your job has been deleted.")
                         else:
                             return error("Job is under protection.(%d dependent archives)" % n_archive)
                     # except Exception as e:
@@ -463,9 +463,9 @@ def rerun_job(request):
                         delete_job_file_tree(request, job.result)
                     job.rerun_job()
                     if prev_protocol_ver == job.protocol.ver:
-                        return success('Your job will rerun soon.')
+                        return success("Your job will be rerunning soon.")
                     else:
-                        return success('Your job will rerun soon (protocol modified).')
+                        return success("Your job will be rerunning soon (protocol modified).")
                 else:
                     return error('Your are not the owner of the job.')
             except Exception as e:

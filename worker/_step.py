@@ -284,7 +284,7 @@ class _Step(object):
         self._command, outside_size_upload = _Step._upload_file_map(self._command, job.user_folder)
         outside_size += outside_size_upload
         self._command = self._command.replace("{{Workspace}}", job.run_folder)
-        user_bin_dir = os.path.join(os.path.join(self._settings["env"]["workspace"], str(job.job_user), "bin"))
+        user_bin_dir = os.path.join(os.path.join(self._settings["env"]["workspace"], str(job.job_user.id), "bin"))
         if not os.path.exists(user_bin_dir):
             try:
                 os.makedirs(user_bin_dir)
