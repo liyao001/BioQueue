@@ -7,8 +7,8 @@
         <small class="form-text text-muted">{{ field.help_text|safe }}</small>
         {% endif %}
     </div>
-    {% csrf_token %}
     <input type="hidden" name="qid" value="{{ qid }}">
     {% endfor %}
+    {% csrf_token %}
     <button type="submit" class="btn btn-success btn-lg btn-block">Update</button>
 </form>

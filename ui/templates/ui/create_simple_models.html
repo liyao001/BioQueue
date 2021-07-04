@@ -26,8 +26,8 @@
                             <small class="form-text text-muted">{{ field.help_text|safe }}</small>
                             {% endif %}
                         </div>
-                        {% csrf_token %}
                         {% endfor %}
+                        {% csrf_token %}
                         <input type="submit" class="btn btn-success btn-large btn-block" value="Add" />
                     </form>
                 </div>

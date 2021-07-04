@@ -544,7 +544,7 @@ class JobQueue(object):
     def clean_dead_jobs():
         # clean dead jobs
         try:
-            djs = Job.objects.filter(status=_JS_RUNNING)
+            djs = Job.objects.filter(Q(status=_JS_RUNNING) | Q(status=_JS_RESOURCELOCK))
             for j in djs:
                 logger.warning(f"The status of job {j.job_name} ({j.id}) is {j.get_status_display()}, now BioQueue marks it as failed.")
                 j.status = _JS_WRONG
@@ -979,6 +979,7 @@ def check_settings(settings):
 
 
 def main(n_retries=3):
+    logger.info("Initiating BioQueue worker")
     settings = get_all_config()
     assert check_settings(settings), "Settings is not valid"
     # check configuration

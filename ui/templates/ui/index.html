@@ -126,10 +126,9 @@
 						<small class="form-text text-muted">{{ field.help_text|safe }}</small>
 						{% endif %}
 					</div>
-					{% csrf_token %}
-					<input type="hidden" name="qid" value="{{ qid }}">
 					{% endfor %}
-					<input type="hidden" name="qid" value="{{ qid }}">
+					{% csrf_token %}
+					<input type="hidden" name="qid" value="{{ pid }}">
 					<button type="submit" class="btn btn-success btn-lg btn-block">Update path</button>
 				</form>
 			</div>
