@@ -45,15 +45,15 @@ class Protocol(object):
     def ver(self):
         return self._ver
 
-    def customize_steps_by_user_dir(self, workspace_path):
+    def customize_steps_by_user_dir(self, workspace_path, user_id):
         step_list = []
         for index, step in enumerate(self.raw_steps):
             # priority for self-compiled tool
             sp = step.software
 
             if workspace_path is not None and os.path.exists(workspace_path):
-                if step.user is not None:
-                    software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(step.user.id)), "bin"),
+                if user_id is not None:
+                    software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(user_id)), "bin"),
                                                  str(step.software))
                     if os.path.exists(software_path) and os.path.isfile(software_path):
                         sp = software_path
@@ -98,7 +98,7 @@ class Task(object):
         self._wait_for = job_obj.wait_for
 
         # for translating protocol
-        self._steps = self._protocol.customize_steps_by_user_dir(workspace_path=self._work_dir)
+        self._steps = self._protocol.customize_steps_by_user_dir(workspace_path=self._work_dir, user_id=self._user.id)
         self._job_parameters = None
         self._job_input_files = self._job_input.split(";")
         self._OUTPUTS = []
@@ -756,11 +756,11 @@ class JobQueue(object):
                     try:
                         training = Training.objects.get(id=resource['trace'])
                         training.delete()
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.exception(e)
                 self.dequeue(job, is_error=is_error)
-            except:
-                pass
+            except Exception as e:
+                logger.exception(e)
         else:
             try:
                 job.resume += 1
@@ -876,8 +876,8 @@ class JobQueue(object):
                                             _j = Job.objects.get(id=job.job_id)
                                             if _j.ter:
                                                 JobQueue.kill_proc(proc_info)
-                                                self.finish_step(job, is_error=1)
-                                                return None
+                                                # self.finish_step(job, is_error=1)
+                                                return 2
                                             break
                                         except Exception as e:
                                             logger.warning(f"Failed to retrieve job (id: {job.job_id}) status from the database")
@@ -912,7 +912,7 @@ class JobQueue(object):
 
                 if len(step_obj.dependent_jobs) > 0:
                     for sd in step_obj.dependent_jobs:
-                        while self.query_job_status(job_id=sd.id) != -1:
+                        while self.query_job_status(job_id=sd) != -1:
                             # update checkpoint information for this job (waiting for dependent jobs)
                             job_obj.set_checkpoint_info(checkpoint=CheckPoints.DEPENDENCE)
                             time.sleep(30)

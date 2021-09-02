@@ -627,14 +627,14 @@ def update_step_order(request):
             error_tag = 0
             for relation in relations:
                 step_id, new_order = relation.split('=')
-                step = Step.objects.get(id=int(step_id), parent=int(cd['protocol']))
+                step = Step.objects.get(id=int(step_id), parent=cd['protocol'])
                 if step.parent.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
                     step.update_order(int(new_order))
                     step.save()
                 else:
                     return error('Your are not owner of the step.')
             if not error_tag:
-                archive_protocol(request, cd['protocol'])
+                archive_protocol(request, cd['protocol'].id)
                 return success('Your step has been updated.')
         else:
             return error(str(update_order_form.errors))

@@ -110,6 +110,7 @@
                                     <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-info" onclick="reRunJob(this);" data-toggle="tooltip" data-placement="top" title="Rerun"><i class='fas fa-redo fa-white'></i></button>
                                     <button data-jid="{{ job.id }}" style="cursor:pointer;" class="btn btn-warning" onclick="auditJob(this);" data-toggle="tooltip" data-placement="top" title="Audit"><i class='fas fa-crosshairs fa-white'></i></button>
                                     <button class="btn btn-success" onclick="showFolder({{ job.id }});" type="button" data-toggle="tooltip" data-placement="top" title="Show output files"><i class="far fa-folder-open"></i></button>
+                                    <button data-jid="{{ job.id }}" class="btn btn-secondary" onclick="lockJob(this);" type="button" data-toggle="tooltip" data-placement="top" title="{% if job.locked %}UnLock{% else %}Lock{% endif %} this job">{% if job.locked %}<i class="fas fa-lock-open"></i>{% else %}<i class="fas fa-lock"></i>{% endif %}</button>
                                 </div>
                             {% elif job.status == 0 %}
                                 <div class="btn-group" role="group" aria-label="...">
@@ -326,6 +327,31 @@
                     post_msg(data.info);
                     $('#job-status-ico-'+jid).html('<i class="far fa-clock fa-2x"></i>');
                     $('#job-status-txt-'+jid).html('Reruning');
+                }else{
+                    post_msg(data.info, 1);
+                };
+            },
+            statusCode: {
+                    403: function() {
+                        post_msg("Permission required", 1);
+                    }
+                }
+        });
+	};
+    function lockJob(obj){
+        if(!confirm("Are you sure you want to lock/unlock this job?")){
+            return false;
+        }
+        var self = $(obj);
+        var jid = self.attr("data-jid");
+        $.ajax({
+            type: "POST",
+            url: "{% url 'ui:lock_job' %}",
+            data: {job: self.attr("data-jid")},
+            success: function(data){
+                if(data.status){
+                    post_msg(data.info);
+                    self.children("i").toggleClass("fa-lock-open").toggleClass("fa-lock");
                 }else{
                     post_msg(data.info, 1);
                 };

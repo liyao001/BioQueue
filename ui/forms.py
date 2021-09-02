@@ -195,8 +195,8 @@ class StepManipulateForm(forms.Form):
 
 
 class StepOrderManipulateForm(forms.Form):
-    protocol = forms.IntegerField(
-        required=True,
+    protocol = forms.ModelChoiceField(
+        queryset=ProtocolList.objects.all(), required=True
     )
     step_order = forms.CharField(
         required=True,

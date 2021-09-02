@@ -37,6 +37,7 @@ urlpatterns = [
     url(r'^import-protocol-by-fetch/$', views.import_protocol_by_fetch, name='import_protocol_by_fetch'),
     url(r'^import-protocol/$', views.import_protocol, name='import_protocol'),
     url(r'^install-ref', views.install_reference, name='install_reference'),
+    url(r'^lock-job', views.lock_job, name='lock_job'),
     url(r'^mark-audit', views.mark_wrong_job, name='mark_wrong_job'),
     url(r'^user-reference', views.print_user_reference, name='print_user_reference'),
     url(r'^plugin-post/$', views.plugin_post, name='plugin_post'),

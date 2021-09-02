@@ -9,6 +9,7 @@ from django.shortcuts import render
 from django.template import loader
 from django.http import HttpResponseRedirect, HttpResponse
 from django.db.models import Q
+from django.utils.translation import gettext as _
 from ..tools import error, success, delete_file, handle_uploaded_file, check_disk_quota_lock, get_disk_quota_info, \
     page_info
 from worker.bases import get_config
@@ -166,6 +167,8 @@ def batch_operation(request):
             for job_id in job_list:
                 job = Job.objects.get(id=job_id)
 
+                if job.locked:
+                    return error(_("This job is locked, please unlock first"))
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
                     job.delete()
                     if job.result is not None:
@@ -184,6 +187,8 @@ def batch_operation(request):
         elif request.POST['operation'] == 'r':
             for job_id in job_list:
                 job = Job.objects.get(id=job_id)
+                if job.locked:
+                    return error(_("This job is locked, please unlock first"))
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
                     job.rerun_job()
                     if job.result is not None:
@@ -237,19 +242,20 @@ def delete_job(request):
             if True:
                 job = Job.objects.get(id=cd['job'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     n_archive = 0
-                    # try:
-                    if True:
+                    try:
                         archives = FileArchive.objects.filter(job=job)
                         n_archive = len(archives)
                         if n_archive == 0:
                             job.delete()
                             delete_job_file_tree(request, job.result)
-                            return success('Your job has been deleted.")
+                            return success("Your job has been deleted.")
                         else:
                             return error("Job is under protection.(%d dependent archives)" % n_archive)
-                    # except Exception as e:
-                    #     return error(e)
+                    except Exception as e:
+                        return error(e)
 
                 else:
                     return error('Your are not the owner of the job.')
@@ -274,10 +280,11 @@ def delete_job_file(request, f):
 def delete_job_file_tree(request, f):
     try:
         if f is not None and f != "":
-            job_path = os.path.join(os.path.join(get_config('env', 'workspace'),
-                                                 str(request.user.queuedb_profile_related.delegate.id)), f)
+            user_dir = os.path.join(get_config('env', 'workspace'),
+                                    str(request.user.queuedb_profile_related.delegate.id))
+            job_path = os.path.join(user_dir, f)
             import shutil
-            if os.path.exists(job_path):
+            if os.path.exists(job_path) and not os.path.samefile(user_dir, job_path):
                 shutil.rmtree(job_path, ignore_errors=True)
 
     except Exception as e:
@@ -336,6 +343,34 @@ def get_job_file_list(request):
     import json
     file_list = get_job_files(request.GET["id"], request.user.queuedb_profile_related.delegate.id, request.user.is_superuser)
     return HttpResponse(json.dumps(file_list), content_type='application/json')
+
+
+@login_required
+@permission_required("QueueDB.change_job", raise_exception=True)
+def lock_job(request):
+    if request.method == 'POST':
+        rerun_form = JobManipulateForm(request.POST)
+        if rerun_form.is_valid():
+            cd = rerun_form.cleaned_data
+            try:
+                job = Job.objects.get(id=cd['job'])
+                if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        job.locked = 0
+                        msg = "Unl"
+                    else:
+                        job.locked = 1
+                        msg = "L"
+                    job.save()
+                    return success(f"Your job is {msg}ocked.")
+                else:
+                    return error('Your are not the owner of the job.')
+            except Exception as e:
+                return error(e)
+        else:
+            return error(str(rerun_form.errors))
+    else:
+        return error('Method error')
 
 
 @login_required
@@ -459,6 +494,8 @@ def rerun_job(request):
                 job = Job.objects.get(id=cd['job'])
                 prev_protocol_ver = job.protocol_ver
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     if job.result is not None:
                         delete_job_file_tree(request, job.result)
                     job.rerun_job()
@@ -487,6 +524,8 @@ def mark_wrong_job(request):
                 job = Job.objects.get(id=cd['job'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
                     # delete_job_file_tree(request, job.result)
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     job.status = -3
                     job.save()
                     return success('Job status changed')
@@ -510,6 +549,8 @@ def resume_job(request):
             try:
                 job = Job.objects.get(id=cd['job'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     rollback_to = max(int(cd['step']), 0)
                     if rollback_to <= job.resume:
                         job.resume_job(rollback_to)
@@ -580,6 +621,8 @@ def terminate_job(request):
             try:
                 job = Job.objects.get(id=cd['job'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     job.terminate_job()
                     return success('Your job will be terminated soon.')
                 else:
@@ -603,6 +646,8 @@ def update_job_inputs(request):
                 import urllib.parse
                 job = Job.objects.get(id=cd['id'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     job.update_inputs(urllib.parse.unquote(cd['parameter']))
                 else:
                     return error('Your are not owner of the Job.')
@@ -627,6 +672,8 @@ def update_job_parameter(request):
                 import urllib.parse
                 job = Job.objects.get(id=cd['id'])
                 if job.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                    if job.locked:
+                        return error(_("This job is locked, please unlock first"))
                     job.update_parameter(urllib.parse.unquote(cd['parameter']))
                 else:
                     return error('Your are not owner of the Job.')

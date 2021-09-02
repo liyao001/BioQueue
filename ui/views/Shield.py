@@ -64,7 +64,7 @@ def clean_dead_folder(request):
     jobs_containers = os.path.join(get_config('env', 'workspace'), str(request.user.queuedb_profile_related.delegate.id))
     job_results = set(
         [re["result"] for re in Job.objects.filter(user_id=str(request.user.queuedb_profile_related.delegate.id)).values('result')])
-    protected_folders = set(["refs", "bin", "uploads", "archives"])
+    protected_folders = set(["refs", "bin", "uploads", "archives", "OVERRIDE_UPLOAD"])
     death_counter = 0
     failed = 0
     if os.path.exists(jobs_containers):

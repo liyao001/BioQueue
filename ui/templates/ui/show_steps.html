@@ -64,10 +64,10 @@ $("#updateOrder").click(function () {
     if (order_chain == ""){
         post_msg("The order is identical to the former one.", 1);
     }else{
-        $.get("{% url 'ui:update_step_order' %}", {step_order: order_chain, protocol: "{{ parent }}" }, function(data){
+        $.get("{% url 'ui:update_step_order' %}", {step_order: order_chain, protocol: "{{ parent.id }}" }, function(data){
             if (data.status){
                 post_msg(data.info);
-                showSteps("{{ parent }}");
+                showSteps("{{ parent.id }}");
             }else{
                 post_msg(data.info, 1);
             }
