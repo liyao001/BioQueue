@@ -255,6 +255,7 @@ class Job(_OwnerModel):
                                                            (2, "Input/Output changed")))
     wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
     workspace = models.ForeignKey("Workspace", blank=True, null=True, on_delete=models.CASCADE)
+    locked = models.SmallIntegerField(choices=((0, "Locked"), (1, "Not locked")), default=0)
 
     def __str__(self):
         return str(self.id)
@@ -275,110 +276,119 @@ class Job(_OwnerModel):
                  user=self.user).save()
 
     def rerun_job(self):
-        self.status = 0
-        self.resume = 0
-        self.ter = 0
-        self.protocol_ver = self.protocol.ver
-        self.audit = 0
-        self.save()
-        Audition(operation="Reran",
-                 related_job=self,
-                 job_name=self.job_name,
-                 prev_par=self.parameter,
-                 new_par=self.parameter,
-                 prev_input=self.input_file,
-                 current_input=self.input_file,
-                 protocol=self.protocol.name,
-                 protocol_ver=self.protocol_ver,
-                 resume_point=self.resume,
-                 user=self.user).save()
+        if not self.locked:
+            self.status = 0
+            self.resume = 0
+            self.ter = 0
+            self.protocol_ver = self.protocol.ver
+            self.audit = 0
+            self.save()
+            Audition(operation="Reran",
+                    related_job=self,
+                    job_name=self.job_name,
+                    prev_par=self.parameter,
+                    new_par=self.parameter,
+                    prev_input=self.input_file,
+                    current_input=self.input_file,
+                    protocol=self.protocol.name,
+                    protocol_ver=self.protocol_ver,
+                    resume_point=self.resume,
+                    user=self.user).save()
 
     def resume_job(self, rollback):
-        self.resume = rollback
-        self.status = 0
-        self.protocol_ver = self.protocol.ver
-        self.audit = 0
-        self.save()
-        Audition(operation="Resumed",
-                 related_job=self,
-                 job_name=self.job_name,
-                 prev_par=self.parameter,
-                 new_par=self.parameter,
-                 prev_input=self.input_file,
-                 current_input=self.input_file,
-                 protocol=self.protocol.name,
-                 protocol_ver=self.protocol_ver,
-                 resume_point=self.resume,
-                 user=self.user).save()
+        if not self.locked:
+            self.resume = rollback
+            self.status = 0
+            self.protocol_ver = self.protocol.ver
+            self.audit = 0
+            self.save()
+            Audition(operation="Resumed",
+                    related_job=self,
+                    job_name=self.job_name,
+                    prev_par=self.parameter,
+                    new_par=self.parameter,
+                    prev_input=self.input_file,
+                    current_input=self.input_file,
+                    protocol=self.protocol.name,
+                    protocol_ver=self.protocol_ver,
+                    resume_point=self.resume,
+                    user=self.user).save()
 
     def set_done(self):
-        self.status = _JS_FINISHED
-        self.save()
-        Audition(operation="Done",
-                 related_job=self,
-                 job_name=self.job_name,
-                 prev_par=self.parameter,
-                 new_par=self.parameter,
-                 prev_input=self.input_file,
-                 current_input=self.input_file,
-                 protocol=self.protocol.name,
-                 protocol_ver=self.protocol_ver,
-                 resume_point=self.resume,
-                 user=self.user).save()
-        if self.user.queuedb_profile_related.notification_enabled:
-            Notification(msg=self.job_name+" ("+str(self.id)+") "+"is done.", user=self.user).save()
+        if not self.locked:
+            self.status = _JS_FINISHED
+            self.save()
+            Audition(operation="Done",
+                    related_job=self,
+                    job_name=self.job_name,
+                    prev_par=self.parameter,
+                    new_par=self.parameter,
+                    prev_input=self.input_file,
+                    current_input=self.input_file,
+                    protocol=self.protocol.name,
+                    protocol_ver=self.protocol_ver,
+                    resume_point=self.resume,
+                    user=self.user).save()
+            if self.user.queuedb_profile_related.notification_enabled:
+                Notification(msg=self.job_name+" ("+str(self.id)+") "+"is done.", user=self.user).save()
 
     def set_result(self, value):
-        self.result = value
-        self.save()
+        if not self.locked:
+            self.result = value
+            self.save()
 
     def set_status(self, status):
-        self.status = status
-        self.save()
+        if not self.locked:
+            self.status = status
+            self.save()
 
     def set_wait(self, for_what):
-        self.status = _JS_WAITING
-        self.wait_for = for_what
-        self.save()
+        if not self.locked:
+            self.status = _JS_WAITING
+            self.wait_for = for_what
+            self.save()
 
     def get_result(self):
         return self.result
 
     def update_status(self, status):
-        self.status = status
-        self.save()
+        if not self.locked:
+            self.status = status
+            self.save()
 
     def update_inputs(self, new_inputs):
-        Audition(operation="Changed inputs",
-                 related_job=self,
-                 job_name=self.job_name,
-                 prev_par=self.parameter,
-                 new_par=self.parameter,
-                 prev_input=self.input_file,
-                 current_input=new_inputs,
-                 protocol=self.protocol.name,
-                 protocol_ver=self.protocol_ver,
-                 resume_point=self.resume,
-                 user=self.user).save()
-        self.input_file = new_inputs
-        self.audit = 1
-        self.save()
+        if not self.locked:
+            Audition(operation="Changed inputs",
+                    related_job=self,
+                    job_name=self.job_name,
+                    prev_par=self.parameter,
+                    new_par=self.parameter,
+                    prev_input=self.input_file,
+                    current_input=new_inputs,
+                    protocol=self.protocol.name,
+                    protocol_ver=self.protocol_ver,
+                    resume_point=self.resume,
+                    user=self.user).save()
+            self.input_file = new_inputs
+            self.audit = 1
+            self.save()
 
     def update_parameter(self, new_par):
-        Audition(operation="Changed parameters",
-                 related_job=self,
-                 job_name=self.job_name,
-                 prev_par=self.parameter,
-                 new_par=new_par,
-                 prev_input=self.input_file,
-                 current_input=self.input_file,
-                 protocol=self.protocol.name,
-                 protocol_ver=self.protocol_ver,
-                 resume_point=self.resume,
-                 user=self.user).save()
-        self.parameter = new_par
-        self.audit = 1
-        self.save()
+        if not self.locked:
+            Audition(operation="Changed parameters",
+                    related_job=self,
+                    job_name=self.job_name,
+                    prev_par=self.parameter,
+                    new_par=new_par,
+                    prev_input=self.input_file,
+                    current_input=self.input_file,
+                    protocol=self.protocol.name,
+                    protocol_ver=self.protocol_ver,
+                    resume_point=self.resume,
+                    user=self.user).save()
+            self.parameter = new_par
+            self.audit = 1
+            self.save()
 
 
 class Reference(_OwnerModel):

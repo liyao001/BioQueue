@@ -9,6 +9,7 @@ except ImportError:
 
 import os
 import psutil
+import magic
 from multiprocessing import cpu_count
 
 
@@ -357,7 +358,7 @@ def get_job_log(file_path):
     :return: string, If size of the file is less than 1MB, it will return the last 100 lines, or it will return the last 10 KB.
     """
     _1_mb_in_bytes = 1024000
-    if is_text_file(file_path):
+    if magic.Magic(mime=True, uncompress=False).from_file(file_path) == "text/plain":
         with open(file_path, 'rb') as file_handler:
             if os.path.getsize(file_path) > _1_mb_in_bytes:
                 off = -10240
@@ -374,7 +375,7 @@ def get_job_log(file_path):
         log_content = '<br />'.join(de_log)
         return log_content
     else:
-        return 'This is a binary file.'
+        return 'This is not a plain text file.'
 
 
 def check_shell_sig(command_tuple):

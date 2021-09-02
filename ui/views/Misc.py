@@ -140,6 +140,10 @@ class SharedSimpleViews:
             object_list = self.model.objects.filter(
                 Q(user=self.request.user.queuedb_profile_related.delegate) | Q(user=None)).all().order_by("-pk")
 
+        name_filter = self.request.GET.get("name", None)
+        if name_filter is not None:
+            object_list = object_list.filter(name__icontains=name_filter)
+
         paginator = Paginator(object_list, 12)
 
         page = self.request.GET.get("page")
