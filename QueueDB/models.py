@@ -238,7 +238,7 @@ class Job(_OwnerModel):
     """Queue Table
     Save tasks
     """
-    protocol = models.ForeignKey("ProtocolList", on_delete=models.CASCADE)
+    protocol = models.ForeignKey("ProtocolList", on_delete=models.PROTECT)
     protocol_ver = models.CharField(max_length=100, blank=True, null=True)
     job_name = models.CharField(max_length=100, blank=True, null=True)
     input_file = models.TextField()
@@ -254,7 +254,7 @@ class Job(_OwnerModel):
                                                            (1, "Protocol/Reference changed"),
                                                            (2, "Input/Output changed")))
     wait_for = models.SmallIntegerField(default=0, choices=CHECKPOINT_CHOICES)
-    workspace = models.ForeignKey("Workspace", blank=True, null=True, on_delete=models.CASCADE)
+    workspace = models.ForeignKey("Workspace", blank=True, null=True, on_delete=models.PROTECT)
     locked = models.SmallIntegerField(choices=((0, "Locked"), (1, "Not locked")), default=0)
 
     def __str__(self):
@@ -542,13 +542,13 @@ class Sample(_OwnerModel):
 
 
 class FileArchive(_OwnerModel):
-    protocol = models.ForeignKey('ProtocolList', on_delete=models.CASCADE,
+    protocol = models.ForeignKey('ProtocolList', on_delete=models.PROTECT,
                                  related_name="%(app_label)s_%(class)s_related")
     protocol_ver = models.CharField(max_length=33, null=True)
     inputs = models.TextField()
     files = models.TextField()
     file_md5s = models.TextField()
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
+    job = models.ForeignKey(Job, on_delete=models.PROTECT, null=True, blank=True)
     raw_files = models.TextField(null=True, blank=True)
     audit = models.SmallIntegerField(default=0)
     description = models.TextField(null=True, blank=True)
