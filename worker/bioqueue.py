@@ -63,6 +63,7 @@ class Protocol(object):
                                    specify_output=step.specify_output,
                                    md5_hex=step.hash,
                                    env=step.env,
+                                   version_check=step.version_check,
                                    force_local=step.force_local,
                                    settings=self._settings))
         return step_list
@@ -141,6 +142,7 @@ class Task(object):
         self._result_store = ""
 
         self._settings = settings
+        self._snapshot_file = ""
 
     def __str__(self):
         return "{job_name} ({job_id})".format(job_name=self.job_name, job_id=self.job_id)
@@ -338,6 +340,7 @@ class Task(object):
         self._user_folder = user_folder
         self._run_folder = run_folder
         self._result_store = result_store
+        self.init_snapshot()
         return user_folder, run_folder, result_store
 
     @staticmethod
@@ -416,6 +419,40 @@ class Task(object):
         self.output_size = bases.get_folder_size(self.run_folder) - self._folder_size_before
         self._cumulative_output_size += self.output_size
 
+    def init_snapshot(self):
+        """
+        Initiate a snapshot file
+
+        Returns
+        -------
+
+        """
+        expected_file = os.path.join(self.run_folder, ".snapshot.ini")
+        if not os.path.exists(expected_file):
+            snapshot = ConfigParser()
+            snapshot.optionxform = str
+            snapshot["input"] = dict()
+            snapshot["output"] = dict()
+            snapshot["version"] = dict()
+
+            with open(expected_file, 'w') as configfile:
+                snapshot.write(configfile)
+        self._snapshot_file = expected_file
+
+    def update_snapshot(self, section, key, value):
+        config_obj = ConfigParser()
+        config_obj.optionxform = str
+        if self._snapshot_file != "" and os.path.exists(self._snapshot_file):
+            config_obj.read(self._snapshot_file)
+            if config_obj.has_section(section):
+                config_obj.set(section, key, value)
+                with open(self._snapshot_file, "w") as fh:
+                    config_obj.write(fh)
+            else:
+                logger.warning("Cannot update snapshot, the section ({0}) doesn't exist".format(section))
+        else:
+            logger.warning("Cannot update snapshot, file doesn't exist")
+
     def snapshot(self):
         """
         Create snapshot for a job
@@ -424,19 +461,19 @@ class Task(object):
         """
         snapshot = ConfigParser()
         snapshot.optionxform = str
-        snapshot['input'] = dict()
-        snapshot['output'] = dict()
+        if self._snapshot_file != "" and os.path.exists(self._snapshot_file):
+            snapshot.read(self._snapshot_file)
 
-        if os.path.exists(self.run_folder):
-            for f in os.listdir(self.run_folder):
-                if f == ".snapshot.ini":
-                    continue
-                full_path = os.path.join(self.run_folder, f)
-                if os.path.isfile(full_path):
-                    ctime = os.path.getctime(full_path)
-                    mtime = os.path.getmtime(full_path)
-                    fbytes = os.path.getsize(full_path)
-                    snapshot['output'][f] = "%d;%d;%d" % (ctime, mtime, fbytes)
+            if os.path.exists(self.run_folder):
+                for f in os.listdir(self.run_folder):
+                    if f == ".snapshot.ini":
+                        continue
+                    full_path = os.path.join(self.run_folder, f)
+                    if os.path.isfile(full_path):
+                        ctime = os.path.getctime(full_path)
+                        mtime = os.path.getmtime(full_path)
+                        fbytes = os.path.getsize(full_path)
+                        snapshot.set("output", f, "%d;%d;%d" % (ctime, mtime, fbytes))
 
             parsed_uploaded_files, _ = _Step._upload_file_map(self._job_input, self.user_folder)
             parsed_history_files, _, _ = _Step._history_map(parsed_uploaded_files, self._user)
@@ -446,7 +483,7 @@ class Task(object):
                     ctime = os.path.getctime(input_file)
                     mtime = os.path.getmtime(input_file)
                     fbytes = os.path.getsize(input_file)
-                    snapshot['input'][input_file] = "%d;%d;%d" % (ctime, mtime, fbytes)
+                    snapshot.set("input", input_file, "%d;%d;%d" % (ctime, mtime, fbytes))
 
             with open(os.path.join(self.run_folder, ".snapshot.ini"), 'w') as configfile:
                 snapshot.write(configfile)
@@ -826,7 +863,12 @@ class JobQueue(object):
 
         Parameters
         ----------
-        job : _Step
+        job : Task
+            Task object
+        stdout_to : str
+
+        stderr_to : str
+
 
         Returns
         -------
@@ -845,6 +887,13 @@ class JobQueue(object):
                         step_obj = job.steps[job.resume]
                         true_shell = bases.check_shell_sig(step_obj.command)
                         logger.info(step_obj.command)
+                        # record software version
+                        if step_obj.version_check != "":
+                            p = subprocess.Popen(step_obj.version_check, shell=True,
+                                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            ver, _ = p.communicate()
+                            ver = ver.decode("utf-8")
+                            job.update_snapshot("version", str(job.resume), ver)
                         if true_shell:
                             step_process = subprocess.Popen(' '.join(step_obj.command), shell=True,
                                                             stdout=log_file_handler,

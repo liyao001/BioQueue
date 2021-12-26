@@ -197,6 +197,7 @@ class Step(_OwnerModel):
     step_order = models.SmallIntegerField(default=1)
     env = models.ForeignKey("VirtualEnvironment", blank=True, null=True, on_delete=models.PROTECT)
     force_local = models.SmallIntegerField(default=0, choices=YES_OR_NO)
+    version_check = models.TextField(default="", blank=True)
     cpu_prior = models.IntegerField(default=-1, blank=True)
     mem_prior = models.IntegerField(default=-1, blank=True)
     disk_prior = models.IntegerField(default=-1, blank=True)

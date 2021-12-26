@@ -183,6 +183,13 @@
             $('#ml').modal();
         });
     }
+    function showVC(obj){
+        let self = $(obj);
+        $.get('{% url 'ui:get_version_check' %}', {id: self.attr('data-id')}, function(data){
+            $('#ml .modal-body').html(data.info);
+            $('#ml').modal();
+        });
+    }
     function showNewStep(recId){
         $('#newStep #step-parent').val(recId);
         $('#newStep .modal-body').html();

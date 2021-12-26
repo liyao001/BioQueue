@@ -155,6 +155,14 @@ class CreateStepForm(forms.Form):
             }
         )
     )
+    version_check = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': u'input-block-level',
+            }
+        )
+    )
     parent = forms.IntegerField(
         required=False,
         widget=forms.HiddenInput()
