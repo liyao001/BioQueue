@@ -55,6 +55,7 @@ def add_step(request):
                         step_amount = Step.objects.filter(parent=cd['parent']).count() + 1
                         step = Step(software=cd['software'],
                                         parameter=cd['parameter'],
+                                        version_check=cd['version_check'],
                                         parent=protocol,
                                         user=request.user.queuedb_profile_related.delegate,
                                         step_order=step_amount,
@@ -64,6 +65,7 @@ def add_step(request):
                     else:
                         step = Step(software=cd['software'],
                                         parameter=cd['parameter'],
+                                        version_check=cd['version_check'],
                                         parent=protocol,
                                         user=request.user.queuedb_profile_related.delegate,
                                         step_order=cd["insert_to"] + 1,
@@ -197,6 +199,7 @@ def create_protocol(request):
                 protocol.save()
                 softwares = request.POST.getlist('software', '')
                 parameters = request.POST.getlist('parameter', '')
+                version_checks = request.POST.getlist('version_check', '')
                 virtual_environments = request.POST.getlist('env', '')
                 steps = []
                 try:
@@ -216,6 +219,7 @@ def create_protocol(request):
                             env = None
                         steps.append(Step(software=software,
                                               parameter=parameters[index],
+                                              version_check=version_checks[index],
                                               env=env,
                                               parent=protocol_id_trace,
                                               hash=m.hexdigest(),
@@ -525,6 +529,30 @@ def query_protocol(request):
 
 @login_required
 @permission_required("QueueDB.view_step", raise_exception=True)
+def show_step_vc(request):
+    if request.method == "GET":
+        form = StepManipulateForm(request.GET)
+        if form.is_valid():
+            cd = form.cleaned_data
+            try:
+                step = Step.objects.get(Q(user=request.user.queuedb_profile_related.delegate) | Q(user=None),
+                                           id=cd["id"])
+                template = loader.get_template("ui/get_version_check.html")
+                context = {
+                    "step_obj": step,
+                }
+                return success(template.render(context))
+            except Step.DoesNotExist:
+                return error("Cannot find the step record")
+        else:
+            return error(str(form.errors))
+    else:
+        return error('Method error.')
+
+
+
+@login_required
+@permission_required("QueueDB.view_step", raise_exception=True)
 def show_step(request):
     if request.method == "POST":
         query_protocol_form = ProtocolManipulateForm(request.POST)
@@ -688,3 +716,23 @@ def upload_protocol(request):
             return error('Unknown parameter.')
     else:
         return error('Method error.')
+
+
+@login_required
+@permission_required("QueueDB.change_step", raise_exception=True)
+def update_version_check(request):
+    if request.method == "POST":
+        form = StepManipulateForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            step = Step.objects.get(id=cd["id"])
+            if step.parent.check_owner(request.user.queuedb_profile_related.delegate, read_only=False):
+                step.version_check = cd["parameter"]
+                step.save()
+                return success("Your step has been updated.")
+            else:
+                return error("Your are not owner of the step.")
+        else:
+            return error(str(form.errors))
+    else:
+        return error("Method error")

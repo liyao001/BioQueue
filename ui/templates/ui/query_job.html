@@ -93,7 +93,7 @@
                             <li><b>Job parameters:</b> <span class="editable" onclick="edit(this);" data-sid="{{ job.id }}" data-pid="{{ job.id }}" data-bind="{% url 'ui:update_job_parameter' %}" style="word-wrap: break-word;">{{ job.parameter }}</span></li>
                             <li><b>Create time:</b> {{ job.create_time }}</li>
                             <li><b>Last update:</b> {{ job.update_time }}</li>
-                            <li class="form-inline"><b>Workspace:</b> <select class="form-control input-sm" id="chooseWorkspace-j{{ job.id }}" data-job="{{ job.id }}" name="ws-j{{ job.id }}" onchange="changeWorkspace(this);">
+                            <li class="form-inline"><b>Workspace:</b> <select class="form-control form-control-sm" id="chooseWorkspace-j{{ job.id }}" data-job="{{ job.id }}" name="ws-j{{ job.id }}" onchange="changeWorkspace(this);">
                                 <option value="-1">---------</option>
                                 {% for workspace in workspaces %}
                                     <option value="{{ workspace.id }}" {% if job.workspace.id == workspace.id %}selected{% endif %}>{{ workspace.name }}</option>

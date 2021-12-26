@@ -23,11 +23,12 @@ import numpy as np
 from QueueDB.models import Job, Training, Prediction, _JS_FINISHED, _JS_WRONG, _PD_DISK, _PD_MEM, _PD_CPU, _PD_VRTMEM
 logger = logging.getLogger("BioQueue - Step")
 
+
 class _Step(object):
     def _predict_resource(self):
         pass
 
-    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, settings):
+    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, version_check, settings):
         self._software = software
         self._parameter = parameter
         self._command = html.unescape(str(self._software).rstrip() + " " + str(self._parameter))
@@ -42,6 +43,7 @@ class _Step(object):
         self._translated_command = ""
         self._resources = None
         self._is_running = False
+        self._ver_check = version_check
         self._dependent_jobs = set()
         self._prev_error_jobs = set()
 
@@ -112,6 +114,10 @@ class _Step(object):
     @property
     def is_running(self):
         return self._is_running
+
+    @property
+    def version_check(self):
+        return self._ver_check
 
     @is_running.setter
     def is_running(self, value):
@@ -257,17 +263,6 @@ class _Step(object):
         learning = 0
         outside_size = 0
 
-        # ve = None
-        # if (job.resume + 1) == len(job['steps']):
-        #     return None
-        # elif job['status'] > 0:
-        #     return 'running'
-        # else:
-
-        # step = job['steps'][job['resume'] + 1]['parameter']
-        # step_par = job.steps[job.resume+1]
-        # ve = job['steps'][job['resume'] + 1]['env']
-
         self._command = self._command.replace("{{Job}}", str(job.job_id))
         self._command = self._command.replace("{{JobName}}", str(job.job_name))
 
@@ -275,6 +270,7 @@ class _Step(object):
         self._command = self._command.replace("{{AllOutputBefore}}", " ".join(job.outputs))
         self._command = _Step._last_output_map(self._command, job.newfiles)
         self._command = _Step._special_parameter_map(self._command, job.user_options)
+        self._ver_check = _Step._special_parameter_map(self._ver_check, job.user_options)
         self._command = _Step._output_file_map(self._command, job.output_dict)
         self._command, outside_size = _Step._input_file_map(self._command, job.job_input_files, job.user_folder)
         self._command = _Step._suffix_map(self._command, job.output_dict_suffix, job.last_output_suffix)
@@ -305,9 +301,15 @@ class _Step(object):
             if self._env.ve_type == "conda":
                 if self._env.activation_command is not None and self._env.activation_command != "":
                     self._command = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._command
+                    if self._ver_check != "":
+                        self._ver_check = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._ver_check
                 else:
                     self._command = "conda activate " + self._env.value + "&&" + self._command
+                    if self._ver_check != "":
+                        self._ver_check = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._ver_check
                 self._command += " && conda deactivate"
+                if self._ver_check != "":
+                    self._ver_check += " && conda deactivate"
 
         self._translated_command = _Step._parameter_string_to_list(self._command)
 

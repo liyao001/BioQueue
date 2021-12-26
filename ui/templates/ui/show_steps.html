@@ -39,6 +39,7 @@
                             <div class="btn-group btn-group-sm" role="group" aria-label="Operations available">
                                 <button type="button" data-target="{% url 'ui:delete_step' %}" data-pid="{{ step.parent }}" data-id="{{ step.id }}" class="btn btn-outline-secondary dels" title="Delete this step"><i class="fas fa-trash-alt"></i> Delete</button>
                                 <button type="button" data-pid="{{ step.parent }}" data-hash="{{ step.hash }}" class="btn btn-outline-secondary" onclick="showML(this);" title="Check resource usage for this step"><i class="fas fa-server"></i> Resource</button>
+                                <button type="button" data-pid="{{ step.parent }}" data-id="{{ step.id }}" class="btn btn-outline-secondary" onclick="showVC(this);" title="Command for getting the version of the corresponding software"><i class="fas fa-code-branch"></i> Version info</button>
                             </div>
                         </div>
                     </div>

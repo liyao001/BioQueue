@@ -33,6 +33,7 @@ urlpatterns = [
     url(r'^get-learning-result/$', views.get_learning_result, name='get_learning_result'),
     url(r'^get-job-list/$', views.get_job_list, name='get_job_list'),
     url(r'^get-job-file-list/$', views.get_job_file_list, name='get_job_file_list'),
+    url(r'^get-version-check/$', views.show_step_vc, name='get_version_check'),
     url(r'^import-learning/$', views.import_learning, name='import_learning'),
     url(r'^import-protocol-by-fetch/$', views.import_protocol_by_fetch, name='import_protocol_by_fetch'),
     url(r'^import-protocol/$', views.import_protocol, name='import_protocol'),
@@ -74,5 +75,6 @@ urlpatterns = [
     url(r'^update-step-environment/$', views.update_step_environment, name='update_step_environment'),
     url(r'^update-step-order/$', views.update_step_order, name='update_step_order'),
     url(r'^update-step-prior/$', views.update_step_prior, name='update_step_prior'),
+    url(r'^update-version-check/$', views.update_version_check, name='update_step_vc'),
     url(r'^update-workspace/$', views.update_workspace, name='update_workspace'),
 ]
