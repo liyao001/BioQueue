@@ -281,6 +281,7 @@ def setup():
     print("=================================")
     print("")
 
+    os.system("python %s makemigrations QueueDB" % django_manage_path)
     os.system("python %s migrate" % django_manage_path)
 
     print("")
