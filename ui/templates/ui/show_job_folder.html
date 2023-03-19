@@ -11,7 +11,7 @@
     <tbody>
     {% for file_item in user_files %}
         <tr id="fileRow{{ forloop.counter }}">
-            <td class="align-middle">{{ file_item.name }}</td>
+            <td class="align-middle">{% if file_item.is_link %}<i title="Symbolic link" class="fas fa-link"></i>{% endif %} {{ file_item.name }}</td>
             <td class="align-middle">{{ file_item.file_size | filesizeformat }}</td>
             <td class="align-middle">{{ file_item.file_create }}</td>
             <td class="align-middle">
