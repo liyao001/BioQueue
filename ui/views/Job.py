@@ -315,7 +315,6 @@ def get_job_files(job_id, user_id, super_user):
             if result_folder is None:  # doesn't have output
                 return user_files
             user_path = os.path.join(job.run_dir, str(job.user_id), result_folder)
-            print(user_path)
 
             for root, dirs, files in os.walk(user_path):
                 for file_name in files:
@@ -329,6 +328,7 @@ def get_job_files(job_id, user_id, super_user):
                     tmp['file_size'] = os.path.getsize(file_full_path)
                     tmp['file_create'] = time.ctime(os.path.getctime(file_full_path))
                     tmp['trace'] = base64.b64encode(os.path.join(result_folder, file_path).encode()).decode()
+                    tmp['is_link'] = os.path.islink(file_full_path)
                     user_files.append(tmp)
             return user_files
         else:
