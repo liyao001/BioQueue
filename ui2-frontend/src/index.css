@@ -1,0 +1,14 @@
+/* Chakra UI only - no other CSS frameworks */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.field-label::after {
+  content: ":";
+  margin-right: 0.25rem;
+}
+
+
