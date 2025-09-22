@@ -1,0 +1,61 @@
+{
+  "groups": [
+    {
+      "protocols": [297, 354, 361, 374],
+      "links": [
+        { "label": "Evaluate", "href": "/ui/dec-eval-runs/{id}" },
+        { "label": "GWP S2", "href": "/ui/make-gw-pred/{id}/0" },
+        { "label": "GWP S1", "href": "/ui/make-gw-pred/{id}" },
+        { "label": "GWP S1B", "href": "/ui/make-gw-pred/{id}/1/2" },
+        { "label": "Export prediction tracks", "href": "/ui/exp-pred-tracks/{id}" },
+        { "label": "IxG", "href": "/ui/ixg/{id}" },
+        { "label": "IxG (all models)", "href": "/ui/ixg/{id}/3/0" },
+        { "label": "IxG (counts)", "href": "/ui/ixg/{id}/1/1" }
+      ]
+    },
+    {
+      "protocols": [365],
+      "links": [
+        { "label": "Exp0", "href": "/ui/exp-pred-tracks/{id}" }
+      ]
+    },
+    {
+      "protocols": [386],
+      "links": [
+        { "label": "Exp0", "href": "/ui/exp-pred-tracks/{id}" },
+        { "label": "Exp - bin10", "href": "/ui/exp-pred-tracks/{id}/b10" },
+        { "label": "ABC ATAC only", "href": "/ui/abc/{id}/0" },
+        { "label": "ABC full", "href": "/ui/abc/{id}/1" }
+      ]
+    },
+    {
+      "protocols": [397],
+      "links": [
+        { "label": "ABC full", "href": "/ui/abc/{id}/1" },
+        { "label": "ABC ATAC only", "href": "/ui/abc/{id}/0" }
+      ]
+    },
+    {
+      "protocols": [384],
+      "links": [
+        { "label": "Exp0", "href": "/ui/exp-pred-tracks/{id}" }
+      ]
+    },
+    {
+      "protocols": [348, 356],
+      "links": [
+        { "label": "Merge chromosomal jobs", "href": "/ui/merge-attrs/{id}" },
+        { "label": "Build tracks", "href": "/ui/viz-attrs/{id}" },
+        { "label": "Modisco", "href": "/ui/create-modisco-job/{id}" }
+      ]
+    },
+    {
+      "protocols": [322, 329, 346],
+      "links": [
+        { "label": "Tar the dataset", "href": "/ui/tar-job/{id}" },
+        { "label": "Build a tiling dataset", "href": "/ui/build-tiling-ds/{id}" }
+      ]
+    }
+  ]
+}
+
