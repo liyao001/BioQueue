@@ -256,14 +256,14 @@ function FiltersHeader(props: {
               Protocol: {protocolId ? (protocols.find(p=>String(p.id)===protocolId)?.name || protocolId) : 'all'}
             </MenuButton>
             <Portal>
-              <MenuList minW="320px" p={2}>
+              <MenuList minW="320px" p={2} maxH="300px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
                 <Input size="sm" placeholder="filter protocols" mb={2} value={protocolFilter} onChange={(e)=>setProtocolFilter(e.target.value)} />
-                <Select size="sm" height="auto" multiple iconColor="transparent" value={protocolId ? [protocolId] : []} onChange={(e)=>{ const v = (e.target as HTMLSelectElement).value; setProtocolId(v); setShowProtoDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
-                  <option value="">all</option>
+                <MenuOptionGroup type="radio" value={protocolId} onChange={(val)=>{ const v = String((val as any) ?? ''); setProtocolId(v); setShowProtoDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
+                  <MenuItemOption value="">all</MenuItemOption>
                   {protocols.map(p => (
-                    <option key={p.id} value={String(p.id)}>{p.id} - {p.name}</option>
+                    <MenuItemOption key={p.id} value={String(p.id)}>{p.id} - {p.name}</MenuItemOption>
                   ))}
-                </Select>
+                </MenuOptionGroup>
                 {loadingProtocols && <Box fontSize="sm" opacity={0.6} mt={2}>loading…</Box>}
               </MenuList>
             </Portal>
@@ -276,14 +276,14 @@ function FiltersHeader(props: {
               Workspace: {workspaceId ? (workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId) : 'all'}
             </MenuButton>
             <Portal>
-              <MenuList minW="300px" p={2}>
+              <MenuList minW="300px" p={2} maxH="300px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
                 <Input size="sm" placeholder="filter workspaces" mb={2} value={workspaceFilter} onChange={(e)=>setWorkspaceFilter(e.target.value)} />
-                <Select size="sm" height="auto" multiple iconColor="transparent" value={workspaceId ? [workspaceId] : []} onChange={(e)=>{ const v = (e.target as HTMLSelectElement).value; setWorkspaceId(v); setShowWsDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
-                  <option value="">all</option>
+                <MenuOptionGroup type="radio" value={workspaceId} onChange={(val)=>{ const v = String((val as any) ?? ''); setWorkspaceId(v); setShowWsDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
+                  <MenuItemOption value="">all</MenuItemOption>
                   {workspaces.map(w => (
-                    <option key={w.id} value={String(w.id)}>{w.name}</option>
+                    <MenuItemOption key={w.id} value={String(w.id)}>{w.name}</MenuItemOption>
                   ))}
-                </Select>
+                </MenuOptionGroup>
                 {loadingWorkspaces && <Box fontSize="sm" opacity={0.6} mt={2}>loading…</Box>}
               </MenuList>
             </Portal>
@@ -568,6 +568,8 @@ function JobCards(props: {
   results: Job[]
   isSelected: (id: number)=>boolean
   toggleSelect: (id: number)=>void
+  toggleSelectAllCurrent: ()=>void
+  clearSelection: ()=>void
   doChangeVisibility: (id: number, vis: number)=>void
   doRerun: (id: number, insitu: boolean)=>void
   doLockToggle: (id: number)=>void
@@ -576,6 +578,8 @@ function JobCards(props: {
   showHistory: (job: Job)=>void
   doDeleteJob: (id: number)=>void
   doTerminate: (id: number)=>void
+  selectedIds: number[]
+  bulkAction: (ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') => void
   runners: {id:number; name:string}[]
   workspaces: {id:number; name:string}[]
   expEnableRunner: boolean
@@ -591,8 +595,8 @@ function JobCards(props: {
   setDependenciesResults: (rows: Job[])=>void
 }) {
   const {
-    results, isSelected, toggleSelect, doChangeVisibility, doRerun, doLockToggle,
-    showFiles, showLog, showHistory, doDeleteJob, doTerminate, runners, workspaces, expEnableRunner, apiPatch,
+    results, isSelected, toggleSelect, toggleSelectAllCurrent, clearSelection, doChangeVisibility, doRerun, doLockToggle,
+    showFiles, showLog, showHistory, doDeleteJob, doTerminate, selectedIds, bulkAction, runners, workspaces, expEnableRunner, apiPatch,
     notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults,
   } = props
   const [shortcutsConfig, setShortcutsConfig] = useState<{ [protocolId: number]: Array<{ label: string; href_template: string; params_template?: string }> }>({})
@@ -737,7 +741,6 @@ function JobCards(props: {
         </Box>
         <Box mt={1}>
           <Text as="b" className="field-label">Parameters</Text>
-          <Tooltip label={(j.parameter && j.parameter.trim()) ? j.parameter : '(empty)'}>
             <Text
               fontFamily="mono"
               fontSize="sm"
@@ -751,11 +754,9 @@ function JobCards(props: {
             >
               {(j.parameter && j.parameter.trim()) ? j.parameter : '(empty)'}
             </Text>
-          </Tooltip>
         </Box>
         <Box mt={1}>
           <Text as="b" className="field-label">Input files</Text>
-          <Tooltip label={(j.input_file && j.input_file.trim()) ? j.input_file : '(empty)'}>
             <Text
               fontFamily="mono"
               fontSize="sm"
@@ -769,7 +770,6 @@ function JobCards(props: {
             >
               {(j.input_file && j.input_file.trim()) ? j.input_file : '(empty)'}
             </Text>
-          </Tooltip>
         </Box>
         <Box mt={1}><Text as="b" className="field-label">Results</Text> <ButtonGroup variant="outline" isAttached>
             <Tooltip label="Results"><Button size="sm" variant="outline" onClick={()=>showFiles(j)}><i className="fa-regular fa-folder-open"></i> {j.result || ''}</Button></Tooltip>
@@ -830,7 +830,21 @@ function JobCards(props: {
     )
   })
   return (
-    <SimpleGrid spacing={6} columns={{ base: 1, sm: 2, lg: 3 }}>
+    <>
+      <Flex align="center" gap={2} mb={3} p={2} borderWidth="1px" borderColor="gray.200" rounded="md" bg="white">
+        <Button size="sm" variant="outline" onClick={toggleSelectAllCurrent}>select all</Button>
+        <Button size="sm" variant="outline" onClick={clearSelection}>clear</Button>
+        {selectedIds && selectedIds.length > 0 && (
+          <>
+            <Box fontSize="sm" ml={2}>selected {selectedIds.length}</Box>
+            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'terminate')}>terminate</Button>
+            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_clean')}>rerun</Button>
+            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_insitu')}>rerun in-situ</Button>
+            <Button size="sm" colorScheme="red" variant="outline" onClick={()=>bulkAction(selectedIds, 'delete')}>delete</Button>
+          </>
+        )}
+      </Flex>
+      <SimpleGrid spacing={6} columns={{ base: 1, sm: 2, lg: 3 }}>
       {results.map(j => (
         <Box key={j.id} borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }}>
           <Box data-card-head>
@@ -844,7 +858,8 @@ function JobCards(props: {
           </Box>
         </Box>
       ))}
-    </SimpleGrid>
+      </SimpleGrid>
+    </>
   )
 }
 
@@ -1736,6 +1751,8 @@ export default function JobMonitorPage() {
           results={results}
           isSelected={isSelected}
           toggleSelect={toggleSelect}
+          toggleSelectAllCurrent={toggleSelectAllCurrent}
+          clearSelection={()=>setSelectedIds([])}
           doChangeVisibility={doChangeVisibility}
           doRerun={doRerun}
           doLockToggle={doLockToggle}
@@ -1744,6 +1761,8 @@ export default function JobMonitorPage() {
           showHistory={showHistory}
           doDeleteJob={doDeleteJob}
           doTerminate={doTerminate}
+          selectedIds={selectedIds}
+          bulkAction={bulkAction}
           runners={runners}
           workspaces={workspaces}
           expEnableRunner={expEnableRunner}
