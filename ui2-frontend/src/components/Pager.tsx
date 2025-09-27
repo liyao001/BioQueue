@@ -21,7 +21,7 @@ export default function Pager(props: {
 
   return (
     <Flex mt={4} justify="center">
-      <ButtonGroup isAttached size="sm" variant="outline">
+      <ButtonGroup isAttached size="md" variant="outline">
         <IconButton aria-label="first" isDisabled={!hasPrev || !!loading} onClick={()=>onChange(1)} icon={<span>&laquo;</span>} />
         <IconButton aria-label="previous" isDisabled={!hasPrev || !!loading} onClick={()=>onChange(Math.max(1, page-1))} icon={<span>&lsaquo;</span>} />
         <Box display="flex" alignItems="center" px={3} border="0" bg="transparent">

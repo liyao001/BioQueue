@@ -11,6 +11,7 @@ import ProtocolsPage from './pages/ProtocolsPage'
 import NewProtocolPage from './pages/NewProtocolPage'
 import ReferencesPage from './pages/ReferencesPage'
 import VirtualEnvsPage from './pages/VirtualEnvsPage'
+import WorkspacesPage from './pages/WorkspacesPage'
 
 function Shell() {
   const loc = useLocation()
@@ -90,7 +91,31 @@ function Shell() {
             <Image alt="logo" fit="contain" src="/images/logo.png" />
             <Box as="span" fontSize="lg" fontWeight="semibold" color="gray.50">BioQueue</Box>
           </Flex>
-          <Flex as="nav" align="center" gap={2}>
+          {/* Mobile menu */}
+          <Menu>
+            <MenuButton as={Button} size="sm" variant="ghost" display={{ base: 'inline-flex', md: 'none' }} leftIcon={<i className="fas fa-bars"></i>} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }} _expanded={{ bg: 'whiteAlpha.300' }}>
+              Menu
+            </MenuButton>
+            <MenuList>
+              <MenuItem as={Link} to="/jobs">Dashboard</MenuItem>
+              <MenuItem as={Link} to="/jobs/new">New Job</MenuItem>
+              <MenuItem as={Link} to="/protocols">Manage Protocols</MenuItem>
+              <MenuItem as={Link} to="/protocols/new">New Protocol</MenuItem>
+              <MenuItem as={Link} to="/references">References</MenuItem>
+              <MenuItem as={Link} to="/virtual-envs">Environments</MenuItem>
+              <MenuItem as={Link} to="/workspaces">Workspaces</MenuItem>
+              {me?.username ? (
+                <MenuItem onClick={handleLogout} isDisabled={loggingOut}>
+                  {loggingOut ? 'Logging out…' : 'Logout'}
+                </MenuItem>
+              ) : (
+                <MenuItem as={Link} to="/login">Login</MenuItem>
+              )}
+            </MenuList>
+          </Menu>
+
+          {/* Desktop nav */}
+          <Flex as="nav" align="center" gap={2} display={{ base: 'none', md: 'flex' }}>
             <Flex align="center" position="relative">
               <Button as={Link} to="/" size="sm" variant="ghost" leftIcon={<i className="fas fa-home"></i>} bg={(loc.pathname === '/jobs') ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
                 Dashboard
@@ -114,16 +139,6 @@ function Shell() {
                 </Badge>
               )}
             </Flex>
-            <Menu>
-              <MenuButton as={Button} size="sm" variant="ghost" leftIcon={<i className="fas fa-database"></i>} bg={(loc.pathname.startsWith('/references') || loc.pathname.startsWith('/virtual-envs')) ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }} _expanded={{ bg: 'whiteAlpha.300' }}>
-                Data
-              </MenuButton>
-              <MenuList>
-                <MenuItem as={Link} to="/references">References</MenuItem>
-                <MenuItem as={Link} to="/virtual-envs">Environments</MenuItem>
-              </MenuList>
-            </Menu>
-            {/* job menu removed intentionally to avoid duplication */}
             <Button as={Link} to="/jobs/new" size="sm" variant="ghost" leftIcon={<i className="fas fa-plus"></i>} bg={(loc.pathname === '/jobs/new') ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
               New Job
             </Button>
@@ -136,9 +151,18 @@ function Shell() {
                 <MenuItem as={Link} to="/protocols/new">New Protocol</MenuItem>
               </MenuList>
             </Menu>
+            <Button as={Link} to="/references" size="sm" variant="ghost" leftIcon={<i className="fas fa-database"></i>} bg={(loc.pathname.startsWith('/references')) ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
+              References
+            </Button>
+            <Button as={Link} to="/virtual-envs" size="sm" variant="ghost" leftIcon={<i className="fas fa-cubes"></i>} bg={(loc.pathname.startsWith('/virtual-envs')) ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
+              Environments
+            </Button>
+            <Button as={Link} to="/workspaces" size="sm" variant="ghost" leftIcon={<i className="fas fa-folder-tree"></i>} bg={(loc.pathname.startsWith('/workspaces')) ? 'whiteAlpha.200' : 'transparent'} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
+              Workspaces
+            </Button>
           </Flex>
           <Spacer />
-          <Flex align="center" gap={3} fontSize="sm">
+          <Flex align="center" gap={3} fontSize="sm" display={{ base: 'none', md: 'flex' }}>
             {me?.username ? (
               <Menu>
                 <MenuButton as={Button} size="sm" variant="ghost" leftIcon={<i className="fas fa-user"></i>} color="white" _hover={{ bg: 'whiteAlpha.200' }} _active={{ bg: 'whiteAlpha.300' }}>
@@ -156,6 +180,7 @@ function Shell() {
               </Button>
             )}
           </Flex>
+          
         </Flex>
       </Box>
       <Box as="main" px={6} py={6}>
@@ -168,6 +193,7 @@ function Shell() {
             <Route path="/protocols/new" element={me ? <NewProtocolPage /> : <Navigate to="/login" state={{ from: { pathname: "/protocols/new" } }} replace />} />
             <Route path="/references" element={me ? <ReferencesPage /> : <Navigate to="/login" state={{ from: { pathname: "/references" } }} replace />} />
             <Route path="/virtual-envs" element={me ? <VirtualEnvsPage /> : <Navigate to="/login" state={{ from: { pathname: "/virtual-envs" } }} replace />} />
+            <Route path="/workspaces" element={me ? <WorkspacesPage /> : <Navigate to="/login" state={{ from: { pathname: "/workspaces" } }} replace />} />
             <Route path="/login" element={me ? <Navigate to="/jobs" replace /> : <LoginPage />} />
           </Routes>
         ) : (

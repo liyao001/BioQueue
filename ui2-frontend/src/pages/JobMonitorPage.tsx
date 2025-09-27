@@ -179,6 +179,7 @@ function FiltersHeader(props: {
   setMode: (v: 'all'|'any') => void
   loading: boolean
   runSearch: (e?: React.FormEvent) => void
+  applyText: () => void
   pageSize: number
   setPageSize: (n: number) => void
   setPage: (n: number) => void
@@ -189,6 +190,8 @@ function FiltersHeader(props: {
   selectedIdsCount: number
   bulkAction: (ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') => void
   selectedIds: number[]
+  toggleSelectAllCurrent: ()=>void
+  clearSelection: ()=>void
   // dropdown data
   protocols: {id:number; name:string}[]
   workspaces: {id:number; name:string}[]
@@ -226,10 +229,10 @@ function FiltersHeader(props: {
     statusNotSel, setStatusNotSel, setStatusNotText,
     idNotText, setIdNotText,
     mode, setMode,
-    loading, runSearch, pageSize, setPageSize, setPage,
+    loading, runSearch, applyText, pageSize, setPageSize, setPage,
     viewMode, setViewMode,
     autoRefresh, setAutoRefresh,
-    selectedIdsCount, bulkAction, selectedIds,
+    selectedIdsCount, bulkAction, selectedIds, toggleSelectAllCurrent, clearSelection,
     protocols, workspaces,
     protocolFilter, setProtocolFilter,
     workspaceFilter, setWorkspaceFilter,
@@ -243,7 +246,7 @@ function FiltersHeader(props: {
   const selectedStatusLabels = useMemo(() => statusChoices.filter(s => statusSel.includes(s.value)).map(s => s.label), [statusChoices, statusSel])
   const selectedStatusNotLabels = useMemo(() => statusChoices.filter(s => statusNotSel.includes(s.value)).map(s => s.label), [statusChoices, statusNotSel])
   return (
-    <Box as="form" onSubmit={runSearch} mb={4}>
+    <Box as="form" onSubmit={(e: React.FormEvent)=>{ e.preventDefault(); applyText(); }} mb={4}>
       {/* Basic Filters - Always Visible */}
       <Flex align="center" gap={1} wrap="wrap" mb={2} w="100%">
         <Box flex="2" minW="180px">
@@ -328,21 +331,39 @@ function FiltersHeader(props: {
           {showAdvancedFilters ? 'Hide' : 'Show'} Advanced
         </Button>
 
-        <Button
-          type="button"
-          colorScheme="blue"
-          title="Refresh search results"
-          isDisabled={loading}
-          flexShrink={0}
-          ml={2}
-          onClick={() => runSearch()}
-        >
-          {loading ? (
-            <Spinner size="sm" />
-          ) : (
-            <i className="fa-solid fa-refresh"></i>
-          )}
-        </Button>
+        <ButtonGroup isAttached ml={2}>
+          <Tooltip label="Search">
+          <Button
+            type="button"
+            colorScheme="blue"
+            title="Search"
+            isDisabled={loading}
+            onClick={() => applyText()}
+            aria-label="Search"
+          >
+            {loading ? (
+              <Spinner size="sm" />
+            ) : (
+              <i className="fa-solid fa-magnifying-glass"></i>
+            )}
+          </Button></Tooltip>
+          <Tooltip label={autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}>
+            <IconButton
+              aria-label="Auto refresh"
+              variant={autoRefresh ? 'solid' : 'outline'}
+              onClick={()=>setAutoRefresh(!autoRefresh)}
+              icon={<i className="fa-solid fa-stopwatch-20"></i>}
+            />
+          </Tooltip>
+          <Tooltip label="Refresh now">
+            <IconButton
+              aria-label="Refresh now"
+              variant="outline"
+              onClick={()=>runSearch()}
+              icon={<i className="fa-solid fa-arrows-rotate"></i>}
+            />
+          </Tooltip>
+        </ButtonGroup>
       </Flex>
 
       {/* Advanced Filters - Conditionally Visible */}
@@ -438,27 +459,26 @@ function FiltersHeader(props: {
               <Button size="sm" variant={viewMode==='table'?'solid':'outline'} onClick={()=>setViewMode('table')} title="table"><i className="fa-solid fa-table-list"></i></Button>
           </ButtonGroup>
         </Flex>
-        <Flex align="center" gap={2}>
-          <Button size="sm" variant={autoRefresh ? 'solid' : 'outline'} onClick={()=>setAutoRefresh(!autoRefresh)}>
-            auto refresh
-          </Button>
-          <Button size="sm" variant="outline" onClick={()=>runSearch()}>refresh now</Button>
+        {/* Moved into the button group above */}
+        <Flex align="center" gap={2} ml="auto" wrap="wrap">
+          <Button size="sm" variant="outline" onClick={toggleSelectAllCurrent}>Select all</Button>
+          <Button size="sm" variant="outline" onClick={clearSelection}>Clear selection</Button>
+          {selectedIdsCount > 0 && (
+            <>
+              <Box fontSize="sm">selected {selectedIdsCount}</Box>
+              <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'terminate')}>Terminate</Button>
+              <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_clean')}>Rerun</Button>
+              <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_insitu')}>Rerun in-situ</Button>
+              <Button size="sm" colorScheme="red" variant="outline" onClick={()=>bulkAction(selectedIds, 'delete')}>Delete</Button>
+            </>
+          )}
         </Flex>
-        {selectedIdsCount > 0 && (
-          <Flex align="center" gap={2} ml="auto">
-            <Box fontSize="sm">selected {selectedIdsCount}</Box>
-            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'terminate')}>terminate</Button>
-            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_clean')}>rerun</Button>
-            <Button size="sm" variant="outline" onClick={()=>bulkAction(selectedIds, 'rerun_insitu')}>rerun in-situ</Button>
-            <Button size="sm" colorScheme="red" variant="outline" onClick={()=>bulkAction(selectedIds, 'delete')}>delete</Button>
-          </Flex>
-        )}
       </Flex>
     </Box>
   )
 }
 
-function JobTable(props: {
+const JobTable = React.memo(function JobTable(props: {
   results: Job[]
   selectedIds: number[]
   isSelected: (id: number)=>boolean
@@ -562,9 +582,9 @@ function JobTable(props: {
       </Table>
     </Box>
   )
-}
+})
 
-function JobCards(props: {
+const JobCards = React.memo(function JobCards(props: {
   results: Job[]
   isSelected: (id: number)=>boolean
   toggleSelect: (id: number)=>void
@@ -739,6 +759,13 @@ function JobCards(props: {
             </Select>
           </Flex>
         </Box>
+        <Box mt={1}><Text as="b" className="field-label">Results</Text> <ButtonGroup variant="outline" isAttached>
+            <Tooltip label="Results"><Button size="xs" variant="outline" onClick={()=>showFiles(j)}><i className="fa-regular fa-folder-open"></i> {j.result || ''}</Button></Tooltip>
+            <Tooltip label="Stdout"><Button size="xs" variant="outline" onClick={()=>showLog(j, 'out')}><i className="fa-solid fa-file-lines"></i></Button></Tooltip>
+            <Tooltip label="Stderr"><Button size="xs" variant="outline" onClick={()=>showLog(j, 'err')}><i className="fa-solid fa-file-circle-exclamation"></i></Button></Tooltip>
+            <Tooltip label="History"><Button size="xs" variant="outline" onClick={()=>showHistory(j)}><i className="fa-solid fa-code-commit"></i></Button></Tooltip>
+            </ButtonGroup>
+        </Box>
         <Box mt={1}>
           <Text as="b" className="field-label">Parameters</Text>
             <Text
@@ -770,13 +797,6 @@ function JobCards(props: {
             >
               {(j.input_file && j.input_file.trim()) ? j.input_file : '(empty)'}
             </Text>
-        </Box>
-        <Box mt={1}><Text as="b" className="field-label">Results</Text> <ButtonGroup variant="outline" isAttached>
-            <Tooltip label="Results"><Button size="sm" variant="outline" onClick={()=>showFiles(j)}><i className="fa-regular fa-folder-open"></i> {j.result || ''}</Button></Tooltip>
-            <Tooltip label="Stdout"><Button size="sm" variant="outline" onClick={()=>showLog(j, 'out')}><i className="fa-solid fa-file-lines"></i></Button></Tooltip>
-            <Tooltip label="Stderr"><Button size="sm" variant="outline" onClick={()=>showLog(j, 'err')}><i className="fa-solid fa-file-circle-exclamation"></i></Button></Tooltip>
-            <Tooltip label="History"><Button size="sm" variant="outline" onClick={()=>showHistory(j)}><i className="fa-solid fa-code-commit"></i></Button></Tooltip>
-            </ButtonGroup>
         </Box>
         {expEnableRunner && (
           <Box mt={1}>
@@ -831,7 +851,7 @@ function JobCards(props: {
   })
   return (
     <>
-      <Flex align="center" gap={2} mb={3} p={2} borderWidth="1px" borderColor="gray.200" rounded="md" bg="white">
+      {/* <Flex align="center" gap={2} mb={3} p={2} borderWidth="1px" borderColor="gray.200" rounded="md" bg="white">
         <Button size="sm" variant="outline" onClick={toggleSelectAllCurrent}>select all</Button>
         <Button size="sm" variant="outline" onClick={clearSelection}>clear</Button>
         {selectedIds && selectedIds.length > 0 && (
@@ -843,7 +863,7 @@ function JobCards(props: {
             <Button size="sm" colorScheme="red" variant="outline" onClick={()=>bulkAction(selectedIds, 'delete')}>delete</Button>
           </>
         )}
-      </Flex>
+      </Flex> */}
       <SimpleGrid spacing={6} columns={{ base: 1, sm: 2, lg: 3 }}>
       {results.map(j => (
         <Box key={j.id} borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }}>
@@ -861,13 +881,14 @@ function JobCards(props: {
       </SimpleGrid>
     </>
   )
-}
+})
 
 export default function JobMonitorPage() {
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   useEffect(() => { document.title = 'Job Status – BioQueue' }, [])
+  // live (typed) text filters
   const [keywords, setKeywords] = useState('')
   const [jobNameNot, setJobNameNot] = useState('')
   const [parameter, setParameter] = useState('')
@@ -896,6 +917,19 @@ export default function JobMonitorPage() {
   const [statusNotSel, setStatusNotSel] = useState<number[]>([])
   const [idText, setIdText] = useState('')
   const [idNotText, setIdNotText] = useState('')
+  // applied (submitted) text filters used for queries
+  const [aKeywords, setAKeywords] = useState('')
+  const [aJobNameNot, setAJobNameNot] = useState('')
+  const [aParameter, setAParameter] = useState('')
+  const [aParameterNot, setAParameterNot] = useState('')
+  const [aInputFile, setAInputFile] = useState('')
+  const [aInputFileNot, setAInputFileNot] = useState('')
+  const [aProtocolName, setAProtocolName] = useState('')
+  const [aProtocolNameNot, setAProtocolNameNot] = useState('')
+  const [aWorkspaceName, setAWorkspaceName] = useState('')
+  const [aWorkspaceNameNot, setAWorkspaceNameNot] = useState('')
+  const [aIdText, setAIdText] = useState('')
+  const [aIdNotText, setAIdNotText] = useState('')
   const [results, setResults] = useState<Job[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
@@ -985,27 +1019,27 @@ export default function JobMonitorPage() {
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
-    if (keywords.trim()) p.set('job_name', keywords.trim())
-    if (jobNameNot.trim()) p.set('job_name_not', jobNameNot.trim())
-    if (parameter.trim()) p.set('parameter', parameter.trim())
-    if (parameterNot.trim()) p.set('parameter_not', parameterNot.trim())
-    if (inputFile.trim()) p.set('input_file', inputFile.trim())
-    if (inputFileNot.trim()) p.set('input_file_not', inputFileNot.trim())
+    if (aKeywords.trim()) p.set('job_name', aKeywords.trim())
+    if (aJobNameNot.trim()) p.set('job_name_not', aJobNameNot.trim())
+    if (aParameter.trim()) p.set('parameter', aParameter.trim())
+    if (aParameterNot.trim()) p.set('parameter_not', aParameterNot.trim())
+    if (aInputFile.trim()) p.set('input_file', aInputFile.trim())
+    if (aInputFileNot.trim()) p.set('input_file_not', aInputFileNot.trim())
     if (protocolId.trim()) p.set('protocol', protocolId.trim())
-    if (protocolName.trim()) p.set('protocol_name', protocolName.trim())
-    if (protocolNameNot.trim()) p.set('protocol_name_not', protocolNameNot.trim())
+    if (aProtocolName.trim()) p.set('protocol_name', aProtocolName.trim())
+    if (aProtocolNameNot.trim()) p.set('protocol_name_not', aProtocolNameNot.trim())
     if (workspaceId.trim()) p.set('workspace', workspaceId.trim())
-    if (workspaceName.trim()) p.set('workspace_name', workspaceName.trim())
-    if (workspaceNameNot.trim()) p.set('workspace_name_not', workspaceNameNot.trim())
+    if (aWorkspaceName.trim()) p.set('workspace_name', aWorkspaceName.trim())
+    if (aWorkspaceNameNot.trim()) p.set('workspace_name_not', aWorkspaceNameNot.trim())
     if (statusText.trim()) p.set('status', statusText.trim())
     if (statusNotText.trim()) p.set('status_not', statusNotText.trim())
-    if (idText.trim()) p.set('id', idText.trim())
-    if (idNotText.trim()) p.set('id_not', idNotText.trim())
+    if (aIdText.trim()) p.set('id', aIdText.trim())
+    if (aIdNotText.trim()) p.set('id_not', aIdNotText.trim())
     if (mode !== 'all') p.set('mode', mode)
     p.set('page', String(page))
     p.set('page_size', String(pageSize))
     return p.toString()
-  }, [keywords, jobNameNot, parameter, parameterNot, inputFile, inputFileNot, protocolId, protocolName, protocolNameNot, workspaceId, workspaceName, workspaceNameNot, statusText, statusNotText, idText, idNotText, mode, page, pageSize])
+  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, protocolId, aProtocolName, aProtocolNameNot, workspaceId, aWorkspaceName, aWorkspaceNameNot, statusText, statusNotText, aIdText, aIdNotText, mode, page, pageSize])
 
   // write current filters to URL
   useEffect(() => {
@@ -1026,28 +1060,38 @@ export default function JobMonitorPage() {
     const sp = new URLSearchParams(location.search || '')
     const kw = sp.get('job_name') || ''
     if (kw !== keywords) setKeywords(kw)
+    if (kw !== aKeywords) setAKeywords(kw)
     const kwNot = sp.get('job_name_not') || ''
     if (kwNot !== jobNameNot) setJobNameNot(kwNot)
+    if (kwNot !== aJobNameNot) setAJobNameNot(kwNot)
     const param = sp.get('parameter') || ''
     if (param !== parameter) setParameter(param)
+    if (param !== aParameter) setAParameter(param)
     const paramNot = sp.get('parameter_not') || ''
     if (paramNot !== parameterNot) setParameterNot(paramNot)
+    if (paramNot !== aParameterNot) setAParameterNot(paramNot)
     const infile = sp.get('input_file') || ''
     if (infile !== inputFile) setInputFile(infile)
+    if (infile !== aInputFile) setAInputFile(infile)
     const infileNot = sp.get('input_file_not') || ''
     if (infileNot !== inputFileNot) setInputFileNot(infileNot)
+    if (infileNot !== aInputFileNot) setAInputFileNot(infileNot)
     const proto = sp.get('protocol') || ''
     if (proto !== protocolId) setProtocolId(proto)
     const protoName = sp.get('protocol_name') || ''
     if (protoName !== protocolName) setProtocolName(protoName)
+    if (protoName !== aProtocolName) setAProtocolName(protoName)
     const protoNameNot = sp.get('protocol_name_not') || ''
     if (protoNameNot !== protocolNameNot) setProtocolNameNot(protoNameNot)
+    if (protoNameNot !== aProtocolNameNot) setAProtocolNameNot(protoNameNot)
     const ws = sp.get('workspace') || ''
     if (ws !== workspaceId) setWorkspaceId(ws)
     const wsName = sp.get('workspace_name') || ''
     if (wsName !== workspaceName) setWorkspaceName(wsName)
+    if (wsName !== aWorkspaceName) setAWorkspaceName(wsName)
     const wsNameNot = sp.get('workspace_name_not') || ''
     if (wsNameNot !== workspaceNameNot) setWorkspaceNameNot(wsNameNot)
+    if (wsNameNot !== aWorkspaceNameNot) setAWorkspaceNameNot(wsNameNot)
     const st = sp.get('status') || ''
     if (st !== statusText) {
       setStatusText(st)
@@ -1062,8 +1106,10 @@ export default function JobMonitorPage() {
     }
     const ids = sp.get('id') || ''
     if (ids !== idText) setIdText(ids)
+    if (ids !== aIdText) setAIdText(ids)
     const idsNot = sp.get('id_not') || ''
     if (idsNot !== idNotText) setIdNotText(idsNot)
+    if (idsNot !== aIdNotText) setAIdNotText(idsNot)
     const m = sp.get('mode') || 'all'
     if (m !== mode && (m === 'all' || m === 'any')) setMode(m as 'all'|'any')
     const pg = (()=>{ const v = parseInt(sp.get('page') || '1', 10); return Number.isFinite(v) && v>0 ? v : 1 })()
@@ -1081,19 +1127,7 @@ export default function JobMonitorPage() {
     }, 0)
   }, [location.search])
 
-  // Debounced parse of unified name/id input into keywords and idText
-  useEffect(() => {
-    if (isReadingFromURL.current) return
-    const t = window.setTimeout(() => {
-      const raw = (nameOrIdInput || '').trim()
-      const tokens = raw.split(/[\s,]+/).filter(Boolean)
-      const ids = tokens.filter(t=>/^\d+$/.test(t)).join(',')
-      const names = tokens.filter(t=>!/^\d+$/.test(t)).join(' ')
-      if (names !== keywords) setKeywords(names)
-      if (ids !== idText) setIdText(ids)
-    }, 250)
-    return () => window.clearTimeout(t)
-  }, [nameOrIdInput])
+  // Removed debounced parsing; parsing happens on apply/refresh
 
   async function runSearch(e?: React.FormEvent) {
     e?.preventDefault()
@@ -1101,11 +1135,30 @@ export default function JobMonitorPage() {
     setError(null)
     try {
       const res = await apiGet(`/jobs/search/?${qs}`)
-      if (!res.ok) throw new Error(`${res.status}`)
+      if (!res.ok) {
+        // If page is invalid/out of range, reset to 1 silently
+        if ((res.status === 404 || res.status === 400) && page !== 1) {
+          setPage(1)
+          return
+        }
+        throw new Error(`${res.status}`)
+      }
       const data = await res.json()
       const rows = Array.isArray(data) ? data : (data.results || [])
       if (!Array.isArray(data)) {
-        setTotalCount(parseInt(data.count || 0))
+        const countNum = parseInt(data.count || 0)
+        setTotalCount(countNum)
+        const pages = Math.max(1, Math.ceil((countNum || 0) / (pageSize || 1)))
+        if (page > pages && page !== 1) {
+          setPage(1)
+          return
+        }
+      } else {
+        // Legacy shape without count: if empty results while on page>1, reset to 1
+        if ((rows || []).length === 0 && page > 1 && page !== 1) {
+          setPage(1)
+          return
+        }
       }
       setResults(rows || [])
       setSelectedIds([])
@@ -1212,7 +1265,7 @@ export default function JobMonitorPage() {
   // initial list
   useEffect(() => { runSearch() /* eslint-disable-line */ }, [])
 
-  // auto-search when filter criteria change (but not during URL reading)
+  // auto-search ONLY for selector-based filters; text filters require submit
   useEffect(() => {
     if (isReadingFromURL.current) return
     // Debounce the search to avoid too many requests while typing
@@ -1221,10 +1274,40 @@ export default function JobMonitorPage() {
     }, 300) // 300ms delay
     return () => clearTimeout(timeoutId)
   }, [
-    keywords, jobNameNot, parameter, parameterNot, inputFile, inputFileNot,
-    protocolId, protocolName, protocolNameNot, workspaceId, workspaceName, workspaceNameNot,
-    statusText, statusNotText, idText, idNotText, mode
+    protocolId, workspaceId, statusText, statusNotText, mode
   ])
+
+  // Apply current typed text filters and then run search
+  const applyTextFiltersAndSearch = useCallback(() => {
+    // Parse unified input into keywords and ids
+    const raw = (nameOrIdInput || '').trim()
+    const tokens = raw.split(/[\s,]+/).filter(Boolean)
+    const idsParsed = tokens.filter(t=>/^\d+$/.test(t)).join(',')
+    const namesParsed = tokens.filter(t=>!/^\d+$/.test(t)).join(' ')
+
+    if (namesParsed !== keywords) setKeywords(namesParsed)
+    if (idsParsed !== idText) setIdText(idsParsed)
+
+    setAKeywords(namesParsed)
+    setAJobNameNot(jobNameNot)
+    setAParameter(parameter)
+    setAParameterNot(parameterNot)
+    setAInputFile(inputFile)
+    setAInputFileNot(inputFileNot)
+    setAProtocolName(protocolName)
+    setAProtocolNameNot(protocolNameNot)
+    setAWorkspaceName(workspaceName)
+    setAWorkspaceNameNot(workspaceNameNot)
+    setAIdText(idsParsed)
+    setAIdNotText(idNotText)
+  }, [nameOrIdInput, jobNameNot, parameter, parameterNot, inputFile, inputFileNot, protocolName, protocolNameNot, workspaceName, workspaceNameNot, idText, idNotText, keywords])
+
+  // When applied text filters change, run search with new query
+  useEffect(() => {
+    if (isReadingFromURL.current) return
+    if (!loading) runSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, aProtocolName, aProtocolNameNot, aWorkspaceName, aWorkspaceNameNot, aIdText, aIdNotText])
 
   useEffect(() => { if (!loading) runSearch() /* eslint-disable-line */ }, [page, pageSize])
   
@@ -1691,6 +1774,7 @@ export default function JobMonitorPage() {
         setMode={(v: 'all'|'any')=>{ setMode(v); setPage(1) }}
         loading={loading}
         runSearch={runSearch}
+        applyText={()=>{ setPage(1); applyTextFiltersAndSearch() }}
         pageSize={pageSize}
         setPageSize={(n: number)=>{ setPageSize(n); setPage(1) }}
         setPage={setPage}
@@ -1701,6 +1785,8 @@ export default function JobMonitorPage() {
         selectedIdsCount={selectedIds.length}
         bulkAction={bulkAction}
         selectedIds={selectedIds}
+        toggleSelectAllCurrent={toggleSelectAllCurrent}
+        clearSelection={()=>setSelectedIds([])}
         protocols={protocols}
         workspaces={workspaces}
         protocolFilter={protocolFilter}
