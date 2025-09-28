@@ -245,7 +245,7 @@ export default function CreateJobPage() {
       const res = await apiPost('/jobs/', JSON.stringify(payload))
       if (res.ok) {
         toast({ title: 'job created', status: 'success', duration: 3000, isClosable: true, position: 'bottom-right' })
-        navigate('/jobs')
+        onReset()
       } else {
         try {
           const d = await res.json()
@@ -293,7 +293,7 @@ export default function CreateJobPage() {
 
       if (res.ok) {
         toast({ title: 'Bulk jobs created successfully', status: 'success', duration: 3000, isClosable: true, position: 'bottom-right' })
-        navigate('/jobs')
+        setBulkJobText('')
       } else {
         const errorData = await res.json().catch(() => ({ info: 'Failed to create bulk jobs' }))
         toast({ title: errorData.info || 'Failed to create bulk jobs', status: 'error', duration: 5000, isClosable: true, position: 'bottom-right' })
@@ -323,7 +323,7 @@ export default function CreateJobPage() {
 
       if (res.ok) {
         toast({ title: 'Bulk jobs created successfully', status: 'success', duration: 3000, isClosable: true, position: 'bottom-right' })
-        navigate('/jobs')
+        setBulkJobFile(null)
       } else {
         const errorData = await res.json().catch(() => ({ info: 'Failed to create bulk jobs' }))
         toast({ title: errorData.info || 'Failed to create bulk jobs', status: 'error', duration: 5000, isClosable: true, position: 'bottom-right' })
