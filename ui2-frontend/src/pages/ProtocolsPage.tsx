@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Box, Button, ButtonGroup, Divider, Flex, Heading, IconButton, Input, Spinner, Table, Tbody, Td, Th, Thead, Tooltip, Tr, useToast, Tag, Switch, FormControl, FormLabel, FormHelperText, NumberInput, NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Textarea, Select, Menu, MenuButton, MenuList, MenuItemOption, MenuOptionGroup, Portal } from '@chakra-ui/react'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../lib/api'
@@ -36,6 +36,19 @@ export default function ProtocolsPage() {
   const [environments, setEnvironments] = useState<Array<{ id: number; name: string; ve_type: string }>>([])
   const [loadingEnvs, setLoadingEnvs] = useState(false)
   const [envFilter, setEnvFilter] = useState('')
+
+  // references for autocomplete tokens
+  const [references, setReferences] = useState<Array<{ id: number; name?: string; label?: string }>>([])
+  const systemTokens = useMemo(() => [ 
+    'InputFile', 'InputFile:', 
+    'Job', 'JobName', 'LastOutput', 'LastOutput:', 
+    'Output:', 'AllOutputBefore', 'Suffix', 'Suffix:', 
+    'ThreadN', 'Workspace', 'UserBin' ], [])
+  const tokens = useMemo(() => {
+    const userRefsRaw = references.map(r => String(r.name || r.label || `Ref${r.id}`)).filter(Boolean)
+    // Only include the exact reference name for user refs (no colon variant)
+    return Array.from(new Set([ ...systemTokens, ...userRefsRaw ])).sort((a, b) => a.localeCompare(b))
+  }, [references, systemTokens])
 
   // shortcuts state
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -129,6 +142,24 @@ export default function ProtocolsPage() {
       } finally {
         if (mounted) setLoadingEnvs(false)
       }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  // Fetch references (for autocomplete)
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const res = await apiGet('/references/?page_size=500')
+        if (mounted && res.ok) {
+          const data = await res.json()
+          const rows = Array.isArray(data) ? data : (data.results || [])
+          // Normalize to { id, name }
+          const norm = rows.map((r: any) => ({ id: Number(r.id), name: String(r.name || '') }))
+          setReferences(norm)
+        }
+      } catch {}
     })()
     return () => { mounted = false }
   }, [])
@@ -609,11 +640,11 @@ export default function ProtocolsPage() {
               <Flex direction="column" gap={2}>
                 <FormControl>
                   <FormLabel mb={1}>Software</FormLabel>
-                  <Textarea value={newStepSoftware} onChange={(e)=>setNewStepSoftware(e.target.value)} rows={3} placeholder="e.g. fastqc" fontFamily="mono" />
+                  <AutocompleteTextarea value={newStepSoftware} onChange={setNewStepSoftware} rows={3} placeholder="e.g. fastqc" tokens={tokens} />
                 </FormControl>
                 <FormControl>
                   <FormLabel mb={1}>Parameter</FormLabel>
-                  <Textarea value={newStepParameter} onChange={(e)=>setNewStepParameter(e.target.value)} rows={6} placeholder="command-line options or template" fontFamily="mono" />
+                  <AutocompleteTextarea value={newStepParameter} onChange={setNewStepParameter} rows={6} placeholder="command-line options or template (use {{Token}})" tokens={tokens} />
                 </FormControl>
                 <FormControl>
                   <FormLabel mb={1}>Environment</FormLabel>
@@ -762,11 +793,11 @@ export default function ProtocolsPage() {
             <Flex gap={4} direction="column">
               <FormControl>
                 <FormLabel>Software</FormLabel>
-                <Textarea value={editStepSoftware} onChange={(e)=>setEditStepSoftware(e.target.value)} rows={6} fontFamily="mono" placeholder="shell command or script" />
+                <AutocompleteTextarea value={editStepSoftware} onChange={setEditStepSoftware} rows={6} placeholder="shell command or script" tokens={tokens} />
               </FormControl>
               <FormControl>
                 <FormLabel>Parameter</FormLabel>
-                <Textarea value={editStepParameter} onChange={(e)=>setEditStepParameter(e.target.value)} rows={12} fontFamily="mono" placeholder="arguments/template; use {{var}} for placeholders" />
+                <AutocompleteTextarea value={editStepParameter} onChange={setEditStepParameter} rows={12} placeholder="arguments/template; type {{ to insert token" tokens={tokens} />
               </FormControl>
               <FormControl>
                 <FormLabel>Environment</FormLabel>
@@ -815,6 +846,144 @@ export default function ProtocolsPage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+    </Box>
+  )
+}
+
+// Lightweight textarea with token autocomplete using {{Token}}
+function AutocompleteTextarea({ value, onChange, rows = 6, placeholder, tokens }: {
+  value: string
+  onChange: (v: string) => void
+  rows?: number
+  placeholder?: string
+  tokens: string[]
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null)
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<string[]>([])
+  const [active, setActive] = useState(0)
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null)
+
+  const updateSuggestions = useCallback(() => {
+    const el = ref.current
+    if (!el) { setOpen(false); return }
+    const caret = el.selectionStart || 0
+    const head = value.slice(0, caret)
+    const m = head.match(/\{\{([A-Za-z0-9_]*)$/)
+    if (m) {
+      const q = m[1] || ''
+      const list = tokens.filter(t => t.toLowerCase().startsWith(q.toLowerCase())).slice(0, 20)
+      setItems(list)
+      setActive(0)
+      // compute caret anchor relative to viewport
+      try {
+        const rect = el.getBoundingClientRect()
+        const mirror = document.createElement('div')
+        const style = window.getComputedStyle(el)
+        mirror.style.position = 'absolute'
+        mirror.style.visibility = 'hidden'
+        mirror.style.whiteSpace = 'pre-wrap'
+        mirror.style.wordWrap = 'break-word'
+        mirror.style.fontFamily = style.fontFamily
+        mirror.style.fontSize = style.fontSize
+        mirror.style.lineHeight = style.lineHeight
+        mirror.style.padding = style.padding
+        mirror.style.border = style.border
+        mirror.style.boxSizing = style.boxSizing as string
+        mirror.style.width = `${el.clientWidth}px`
+        mirror.style.left = `${rect.left + window.scrollX}px`
+        mirror.style.top = `${rect.top + window.scrollY}px`
+        const before = document.createTextNode(head)
+        const marker = document.createElement('span')
+        marker.textContent = '\u200b'
+        mirror.appendChild(before)
+        mirror.appendChild(marker)
+        document.body.appendChild(mirror)
+        const markerRect = marker.getBoundingClientRect()
+        const caretLeft = markerRect.left
+        const caretTop = markerRect.top
+        document.body.removeChild(mirror)
+        const lineHeight = parseFloat(style.lineHeight || '16') || 16
+        setAnchor({
+          left: caretLeft,
+          top: caretTop + lineHeight,
+        })
+      } catch {
+        const r = el.getBoundingClientRect()
+        setAnchor({ left: r.left, top: r.bottom })
+      }
+      setOpen(list.length > 0)
+    } else {
+      setOpen(false)
+    }
+  }, [tokens, value])
+
+  const insertToken = useCallback((token: string) => {
+    const el = ref.current
+    if (!el) return
+    const caret = el.selectionStart || 0
+    const head = value.slice(0, caret)
+    const tail = value.slice(caret)
+    const m = head.match(/\{\{([A-Za-z0-9_]*)$/)
+    if (!m) return
+    const start = caret - (m[1] ? m[1].length : 0) - 2
+    const next = head.slice(0, start) + `{{${token}}}` + tail
+    onChange(next)
+    setOpen(false)
+    setTimeout(() => {
+      if (ref.current) {
+        const pos = start + token.length + 4
+        ref.current.selectionStart = pos
+        ref.current.selectionEnd = pos
+        ref.current.focus()
+      }
+    }, 0)
+  }, [onChange, value])
+
+  return (
+    <Box position="relative">
+      <Textarea
+        ref={ref}
+        value={value}
+        onChange={(e)=>{ onChange(e.target.value); updateSuggestions() }}
+        onKeyUp={updateSuggestions}
+        onClick={updateSuggestions}
+        onFocus={updateSuggestions}
+        onBlur={()=>{ setTimeout(()=>setOpen(false), 100) }}
+        onKeyDown={(e)=>{
+          if (!open || items.length===0) return
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive(prev => Math.min(items.length-1, prev+1)) }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(prev => Math.max(0, prev-1)) }
+          else if (e.key === 'Enter') { e.preventDefault(); insertToken(items[active] || items[0]) }
+          else if (e.key === 'Escape') { setOpen(false) }
+        }}
+        rows={rows}
+        placeholder={placeholder}
+        fontFamily="mono"
+      />
+      {open && (
+        <Portal>
+          <Box position="fixed" zIndex={1400} bg="white" borderWidth="1px" borderColor="gray.200" rounded="md" maxH="220px" overflowY="auto" boxShadow="md" minW="220px" style={{ left: `${anchor?.left ?? 0}px`, top: `${anchor?.top ?? 0}px` }}>
+            {items.map((it, idx) => (
+              <Box
+                key={it}
+                px={2}
+                py={1}
+                fontSize="sm"
+                bg={idx===active? 'gray.100' : 'white'}
+                _hover={{ bg: 'gray.100', cursor: 'pointer' }}
+                onMouseEnter={()=>setActive(idx)}
+                onMouseDown={(e)=>{ e.preventDefault(); insertToken(it) }}
+              >
+                {`{{${it}}}`}
+              </Box>
+            ))}
+            {items.length === 0 && (
+              <Box px={2} py={1} fontSize="sm" opacity={0.7}>no matches</Box>
+            )}
+          </Box>
+        </Portal>
+      )}
     </Box>
   )
 }
