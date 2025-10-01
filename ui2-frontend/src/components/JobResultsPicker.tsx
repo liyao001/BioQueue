@@ -77,6 +77,7 @@ export default function JobResultsPicker({
       return
     }
     setJobSearchLoading(true)
+    await new Promise(r=>setTimeout(r,0))
     try {
       const params = new URLSearchParams()
       if (/^\d+$/.test(q)) params.set('id', q)
@@ -169,6 +170,7 @@ export default function JobResultsPicker({
 
   async function fetchJobFiles(jobId: number, page: number) {
     setJobFilesLoading(true)
+    await new Promise(r=>setTimeout(r,0))
     try {
       const offset = (Math.max(1, page) - 1) * jobFilesPageSize
       const limit = jobFilesPageSize
@@ -238,15 +240,22 @@ export default function JobResultsPicker({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside" motionPreset="none">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Select results from a job</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <Flex align="center" gap={2} wrap="wrap">
-            <Input placeholder="type ≥ 3 chars to search jobs (id or name)" value={jobSearch} onChange={(e)=>setJobSearch(e.target.value)} flex="1" />
-            <Button size="sm" onClick={() => onSearchJobs(1)} isLoading={jobSearchLoading}>Search</Button>
+            <Input
+              placeholder="type ≥ 3 chars to search jobs (id or name)"
+              value={jobSearch}
+              onChange={(e)=>setJobSearch(e.target.value)}
+              onKeyDown={(e)=>{ if (e.key === 'Enter') { e.preventDefault(); onSearchJobs(1) } }}
+              autoFocus
+              flex="1"
+            />
+            <Button size="sm" type="button" onClick={() => onSearchJobs(1)} isLoading={jobSearchLoading}>Search</Button>
           </Flex>
 
           <Box mt={3} borderWidth="1px" rounded="md" p={2}>
@@ -292,7 +301,7 @@ export default function JobResultsPicker({
                 <Box position="sticky" top={0} bg="white" zIndex={1} pb={2} pt={1}>
                   <Flex gap={2} align="center">
                     <Input placeholder="filter files (≥ 3 chars)" value={jobFilesFilter} onChange={(e)=>setJobFilesFilter(e.target.value)} flex="1" />
-                    <Button size="sm" onClick={()=>{ if (selectedJobId) { setJobFilesPage(1); fetchJobFiles(selectedJobId, 1) } }}>Filter</Button>
+                    <Button size="sm" type="button" onClick={()=>{ if (selectedJobId) { setJobFilesPage(1); fetchJobFiles(selectedJobId, 1) } }}>Filter</Button>
                   </Flex>
                 </Box>
                 <Table size="sm" variant="simple">
