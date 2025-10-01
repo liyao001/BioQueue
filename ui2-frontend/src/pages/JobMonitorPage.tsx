@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react'
+import { flushSync } from 'react-dom'
 import { formatBytes } from '../lib/format'
 import { apiGet, apiPost, apiDelete, apiPatch } from '../lib/api'
 import { useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, Flex, Box, Input, Button, ButtonGroup, Heading, Select, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, MenuItem, Portal, Spinner, HStack, Text, IconButton, Table, Thead, Tbody, Tr, Th, Td, Checkbox, SimpleGrid, Tooltip, Image, Link as ChakraLink, Slider, SliderTrack, SliderFilledTrack, SliderThumb, Textarea } from '@chakra-ui/react'
@@ -56,6 +57,7 @@ const FilesTable = React.memo(function FilesTable({
   files,
   sortField,
   sortOrder,
+  actionsDisabled,
   onSort,
   onPreview,
   onDownload,
@@ -64,6 +66,7 @@ const FilesTable = React.memo(function FilesTable({
   files: JobFile[]
   sortField: 'name'|'size'|'created'
   sortOrder: 'asc'|'desc'
+  actionsDisabled?: boolean
   onSort: (field: 'name'|'size'|'created') => void
   onPreview: (file: JobFile) => void
   onDownload: (file: JobFile) => void
@@ -74,17 +77,17 @@ const FilesTable = React.memo(function FilesTable({
       <Thead>
         <Tr>
           <Th textAlign="left" py={1}>
-            <Button variant="link" size="sm" onClick={()=>onSort('name')}>
+            <Button variant="link" size="sm" onClick={()=>onSort('name')} isDisabled={!!actionsDisabled}>
               Name {sortField==='name' ? (sortOrder==='asc'?'▲':'▼') : ''}
             </Button>
           </Th>
           <Th textAlign="left" py={1}>
-            <Button variant="link" size="sm" onClick={()=>onSort('size')}>
+            <Button variant="link" size="sm" onClick={()=>onSort('size')} isDisabled={!!actionsDisabled}>
               Size {sortField==='size' ? (sortOrder==='asc'?'▲':'▼') : ''}
             </Button>
           </Th>
           <Th textAlign="left" py={1}>
-            <Button variant="link" size="sm" onClick={()=>onSort('created')}>
+            <Button variant="link" size="sm" onClick={()=>onSort('created')} isDisabled={!!actionsDisabled}>
               Created {sortField==='created' ? (sortOrder==='asc'?'▲':'▼') : ''}
             </Button>
           </Th>
@@ -94,9 +97,9 @@ const FilesTable = React.memo(function FilesTable({
       <Tbody>
         {files.map(f => (
           <Tr key={f.trace} data-trace={f.trace}>
-            <Td py={1} pr={2} wordBreak="break-all">
+            <Td py={1} pr={2} wordBreak="break-word" whiteSpace="normal">
               {f.is_link && <i className="fa-solid fa-link" style={{ marginRight: '0.25rem', opacity: 0.7 }} title="link"></i>}
-              <Button variant="link" size="sm" colorScheme="blue" onClick={()=>onPreview(f)} title="preview">
+              <Button variant="link" size="sm" colorScheme="blue" onClick={()=>onPreview(f)} title="preview" isDisabled={!!actionsDisabled} whiteSpace="normal" textAlign="left">
                 {f.name}
               </Button>
             </Td>
@@ -105,13 +108,13 @@ const FilesTable = React.memo(function FilesTable({
             <Td py={1} pr={2}>
               <ButtonGroup isAttached>
                 <Tooltip label="Download">
-                  <IconButton aria-label="download" size="sm" colorScheme="blue" onClick={()=>onDownload(f)} icon={<i className="fa-solid fa-download"></i>} />
+                  <IconButton aria-label="download" size="sm" colorScheme="blue" onClick={()=>onDownload(f)} icon={<i className="fa-solid fa-download"></i>} isDisabled={!!actionsDisabled} />
                 </Tooltip>
                 <Tooltip label="Preview">
-                  <IconButton aria-label="preview" size="sm" colorScheme="teal" onClick={()=>onPreview(f)} icon={<i className="fa-regular fa-eye"></i>} />
+                  <IconButton aria-label="preview" size="sm" colorScheme="teal" onClick={()=>onPreview(f)} icon={<i className="fa-regular fa-eye"></i>} isDisabled={!!actionsDisabled} />
                 </Tooltip>
                 <Tooltip label="Delete">
-                  <IconButton aria-label="delete" size="sm" colorScheme="red" onClick={()=>onDelete(f)} icon={<i className="fa-solid fa-trash"></i>} />
+                  <IconButton aria-label="delete" size="sm" colorScheme="red" onClick={()=>onDelete(f)} icon={<i className="fa-solid fa-trash"></i>} isDisabled={!!actionsDisabled} />
                 </Tooltip>
               </ButtonGroup>
             </Td>
@@ -119,6 +122,32 @@ const FilesTable = React.memo(function FilesTable({
         ))}
       </Tbody>
     </Table>
+  )
+})
+
+const FilesFilterBar = React.memo(function FilesFilterBar({
+  initialValue = '',
+  onChange,
+}: {
+  initialValue?: string
+  onChange: (val: string) => void
+}) {
+  const [liveValue, setLiveValue] = React.useState(initialValue)
+  const [debouncedValue, setDebouncedValue] = React.useState(initialValue)
+  React.useEffect(() => { setLiveValue(initialValue) }, [initialValue])
+  React.useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedValue(liveValue)
+      onChange(liveValue)
+    }, 250)
+    return () => window.clearTimeout(id)
+  }, [liveValue, onChange])
+  return (
+    <Flex gap={2} align="center">
+      <Input size="sm" placeholder="filter files" value={liveValue} onChange={(e)=>setLiveValue(e.target.value)} flex="1" />
+      {liveValue !== debouncedValue && <Spinner size="sm" />}
+      <Button size="sm" onClick={()=>{ setDebouncedValue(liveValue); onChange(liveValue) }}>Filter</Button>
+    </Flex>
   )
 })
 
@@ -141,7 +170,7 @@ const PreviewToolbar = React.memo(function PreviewToolbar({
 })
 
 // page sections
-function FiltersHeader(props: {
+const FiltersHeader = React.memo(function FiltersHeader(props: {
   nameOrIdInput: string
   setNameOrIdInput: (v: string) => void
   jobNameNot: string
@@ -178,8 +207,20 @@ function FiltersHeader(props: {
   mode: 'all'|'any'
   setMode: (v: 'all'|'any') => void
   loading: boolean
-  runSearch: (e?: React.FormEvent) => void
-  applyText: () => void
+  forceRefresh: () => void
+  applyText: (overrides: {
+    nameOrIdInput: string
+    jobNameNot: string
+    protocolName: string
+    protocolNameNot: string
+    workspaceName: string
+    workspaceNameNot: string
+    parameter: string
+    parameterNot: string
+    inputFile: string
+    inputFileNot: string
+    idNotText: string
+  }) => void
   pageSize: number
   setPageSize: (n: number) => void
   setPage: (n: number) => void
@@ -201,14 +242,6 @@ function FiltersHeader(props: {
   setWorkspaceFilter: (v: string) => void
   loadingProtocols: boolean
   loadingWorkspaces: boolean
-  showProtoDD: boolean
-  setShowProtoDD: (b: boolean) => void
-  showWsDD: boolean
-  setShowWsDD: (b: boolean) => void
-  showStatusDD: boolean
-  setShowStatusDD: (b: boolean) => void
-  showStatusNotDD: boolean
-  setShowStatusNotDD: (b: boolean) => void
   showAdvancedFilters: boolean
   setShowAdvancedFilters: (b: boolean) => void
 }) {
@@ -229,7 +262,7 @@ function FiltersHeader(props: {
     statusNotSel, setStatusNotSel, setStatusNotText,
     idNotText, setIdNotText,
     mode, setMode,
-    loading, runSearch, applyText, pageSize, setPageSize, setPage,
+    loading, forceRefresh, applyText, pageSize, setPageSize, setPage,
     viewMode, setViewMode,
     autoRefresh, setAutoRefresh,
     selectedIdsCount, bulkAction, selectedIds, toggleSelectAllCurrent, clearSelection,
@@ -237,31 +270,97 @@ function FiltersHeader(props: {
     protocolFilter, setProtocolFilter,
     workspaceFilter, setWorkspaceFilter,
     loadingProtocols, loadingWorkspaces,
-    showProtoDD, setShowProtoDD,
-    showWsDD, setShowWsDD,
-    showStatusDD, setShowStatusDD,
-    showStatusNotDD, setShowStatusNotDD,
     showAdvancedFilters, setShowAdvancedFilters,
   } = props
+  // Local dropdown open states to avoid page-wide re-renders on toggle
+  const [showProtoDD, setShowProtoDD] = useState(false)
+  const [showWsDD, setShowWsDD] = useState(false)
+  const [showStatusDD, setShowStatusDD] = useState(false)
+  const [showStatusNotDD, setShowStatusNotDD] = useState(false)
+  // Localize the heavy text input to avoid page-wide re-renders while typing
+  const [localNameOrId, setLocalNameOrId] = useState(nameOrIdInput)
+  useEffect(() => { setLocalNameOrId(nameOrIdInput) }, [nameOrIdInput])
+  // Local advanced text inputs to avoid global rerenders while typing
+  const [localJobNameNot, setLocalJobNameNot] = useState(jobNameNot)
+  useEffect(() => { setLocalJobNameNot(jobNameNot) }, [jobNameNot])
+  const [localProtocolName, setLocalProtocolName] = useState(protocolName)
+  useEffect(() => { setLocalProtocolName(protocolName) }, [protocolName])
+  const [localProtocolNameNot, setLocalProtocolNameNot] = useState(protocolNameNot)
+  useEffect(() => { setLocalProtocolNameNot(protocolNameNot) }, [protocolNameNot])
+  const [localWorkspaceName, setLocalWorkspaceName] = useState(workspaceName)
+  useEffect(() => { setLocalWorkspaceName(workspaceName) }, [workspaceName])
+  const [localWorkspaceNameNot, setLocalWorkspaceNameNot] = useState(workspaceNameNot)
+  useEffect(() => { setLocalWorkspaceNameNot(workspaceNameNot) }, [workspaceNameNot])
+  const [localParameter, setLocalParameter] = useState(parameter)
+  useEffect(() => { setLocalParameter(parameter) }, [parameter])
+  const [localParameterNot, setLocalParameterNot] = useState(parameterNot)
+  useEffect(() => { setLocalParameterNot(parameterNot) }, [parameterNot])
+  const [localInputFile, setLocalInputFile] = useState(inputFile)
+  useEffect(() => { setLocalInputFile(inputFile) }, [inputFile])
+  const [localInputFileNot, setLocalInputFileNot] = useState(inputFileNot)
+  useEffect(() => { setLocalInputFileNot(inputFileNot) }, [inputFileNot])
+  const [localIdNotText, setLocalIdNotText] = useState(idNotText)
+  useEffect(() => { setLocalIdNotText(idNotText) }, [idNotText])
+  // Debounced local filters for protocol/workspace menus to avoid parent rerenders per keystroke
+  const [localProtocolFilter, setLocalProtocolFilter] = useState(protocolFilter)
+  useEffect(() => { setLocalProtocolFilter(protocolFilter) }, [protocolFilter])
+  const [localWorkspaceFilter, setLocalWorkspaceFilter] = useState(workspaceFilter)
+  useEffect(() => { setLocalWorkspaceFilter(workspaceFilter) }, [workspaceFilter])
+  const [filteringProtocols, setFilteringProtocols] = useState<boolean>(false)
+  const [filteringWorkspaces, setFilteringWorkspaces] = useState<boolean>(false)
+  // Hide spinners once new filtered lists are applied in parent state
+  useEffect(() => { setFilteringProtocols(false) }, [protocolFilter, protocols.length])
+  useEffect(() => { setFilteringWorkspaces(false) }, [workspaceFilter, workspaces.length])
   const selectedStatusLabels = useMemo(() => statusChoices.filter(s => statusSel.includes(s.value)).map(s => s.label), [statusChoices, statusSel])
   const selectedStatusNotLabels = useMemo(() => statusChoices.filter(s => statusNotSel.includes(s.value)).map(s => s.label), [statusChoices, statusNotSel])
   return (
-    <Box as="form" onSubmit={(e: React.FormEvent)=>{ e.preventDefault(); applyText(); }} mb={4}>
+    <Box as="form" onSubmit={(e: React.FormEvent)=>{ e.preventDefault();
+      // Commit locals, then apply using the same values to avoid stale state
+      setNameOrIdInput(localNameOrId)
+      setJobNameNot(localJobNameNot)
+      setProtocolName(localProtocolName)
+      setProtocolNameNot(localProtocolNameNot)
+      setWorkspaceName(localWorkspaceName)
+      setWorkspaceNameNot(localWorkspaceNameNot)
+      setParameter(localParameter)
+      setParameterNot(localParameterNot)
+      setInputFile(localInputFile)
+      setInputFileNot(localInputFileNot)
+      setIdNotText(localIdNotText)
+      // Apply text filters directly from local values; search will auto-run via effect
+      applyText({
+        nameOrIdInput: localNameOrId,
+        jobNameNot: localJobNameNot,
+        protocolName: localProtocolName,
+        protocolNameNot: localProtocolNameNot,
+        workspaceName: localWorkspaceName,
+        workspaceNameNot: localWorkspaceNameNot,
+        parameter: localParameter,
+        parameterNot: localParameterNot,
+        inputFile: localInputFile,
+        inputFileNot: localInputFileNot,
+        idNotText: localIdNotText,
+      })
+    }} mb={4}>
       {/* Basic Filters - Always Visible */}
       <Flex align="center" gap={1} wrap="wrap" mb={2} w="100%">
         <Box flex="2" minW="180px">
-          <Input aria-label="Job name or IDs" value={nameOrIdInput} onChange={(e)=>{ setNameOrIdInput(e.target.value) }} placeholder="job name or IDs (comma/space)" />
+          <Input aria-label="Job name or IDs" value={localNameOrId} onChange={(e)=>{ setLocalNameOrId(e.target.value) }} placeholder="job name or IDs (comma/space)" />
         </Box>
 
         <Box position="relative" flex="2" minW="140px">
-          <Menu isOpen={showProtoDD} onClose={()=>setShowProtoDD(false)}>
+          <Menu isLazy isOpen={showProtoDD} onClose={()=>setShowProtoDD(false)}>
             <MenuButton as={Button} onClick={()=>{ setShowProtoDD(!showProtoDD); setShowWsDD(false); setShowStatusDD(false); setShowStatusNotDD(false); }} w="100%" textAlign="left">
-              Protocol: {protocolId ? (protocols.find(p=>String(p.id)===protocolId)?.name || protocolId) : 'all'}
+              Protocol: {protocolId ? (protocols.find(p=>String(p.id)===protocolId)?.name || protocolId) : 'all'} {(loadingProtocols || loading) && <Spinner size="xs" ml={2} />}
             </MenuButton>
             <Portal>
               <MenuList minW="320px" p={2} maxH="300px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
-                <Input size="sm" placeholder="filter protocols" mb={2} value={protocolFilter} onChange={(e)=>setProtocolFilter(e.target.value)} />
-                <MenuOptionGroup type="radio" value={protocolId} onChange={(val)=>{ const v = String((val as any) ?? ''); setProtocolId(v); setShowProtoDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
+                <Flex gap={2} mb={2} align="center">
+                  <Input size="sm" placeholder="filter protocols" value={localProtocolFilter} onChange={(e)=>setLocalProtocolFilter(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') { e.preventDefault(); setFilteringProtocols(false); setFilteringProtocols(true); setProtocolFilter(localProtocolFilter) } }} />
+                  <Button size="sm" type="button" onClick={()=>{ setFilteringProtocols(true); setProtocolFilter(localProtocolFilter) }}>Filter</Button>
+                  {filteringProtocols && <Spinner size="sm" />}
+                </Flex>
+                <MenuOptionGroup type="radio" value={protocolId} onChange={(val)=>{ const v = String((val as any) ?? ''); startTransition(()=>{ setProtocolId(v); setPage(1) }); setShowProtoDD(false); }}>
                   <MenuItemOption value="">all</MenuItemOption>
                   {protocols.map(p => (
                     <MenuItemOption key={p.id} value={String(p.id)}>{p.id} - {p.name}</MenuItemOption>
@@ -274,14 +373,18 @@ function FiltersHeader(props: {
         </Box>
 
         <Box position="relative" flex="2" minW="140px">
-          <Menu isOpen={showWsDD} onClose={()=>setShowWsDD(false)}>
+          <Menu isLazy isOpen={showWsDD} onClose={()=>setShowWsDD(false)}>
             <MenuButton as={Button} onClick={()=>{ setShowWsDD(!showWsDD); setShowProtoDD(false); setShowStatusDD(false); setShowStatusNotDD(false); }} w="100%" textAlign="left">
-              Workspace: {workspaceId ? (workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId) : 'all'}
+              Workspace: {workspaceId ? (workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId) : 'all'} {(loadingWorkspaces || loading) && <Spinner size="xs" ml={2} />}
             </MenuButton>
             <Portal>
               <MenuList minW="300px" p={2} maxH="300px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
-                <Input size="sm" placeholder="filter workspaces" mb={2} value={workspaceFilter} onChange={(e)=>setWorkspaceFilter(e.target.value)} />
-                <MenuOptionGroup type="radio" value={workspaceId} onChange={(val)=>{ const v = String((val as any) ?? ''); setWorkspaceId(v); setShowWsDD(false); setPage(1); setTimeout(()=>runSearch(), 0); }}>
+                <Flex gap={2} mb={2} align="center">
+                  <Input size="sm" placeholder="filter workspaces" value={localWorkspaceFilter} onChange={(e)=>setLocalWorkspaceFilter(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') { e.preventDefault(); setFilteringWorkspaces(false); setFilteringWorkspaces(true); setWorkspaceFilter(localWorkspaceFilter) } }} />
+                  <Button size="sm" type="button" onClick={()=>{ setFilteringWorkspaces(true); setWorkspaceFilter(localWorkspaceFilter) }}>Filter</Button>
+                  {filteringWorkspaces && <Spinner size="sm" />}
+                </Flex>
+                <MenuOptionGroup type="radio" value={workspaceId} onChange={(val)=>{ const v = String((val as any) ?? ''); startTransition(()=>{ setWorkspaceId(v); setPage(1) }); setShowWsDD(false); }}>
                   <MenuItemOption value="">all</MenuItemOption>
                   {workspaces.map(w => (
                     <MenuItemOption key={w.id} value={String(w.id)}>{w.name}</MenuItemOption>
@@ -294,7 +397,7 @@ function FiltersHeader(props: {
         </Box>
 
         <Box position="relative" flex="1" minW="120px">
-          <Menu isOpen={showStatusDD} onClose={()=>{ setShowStatusDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>
+          <Menu isLazy isOpen={showStatusDD} onClose={()=>{ setShowStatusDD(false); setPage(1); }}>
             <MenuButton as={Button} onClick={()=>{ setShowStatusDD(!showStatusDD); setShowProtoDD(false); setShowWsDD(false); setShowStatusNotDD(false); }} w="100%" textAlign="left">
               Status: {selectedStatusLabels.length === 0 ? 'any' : selectedStatusLabels.length === 1 ? selectedStatusLabels[0] : `${selectedStatusLabels.length} selected`}
             </MenuButton>
@@ -302,16 +405,15 @@ function FiltersHeader(props: {
               <MenuList minW="260px" p={2}>
                 <MenuOptionGroup type="checkbox" value={statusSel.map(String)} onChange={(vals)=>{
                   const arr = (Array.isArray(vals) ? vals : [vals]).filter(Boolean).map(v=>parseInt(String(v)))
-                  setStatusSel(arr)
-                  setStatusText(arr.join(','))
+                  startTransition(()=>{ setStatusSel(arr); setStatusText(arr.join(',')) })
                 }}>
                   {statusChoices.map(s => (
                     <MenuItemOption key={s.value} value={String(s.value)}>{s.label}</MenuItemOption>
                   ))}
                 </MenuOptionGroup>
                 <Flex justify="flex-end" gap={2} mt={2}>
-                  <Button size="sm" variant="outline" onClick={()=>{ setStatusSel([]); setStatusText(''); setShowStatusDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>Clear</Button>
-                  <Button size="sm" variant="outline" onClick={()=>{ setShowStatusDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>Done</Button>
+                  <Button size="sm" variant="outline" onClick={()=>{ startTransition(()=>{ setStatusSel([]); setStatusText(''); setPage(1) }); setShowStatusDD(false); }}>Clear</Button>
+                  <Button size="sm" variant="outline" onClick={()=>{ startTransition(()=>{ setPage(1) }); setShowStatusDD(false); }}>Done</Button>
                 </Flex>
               </MenuList>
             </Portal>
@@ -333,20 +435,20 @@ function FiltersHeader(props: {
 
         <ButtonGroup isAttached ml={2}>
           <Tooltip label="Search">
-          <Button
-            type="button"
-            colorScheme="blue"
-            title="Search"
-            isDisabled={loading}
-            onClick={() => applyText()}
-            aria-label="Search"
-          >
-            {loading ? (
-              <Spinner size="sm" />
-            ) : (
-              <i className="fa-solid fa-magnifying-glass"></i>
-            )}
-          </Button></Tooltip>
+            <Button
+              type="submit"
+              colorScheme="blue"
+              title="Search"
+              isDisabled={loading}
+              aria-label="Search"
+            >
+              {loading ? (
+                <Spinner size="sm" />
+              ) : (
+                <i className="fa-solid fa-magnifying-glass"></i>
+              )}
+            </Button>
+          </Tooltip>
           <Tooltip label={autoRefresh ? 'Auto refresh: ON' : 'Auto refresh: OFF'}>
             <IconButton
               aria-label="Auto refresh"
@@ -359,7 +461,7 @@ function FiltersHeader(props: {
             <IconButton
               aria-label="Refresh now"
               variant="outline"
-              onClick={()=>runSearch()}
+              onClick={forceRefresh}
               icon={<i className="fa-solid fa-arrows-rotate"></i>}
             />
           </Tooltip>
@@ -372,42 +474,42 @@ function FiltersHeader(props: {
           {/* Row 1: Name exclusions */}
           <Flex align="center" gap={1} wrap="wrap" mb={2} w="100%">
             <Box flex="1" minW="140px">
-              <Input aria-label="Job name exclude" value={jobNameNot} onChange={(e)=>{ setJobNameNot(e.target.value); }} placeholder="exclude job names" />
+              <Input aria-label="Job name exclude" value={localJobNameNot} onChange={(e)=>{ setLocalJobNameNot(e.target.value) }} placeholder="exclude job names" />
             </Box>
             <Box flex="1" minW="120px">
-              <Input aria-label="Protocol name" value={protocolName} onChange={(e)=>{ setProtocolName(e.target.value); }} placeholder="protocol name search" />
+              <Input aria-label="Protocol name" value={localProtocolName} onChange={(e)=>{ setLocalProtocolName(e.target.value) }} placeholder="protocol name search" />
             </Box>
             <Box flex="1" minW="120px">
-              <Input aria-label="Protocol name exclude" value={protocolNameNot} onChange={(e)=>{ setProtocolNameNot(e.target.value); }} placeholder="exclude protocols" />
+              <Input aria-label="Protocol name exclude" value={localProtocolNameNot} onChange={(e)=>{ setLocalProtocolNameNot(e.target.value) }} placeholder="exclude protocols" />
             </Box>
             <Box flex="1" minW="120px">
-              <Input aria-label="Workspace name" value={workspaceName} onChange={(e)=>{ setWorkspaceName(e.target.value); }} placeholder="workspace name search" />
+              <Input aria-label="Workspace name" value={localWorkspaceName} onChange={(e)=>{ setLocalWorkspaceName(e.target.value) }} placeholder="workspace name search" />
             </Box>
             <Box flex="1" minW="120px">
-              <Input aria-label="Workspace name exclude" value={workspaceNameNot} onChange={(e)=>{ setWorkspaceNameNot(e.target.value); }} placeholder="exclude workspaces" />
+              <Input aria-label="Workspace name exclude" value={localWorkspaceNameNot} onChange={(e)=>{ setLocalWorkspaceNameNot(e.target.value) }} placeholder="exclude workspaces" />
             </Box>
           </Flex>
 
           {/* Row 2: Content search filters */}
           <Flex align="center" gap={1} wrap="wrap" mb={2} w="100%">
             <Box flex="1" minW="130px">
-              <Input aria-label="Parameters" value={parameter} onChange={(e)=>{ setParameter(e.target.value); }} placeholder="search parameters" />
+              <Input aria-label="Parameters" value={localParameter} onChange={(e)=>{ setLocalParameter(e.target.value) }} placeholder="search parameters" />
             </Box>
             <Box flex="1" minW="130px">
-              <Input aria-label="Parameters exclude" value={parameterNot} onChange={(e)=>{ setParameterNot(e.target.value); }} placeholder="exclude parameters" />
+              <Input aria-label="Parameters exclude" value={localParameterNot} onChange={(e)=>{ setLocalParameterNot(e.target.value) }} placeholder="exclude parameters" />
             </Box>
             <Box flex="1" minW="130px">
-              <Input aria-label="Input files" value={inputFile} onChange={(e)=>{ setInputFile(e.target.value); }} placeholder="search input files" />
+              <Input aria-label="Input files" value={localInputFile} onChange={(e)=>{ setLocalInputFile(e.target.value) }} placeholder="search input files" />
             </Box>
             <Box flex="1" minW="130px">
-              <Input aria-label="Input files exclude" value={inputFileNot} onChange={(e)=>{ setInputFileNot(e.target.value); }} placeholder="exclude input files" />
+              <Input aria-label="Input files exclude" value={localInputFileNot} onChange={(e)=>{ setLocalInputFileNot(e.target.value) }} placeholder="exclude input files" />
             </Box>
           </Flex>
 
           {/* Row 3: Status exclude and exclude Job IDs */}
           <Flex align="center" gap={1} wrap="wrap" mb={2} w="100%">
             <Box position="relative" flex="1" minW="120px">
-              <Menu isOpen={showStatusNotDD} onClose={()=>{ setShowStatusNotDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>
+              <Menu isLazy isOpen={showStatusNotDD} onClose={()=>{ setShowStatusNotDD(false); setPage(1); }}>
                 <MenuButton as={Button} onClick={()=>{ setShowStatusNotDD(!showStatusNotDD); setShowProtoDD(false); setShowWsDD(false); setShowStatusDD(false); }} w="100%" textAlign="left">
                   Status ≠: {selectedStatusNotLabels.length === 0 ? 'any' : selectedStatusNotLabels.length === 1 ? selectedStatusNotLabels[0] : `${selectedStatusNotLabels.length} selected`}
                 </MenuButton>
@@ -415,16 +517,15 @@ function FiltersHeader(props: {
                   <MenuList minW="260px" p={2}>
                     <MenuOptionGroup type="checkbox" value={statusNotSel.map(String)} onChange={(vals)=>{
                       const arr = (Array.isArray(vals) ? vals : [vals]).filter(Boolean).map(v=>parseInt(String(v)))
-                      setStatusNotSel(arr)
-                      setStatusNotText(arr.join(','))
+                      startTransition(()=>{ setStatusNotSel(arr); setStatusNotText(arr.join(',')) })
                     }}>
                       {statusChoices.map(s => (
                         <MenuItemOption key={s.value} value={String(s.value)}>{s.label}</MenuItemOption>
                       ))}
                     </MenuOptionGroup>
                     <Flex justify="flex-end" gap={2} mt={2}>
-                      <Button size="sm" variant="outline" onClick={()=>{ setStatusNotSel([]); setStatusNotText(''); setShowStatusNotDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>Clear</Button>
-                      <Button size="sm" variant="outline" onClick={()=>{ setShowStatusNotDD(false); setPage(1); setTimeout(()=>runSearch(), 0) }}>Done</Button>
+                      <Button size="sm" variant="outline" onClick={()=>{ startTransition(()=>{ setStatusNotSel([]); setStatusNotText(''); setPage(1) }); setShowStatusNotDD(false); }}>Clear</Button>
+                      <Button size="sm" variant="outline" onClick={()=>{ startTransition(()=>{ setPage(1) }); setShowStatusNotDD(false); }}>Done</Button>
                     </Flex>
                   </MenuList>
                 </Portal>
@@ -432,13 +533,13 @@ function FiltersHeader(props: {
             </Box>
 
             <Box flex="1" minW="120px">
-              <Input aria-label="Exclude Job IDs" value={idNotText} onChange={(e)=>{ setIdNotText(e.target.value); }} placeholder="exclude Job IDs" />
+              <Input aria-label="Exclude Job IDs" value={localIdNotText} onChange={(e)=>{ setLocalIdNotText(e.target.value) }} placeholder="exclude Job IDs" />
             </Box>
             <Flex align="center" gap={2} flex="1" minW="120px">
               <Box as="label" fontSize="sm" whiteSpace="nowrap">Mode:</Box>
               <ButtonGroup variant="outline" isAttached>
-                <Button size="sm" variant={mode === 'all' ? 'solid' : 'outline'} onClick={()=>setMode('all')} colorScheme={mode === 'all' ? 'blue' : undefined}>AND</Button>
-                <Button size="sm" variant={mode === 'any' ? 'solid' : 'outline'} onClick={()=>setMode('any')} colorScheme={mode === 'any' ? 'blue' : undefined}>OR</Button>
+                <Button size="sm" variant={mode === 'all' ? 'solid' : 'outline'} onClick={()=>startTransition(()=>setMode('all'))} colorScheme={mode === 'all' ? 'blue' : undefined}>AND</Button>
+                <Button size="sm" variant={mode === 'any' ? 'solid' : 'outline'} onClick={()=>startTransition(()=>setMode('any'))} colorScheme={mode === 'any' ? 'blue' : undefined}>OR</Button>
               </ButtonGroup>
             </Flex>
           </Flex>
@@ -476,7 +577,7 @@ function FiltersHeader(props: {
       </Flex>
     </Box>
   )
-}
+})
 
 const JobTable = React.memo(function JobTable(props: {
   results: Job[]
@@ -497,12 +598,14 @@ const JobTable = React.memo(function JobTable(props: {
   fetchAndReplaceJob: (id: number)=>Promise<void>
   setOpenModal: (v: any)=>void
   setEditValue: (v: string)=>void
+  compact?: boolean
 }) {
   const {
     results, selectedIds, isSelected, toggleSelect, toggleSelectAllCurrent,
     statusMap, doChangeVisibility, doTerminate, doRerun, doLockToggle,
     showFiles, showLog, showHistory, doDeleteJob,
     notify, fetchAndReplaceJob, setOpenModal, setEditValue,
+    compact,
   } = props
   // These props are used in inline event handlers but not directly in JSX
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -517,66 +620,94 @@ const JobTable = React.memo(function JobTable(props: {
     <Box overflowX="auto">
       <Table size="sm" variant="simple">
         <Thead>
-          <Tr>
-            <Th><Checkbox isChecked={results.length>0 && results.every(r=>selectedIds.includes(r.id))} onChange={toggleSelectAllCurrent} /></Th>
-            <Th>id</Th>
-            <Th>name</Th>
-            <Th>status</Th>
-            <Th>protocol</Th>
-            <Th>workspace</Th>
-            <Th>ver</Th>
-            <Th>result</Th>
-            <Th>created</Th>
-            <Th>updated</Th>
-            <Th>actions</Th>
-          </Tr>
+          {compact ? (
+            <Tr>
+              <Th>id</Th>
+              <Th>name</Th>
+              <Th>protocol</Th>
+              <Th>status</Th>
+            </Tr>
+          ) : (
+            <Tr>
+              <Th><Checkbox isChecked={results.length>0 && results.every(r=>selectedIds.includes(r.id))} onChange={toggleSelectAllCurrent} /></Th>
+              <Th>id</Th>
+              <Th>name</Th>
+              <Th>status</Th>
+              <Th>protocol</Th>
+              <Th>workspace</Th>
+              <Th>ver</Th>
+              <Th>result</Th>
+              <Th>created</Th>
+              <Th>updated</Th>
+              <Th>actions</Th>
+            </Tr>
+          )}
         </Thead>
         <Tbody>
           {results.map((j) => (
-            <Tr key={j.id} _hover={{ bg: 'gray.50' }}>
-              <Td><Checkbox isChecked={isSelected(j.id)} onChange={()=>toggleSelect(j.id)} /></Td>
-              <Td>{j.id}</Td>
-              <Td>{j.job_name}</Td>
-              <Td><StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} /></Td>
-              <Td>{j.protocol_name || j.protocol}</Td>
-              <Td>{j.workspace_name || (j.workspace_id ?? '')}</Td>
-              <Td>{j.version ?? ''}</Td>
-              <Td title={j.result || ''}><Text noOfLines={1}>{j.result || ''}</Text></Td>
-              <Td>{j.create_time ? new Date(j.create_time).toLocaleString() : ''}</Td>
-              <Td>{j.update_time ? new Date(j.update_time).toLocaleString() : ''}</Td>
-              <Td>
-                <HStack spacing={2}>
-                  <Tooltip label="visibility"><Select size="xs" width="auto" value={j.visibility ?? 1} onChange={(e)=>doChangeVisibility(j.id, parseInt(e.target.value))}>
-                    <option value={0}>hide</option>
-                    <option value={1}>visible</option>
-                    <option value={2}>visible in workspace</option>
-                  </Select></Tooltip>
-                  {(j.status >= 0) && (
-                    <Tooltip label="terminate"><Button size="xs" variant="outline" onClick={()=>doTerminate(j.id)}> <i className="fa-solid fa-stop"></i> </Button></Tooltip>
-                  )}
-                  {(j.status <= 0 || j.status < 1) && (
-                    <>
-                      <Tooltip label="rerun (clean)"><Button size="xs" variant="outline" colorScheme="red" onClick={()=>doRerun(j.id, false)}><i className="fa-solid fa-rotate-right"></i></Button></Tooltip>
-                      <Tooltip label="rerun in-situ"><Button size="xs" variant="outline" colorScheme="red" onClick={()=>doRerun(j.id, true)}><i className="fa-solid fa-arrows-rotate"></i></Button></Tooltip>
-                    </>
-                  )}
-                  {(j.status !== 0 && j.status !== 1) && (
-                    <Tooltip label="Mark failed"><Button size="sm" variant="outline" colorScheme="red" onClick={async()=>{
-                      try {
-                        const res = await apiPost(`/jobs/${j.id}/mark-wrong/`)
-                        if (res.ok) { notify('marked as failed', 'success'); fetchAndReplaceJob(j.id) } else { notify(await extractError(res), 'error') }
-                      } catch (e: any) { notify(e?.message || 'request failed', 'error') }
-                    }}><i className="fa-solid fa-circle-xmark"></i></Button></Tooltip>
-                  )}
-                  {([ -1, -3, 2 ].includes(j.status)) && (
-                    <Tooltip label="Resume from step"><Button size="sm" variant="outline" onClick={()=>{ setOpenModal({ type: 'resume', job: j }) }}><i className="fa-solid fa-rotate"></i></Button></Tooltip>
-                  )}
-                  <Tooltip label="Comments / memo"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>{/* handled elsewhere */}}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
-                  <Tooltip label="history"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>showHistory(j)}><i className="fa-solid fa-clock-rotate-left"></i></Button></Tooltip>
-                  <Tooltip label="delete"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>doDeleteJob(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
-                </HStack>
-              </Td>
-            </Tr>
+            compact ? (
+              <React.Fragment key={j.id}>
+                <Tr _hover={{ bg: 'gray.50' }}>
+                  <Td>{j.id}</Td>
+                  <Td>{j.job_name}</Td>
+                  <Td>{j.protocol_name || j.protocol}</Td>
+                  <Td><StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} /></Td>
+                </Tr>
+                <Tr>
+                  <Td colSpan={4}>
+                    <HStack spacing={6} fontSize="sm">
+                      <Box maxW="50%"><Text as="b">Input:</Text> <Text as="span" noOfLines={1} title={j.input_file || ''}>{j.input_file || ''}</Text></Box>
+                      <Box maxW="50%"><Text as="b">Param:</Text> <Text as="span" noOfLines={1} title={j.parameter || ''}>{j.parameter || ''}</Text></Box>
+                    </HStack>
+                  </Td>
+                </Tr>
+              </React.Fragment>
+            ) : (
+              <Tr key={j.id} _hover={{ bg: 'gray.50' }}>
+                <Td><Checkbox isChecked={isSelected(j.id)} onChange={()=>toggleSelect(j.id)} /></Td>
+                <Td>{j.id}</Td>
+                <Td>{j.job_name}</Td>
+                <Td><StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} /></Td>
+                <Td>{j.protocol_name || j.protocol}</Td>
+                <Td>{j.workspace_name || (j.workspace_id ?? '')}</Td>
+                <Td>{j.version ?? ''}</Td>
+                <Td title={j.result || ''}><Text noOfLines={1}>{j.result || ''}</Text></Td>
+                <Td>{j.create_time ? new Date(j.create_time).toLocaleString() : ''}</Td>
+                <Td>{j.update_time ? new Date(j.update_time).toLocaleString() : ''}</Td>
+                <Td>
+                  <HStack spacing={2}>
+                    <Tooltip label="visibility"><Select size="xs" width="auto" value={j.visibility ?? 1} onChange={(e)=>doChangeVisibility(j.id, parseInt(e.target.value))}>
+                      <option value={0}>hide</option>
+                      <option value={1}>visible</option>
+                      <option value={2}>visible in workspace</option>
+                    </Select></Tooltip>
+                    {(j.status >= 0) && (
+                      <Tooltip label="terminate"><Button size="xs" variant="outline" onClick={()=>doTerminate(j.id)}> <i className="fa-solid fa-stop"></i> </Button></Tooltip>
+                    )}
+                    {(j.status <= 0 || j.status < 1) && (
+                      <>
+                        <Tooltip label="rerun (clean)"><Button size="xs" variant="outline" colorScheme="red" onClick={()=>doRerun(j.id, false)}><i className="fa-solid fa-rotate-right"></i></Button></Tooltip>
+                        <Tooltip label="rerun in-situ"><Button size="xs" variant="outline" colorScheme="red" onClick={()=>doRerun(j.id, true)}><i className="fa-solid fa-arrows-rotate"></i></Button></Tooltip>
+                      </>
+                    )}
+                    {(j.status !== 0 && j.status !== 1) && (
+                      <Tooltip label="Mark failed"><Button size="sm" variant="outline" colorScheme="red" onClick={async()=>{
+                        try {
+                          const res = await apiPost(`/jobs/${j.id}/mark-wrong/`)
+                          if (res.ok) { notify('marked as failed', 'success'); fetchAndReplaceJob(j.id) } else { notify(await extractError(res), 'error') }
+                        } catch (e: any) { notify(e?.message || 'request failed', 'error') }
+                      }}><i className="fa-solid fa-circle-xmark"></i></Button></Tooltip>
+                    )}
+                    {([ -1, -3, 2 ].includes(j.status)) && (
+                      <Tooltip label="Resume from step"><Button size="sm" variant="outline" onClick={()=>{ setOpenModal({ type: 'resume', job: j }) }}><i className="fa-solid fa-rotate"></i></Button></Tooltip>
+                    )}
+                    <Tooltip label="Comments / memo"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>{/* handled elsewhere */}}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
+                    <Tooltip label="history"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>showHistory(j)}><i className="fa-solid fa-clock-rotate-left"></i></Button></Tooltip>
+                    <Tooltip label="delete"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>doDeleteJob(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
+                  </HStack>
+                </Td>
+              </Tr>
+            )
           ))}
         </Tbody>
       </Table>
@@ -613,12 +744,43 @@ const JobCards = React.memo(function JobCards(props: {
   setModalLoading: (v: boolean)=>void
   setDependentsResults: (rows: Job[])=>void
   setDependenciesResults: (rows: Job[])=>void
+  modalLoading?: boolean
+  ensureRunnersLoaded?: () => Promise<void>
 }) {
   const {
     results, isSelected, toggleSelect, toggleSelectAllCurrent, clearSelection, doChangeVisibility, doRerun, doLockToggle,
     showFiles, showLog, showHistory, doDeleteJob, doTerminate, selectedIds, bulkAction, runners, workspaces, expEnableRunner, apiPatch,
-    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults,
+    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults, modalLoading, ensureRunnersLoaded,
   } = props
+  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
+  const markUpdating = useCallback((id: number, on: boolean) => {
+    setUpdatingIds(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
+  }, [])
+  // Track per-job relation fetches (dependents/dependencies) to avoid duplicate clicks
+  const [relationsLoadingIds, setRelationsLoadingIds] = useState<Set<number>>(new Set())
+  const markRelationsLoading = useCallback((id: number, on: boolean) => {
+    setRelationsLoadingIds(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
+  }, [])
+  const onChangeVisibility = useCallback(async (id: number, vis: number) => {
+    markUpdating(id, true)
+    try { await doChangeVisibility(id, vis) } finally { markUpdating(id, false) }
+  }, [doChangeVisibility, markUpdating])
+  const onRerun = useCallback(async (id: number, insitu: boolean) => {
+    markUpdating(id, true)
+    try { await doRerun(id, insitu) } finally { markUpdating(id, false) }
+  }, [doRerun, markUpdating])
+  const onTerminate = useCallback(async (id: number) => {
+    markUpdating(id, true)
+    try { await doTerminate(id) } finally { markUpdating(id, false) }
+  }, [doTerminate, markUpdating])
+  const onDelete = useCallback(async (id: number) => {
+    markUpdating(id, true)
+    try { await doDeleteJob(id) } finally { markUpdating(id, false) }
+  }, [doDeleteJob, markUpdating])
+  const onLockToggle = useCallback(async (id: number) => {
+    markUpdating(id, true)
+    try { await doLockToggle(id) } finally { markUpdating(id, false) }
+  }, [doLockToggle, markUpdating])
   const [shortcutsConfig, setShortcutsConfig] = useState<{ [protocolId: number]: Array<{ label: string; href_template: string; params_template?: string }> }>({})
   const [sharedShortcuts, setSharedShortcuts] = useState<Array<{ label: string; href_template: string; params_template?: string }>>([])
   useEffect(() => {
@@ -662,32 +824,32 @@ const JobCards = React.memo(function JobCards(props: {
     }
     return out
   }
-  const CardHead = React.memo(function CardHead({ j }: { j: Job }) {
+  const CardHead = React.memo(function CardHead({ j, selected, onToggle }: { j: Job, selected: boolean, onToggle: (id:number)=>void }) {
     return (
       <Flex align="flex-start" justify="space-between">
         <Box>
           <Flex align="center" gap={2} fontSize="sm">
-            <input type="checkbox" checked={isSelected(j.id)} onChange={()=>toggleSelect(j.id)} />
+            <input type="checkbox" checked={selected} onChange={()=>onToggle(j.id)} />
             <Text opacity={0.7}>#{j.id}</Text>
             <ButtonGroup variant="outline" isAttached>
               {j.visibility !== 0 && (
-                <Tooltip label="Hide"><IconButton size="xs" aria-label="hide" title="hide" onClick={()=>doChangeVisibility(j.id, 0)} icon={<i className="fas fa-ban"></i>} /></Tooltip>
+                <Tooltip label="Hide"><IconButton size="xs" aria-label="hide" title="hide" onClick={()=>onChangeVisibility(j.id, 0)} icon={<i className="fas fa-ban"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
               )}
               {j.visibility !== 2 && (
-                <Tooltip label="Visible in workspace"><IconButton size="xs" aria-label="visible in workspace" title="visible in workspace" onClick={()=>doChangeVisibility(j.id, 2)} icon={<i className="fa-solid fa-eye-slash"></i>} /></Tooltip>
+                <Tooltip label="Visible in workspace"><IconButton size="xs" aria-label="visible in workspace" title="visible in workspace" onClick={()=>onChangeVisibility(j.id, 2)} icon={<i className="fa-solid fa-eye-slash"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
               )}
               {j.visibility !== 1 && (
-                <Tooltip label="Visible"><IconButton size="xs" aria-label="Visible" title="Visible" onClick={()=>doChangeVisibility(j.id, 1)} icon={<i className="fa-solid fa-eye"></i>} /></Tooltip>
+                <Tooltip label="Visible"><IconButton size="xs" aria-label="Visible" title="Visible" onClick={()=>onChangeVisibility(j.id, 1)} icon={<i className="fa-solid fa-eye"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
               )}
-              <Tooltip label={(j.locked ? 1 : 0) ? 'Unlock' : 'Lock'}><IconButton size="xs" aria-label={(j.locked ? 1 : 0) ? 'unlock' : 'lock'} onClick={()=>doLockToggle(j.id)} icon={(j.locked ? 1 : 0) ? <i className="fa-solid fa-lock-open"></i> : <i className="fa-solid fa-lock"></i>} /></Tooltip>
+              <Tooltip label={(j.locked ? 1 : 0) ? 'Unlock' : 'Lock'}><IconButton size="xs" aria-label={(j.locked ? 1 : 0) ? 'unlock' : 'lock'} onClick={()=>onLockToggle(j.id)} icon={(j.locked ? 1 : 0) ? <i className="fa-solid fa-lock-open"></i> : <i className="fa-solid fa-lock"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
               <Tooltip label="Clone this job"><IconButton aria-label="clone" size="xs" variant="outline" onClick={()=>window.open(`/jobs/new?clone=${j.id}`, '_blank', 'noopener,noreferrer')} icon={<i className="fa-regular fa-clone"></i>} /></Tooltip>
-              <Tooltip label="Dependents"><IconButton aria-label="dependents" size="xs" variant="outline" onClick={async()=>{
+            <Tooltip label="Dependents (Jobs that reference this job's results)"><IconButton aria-label="dependents" size="xs" variant="outline" isDisabled={updatingIds.has(j.id) || relationsLoadingIds.has(j.id)} onClick={async()=>{
                 setModalError(null)
-                setModalLoading(true)
-                setOpenModal({ type: 'dependents', job: j })
+                flushSync(()=>{ setModalLoading(true); setOpenModal({ type: 'dependents', job: j }) })
                 setDependentsResults([])
                 try {
-                  const res = await apiGet(`/jobs/${j.id}/dependents/?depth=1&page_size=200`)
+                  markRelationsLoading(j.id, true)
+                  const res = await apiGet(`/jobs/${j.id}/dependents/?depth=1&page_size=100`)
                   if (!res.ok) {
                     setModalError(await extractError(res))
                   } else {
@@ -698,16 +860,17 @@ const JobCards = React.memo(function JobCards(props: {
                 } catch (e:any) {
                   setModalError(e?.message || 'failed to load dependents')
                 } finally {
+                  markRelationsLoading(j.id, false)
                   setModalLoading(false)
                 }
               }} icon={<i className="fa-solid fa-diagram-project"></i>} /></Tooltip>
-              <Tooltip label="Dependencies"><IconButton aria-label="dependencies" size="xs" variant="outline" onClick={async()=>{
+            <Tooltip label="Dependencies (Jobs that this job depends on)"><IconButton aria-label="dependencies" size="xs" variant="outline" isDisabled={updatingIds.has(j.id) || relationsLoadingIds.has(j.id)} onClick={async()=>{
                 setModalError(null)
-                setModalLoading(true)
-                setOpenModal({ type: 'dependencies', job: j })
+                flushSync(()=>{ setModalLoading(true); setOpenModal({ type: 'dependencies', job: j }) })
                 setDependenciesResults([])
                 try {
-                  const res = await apiGet(`/jobs/${j.id}/dependencies/?depth=1&page_size=200`)
+                  markRelationsLoading(j.id, true)
+                  const res = await apiGet(`/jobs/${j.id}/dependencies/?depth=1&page_size=100`)
                   if (!res.ok) {
                     setModalError(await extractError(res))
                   } else {
@@ -718,6 +881,7 @@ const JobCards = React.memo(function JobCards(props: {
                 } catch (e:any) {
                   setModalError(e?.message || 'failed to load dependencies')
                 } finally {
+                  markRelationsLoading(j.id, false)
                   setModalLoading(false)
                 }
               }} icon={<i className="fa-solid fa-diagram-next"></i>} /></Tooltip>
@@ -742,21 +906,55 @@ const JobCards = React.memo(function JobCards(props: {
     )
   })
   const CardBody = React.memo(function CardBody({ j }: { j: Job }) {
+    const [wsFilterLocal, setWsFilterLocal] = useState('')
+    const filteredWs = useMemo(() => {
+      const q = (wsFilterLocal || '').trim().toLowerCase()
+      if (!q) return workspaces
+      return workspaces.filter(w => w.name.toLowerCase().includes(q) || String(w.id).includes(q))
+    }, [wsFilterLocal, workspaces])
+    const [runnerFilterLocal, setRunnerFilterLocal] = useState('')
+    const filteredRunnersLocal = useMemo(() => {
+      const q = (runnerFilterLocal || '').trim().toLowerCase()
+      if (!q) return runners
+      return runners.filter(r => r.name.toLowerCase().includes(q) || String(r.id).includes(q))
+    }, [runnerFilterLocal, runners])
     return (
       <Box opacity={0.8} h="290px" overflowY="auto">
         <Box title={String(j.protocol)+' - '+j.protocol_ver}><Text as="b" className="field-label">Protocol</Text> <ChakraLink as={RouterLink} to={`/protocols?select=${encodeURIComponent(String(j.protocol))}`} target="_blank" rel="noopener noreferrer" color="inherit" textDecoration="none" _hover={{ textDecoration: 'underline' }}>{j.protocol_name || j.protocol}</ChakraLink></Box>
         <Box mt={1}>
           <Flex align="center" gap={2}>
             <Text as="b" className="field-label">Workspace</Text>
-            <Select size="sm" width="auto" value={j.workspace_id ?? ''} onChange={async (e)=>{
-              const val = e.target.value
-              const payload = val ? { workspace: parseInt(val) } : { workspace: null }
-              const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
-              if (res.ok) { notify('workspace updated', 'success'); fetchAndReplaceJob(j.id) } else { try { const d = await res.json(); notify(d?.detail || 'update failed', 'error') } catch { notify('update failed', 'error') } }
-            }}>
-              <option value="">(none)</option>
-              {workspaces.map(w => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
-            </Select>
+            <Menu>
+              <MenuButton as={Button} size="xs" variant="outline" w="auto" textAlign="left">
+                {j.workspace_id ? (workspaces.find(w => w.id === j.workspace_id)?.name || j.workspace_id) : '(none)'}
+              </MenuButton>
+              <Portal>
+                <MenuList minW="300px" p={2}>
+                  <Input size="sm" placeholder="filter workspaces" mb={2} value={wsFilterLocal} onChange={(e)=>setWsFilterLocal(e.target.value)} />
+                  {workspaces.length === 0 && (
+                    <Box fontSize="sm" opacity={0.7} mb={1}>loading…</Box>
+                  )}
+                  <Box maxH="260px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
+                    <MenuOptionGroup type="radio" value={j.workspace_id ? String(j.workspace_id) : ''} onChange={async (val)=>{
+                      markUpdating(j.id, true)
+                      try {
+                        const v = Array.isArray(val) ? val[0] : (val as string)
+                        const payload = v ? { workspace: parseInt(v, 10) } : { workspace: null }
+                        setModalLoading(true); await new Promise(r=>setTimeout(r,0)); const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
+                        if (res.ok) { notify('workspace updated', 'success'); fetchAndReplaceJob(j.id) } else { try { const d = await res.json(); notify(d?.detail || 'update failed', 'error') } catch { notify('update failed', 'error') } }
+                      } finally {
+                        markUpdating(j.id, false)
+                      }
+                    }}>
+                      <MenuItemOption value="">(none)</MenuItemOption>
+                      {filteredWs.map(w => (
+                        <MenuItemOption key={w.id} value={String(w.id)}>{w.name}</MenuItemOption>
+                      ))}
+                    </MenuOptionGroup>
+                  </Box>
+                </MenuList>
+              </Portal>
+            </Menu>
           </Flex>
         </Box>
         <Box mt={1}><Text as="b" className="field-label">Results</Text> <ButtonGroup variant="outline" isAttached>
@@ -802,15 +1000,37 @@ const JobCards = React.memo(function JobCards(props: {
           <Box mt={1}>
             <Flex align="center" gap={2}>
               <Text as="b" className="field-label">Runner</Text>
-              <Select size="sm" width="auto" value={j.slave ?? ''} onChange={async (e)=>{
-                const val = e.target.value
-                const payload = val ? { slave: parseInt(val) } : { slave: null }
-                const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
-                if (res.ok) { notify('runner updated', 'success'); fetchAndReplaceJob(j.id) } else { notify(await (async(r)=>{ try{ const d=await r.json(); return (d?.detail||d?.info||JSON.stringify(d)) }catch{ try{const t=await r.text(); return t||`${r.status}`}catch{return `${r.status}`}} })(res), 'error') }
-              }}>
-                <option value="">(none)</option>
-                {runners.map(r => <option key={r.id} value={String(r.id)}>{r.name}</option>)}
-              </Select>
+              <Menu onOpen={ensureRunnersLoaded}>
+                <MenuButton as={Button} size="xs" variant="outline" w="auto" textAlign="left" isDisabled={updatingIds.has(j.id)}>
+                  {j.slave ? (j.slave_name || (runners.find(r=>r.id===j.slave)?.name) || j.slave) : '(none)'}
+                </MenuButton>
+                <Portal>
+                  <MenuList minW="300px" p={2}>
+                    <Input size="sm" placeholder="filter runners" mb={2} value={runnerFilterLocal} onChange={(e)=>setRunnerFilterLocal(e.target.value)} />
+                    {expEnableRunner && runners.length === 0 && (
+                      <Box fontSize="sm" opacity={0.7} mb={1}><Spinner size="xs" mr={2} />loading…</Box>
+                    )}
+                    <Box maxH="260px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
+                      <MenuOptionGroup type="radio" value={j.slave ? String(j.slave) : ''} onChange={async (val)=>{
+                        markUpdating(j.id, true)
+                        try {
+                          const v = Array.isArray(val) ? val[0] : (val as string)
+                          const payload = v ? { slave: parseInt(v, 10) } : { slave: null }
+                          setModalLoading(true); await new Promise(r=>setTimeout(r,0)); const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
+                          if (res.ok) { notify('runner updated', 'success'); fetchAndReplaceJob(j.id) } else { notify(await (async(r)=>{ try{ const d=await r.json(); return (d?.detail||d?.info||JSON.stringify(d)) }catch{ try{const t=await r.text(); return t||`${r.status}`}catch{return `${r.status}`}} })(res), 'error') }
+                        } finally {
+                          markUpdating(j.id, false)
+                        }
+                      }}>
+                        <MenuItemOption value="">(none)</MenuItemOption>
+                        {filteredRunnersLocal.map(r => (
+                          <MenuItemOption key={r.id} value={String(r.id)}>{r.name}</MenuItemOption>
+                        ))}
+                      </MenuOptionGroup>
+                    </Box>
+                  </MenuList>
+                </Portal>
+              </Menu>
             </Flex>
           </Box>
         )}
@@ -824,11 +1044,11 @@ const JobCards = React.memo(function JobCards(props: {
       <Flex flexWrap="wrap" gap={2} justify="center">
         <ButtonGroup isAttached>
         {(j.status >= 0) && (
-          <Tooltip label="Terminate"><Button size="sm" colorScheme="red" onClick={()=>doTerminate(j.id)}><i className="fa-solid fa-stop"></i></Button></Tooltip>
+          <Tooltip label="Terminate"><Button size="sm" colorScheme="red" onClick={()=>onTerminate(j.id)}><i className="fa-solid fa-stop"></i></Button></Tooltip>
         )}
         {(j.status <= 0 || j.status < 1) && (
           <>
-            <Tooltip label="Rerun (clean)"><Button size="sm" colorScheme="orange" onClick={()=>doRerun(j.id, false)}><i className="fa-solid fa-rotate-right"></i></Button></Tooltip>
+            <Tooltip label="Rerun (clean)"><Button size="sm" colorScheme="orange" onClick={()=>onRerun(j.id, false)}><i className="fa-solid fa-rotate-right"></i></Button></Tooltip>
             {/* <Tooltip label="Rerun (inplace)"><Button size="sm" colorScheme="yellow" onClick={()=>doRerun(j.id, true)}><i className="fa-solid fa-arrows-rotate"></i></Button></Tooltip> */}
           </>
         )}
@@ -844,7 +1064,7 @@ const JobCards = React.memo(function JobCards(props: {
           <Tooltip label="Resume from step"><Button size="sm" onClick={()=>{ setOpenModal({ type: 'resume', job: j }) }}><i className="fa-solid fa-timeline"></i></Button></Tooltip>
         )}
         <Tooltip label="Comments / memo"><Button size="sm" colorScheme="blue" onClick={()=>{ setEditValue(j.comments || ''); setOpenModal({ type: 'edit_comments', job: j }) }}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
-        <Tooltip label="Delete"><Button size="sm" colorScheme="red" onClick={()=>doDeleteJob(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
+        <Tooltip label="Delete"><Button size="sm" colorScheme="red" onClick={()=>onDelete(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
         </ButtonGroup>
       </Flex>
     )
@@ -865,10 +1085,20 @@ const JobCards = React.memo(function JobCards(props: {
         )}
       </Flex> */}
       <SimpleGrid spacing={6} columns={{ base: 1, sm: 2, lg: 3 }}>
-      {results.map(j => (
-        <Box key={j.id} borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }}>
+      {results.map(j => {
+        const isUpdating = updatingIds.has(j.id)
+        return (
+        <Box key={j.id} position="relative" borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }} opacity={isUpdating ? 0.6 : 1}>
+          {isUpdating && (
+            <>
+              <Box position="absolute" top={0} left={0} right={0} bottom={0} bg="whiteAlpha.50" zIndex={10} />
+              <Flex position="absolute" top={0} left={0} right={0} bottom={0} align="center" justify="center" zIndex={11}>
+                <Spinner size="sm" />
+              </Flex>
+            </>
+          )}
           <Box data-card-head>
-            <CardHead j={j} />
+            <CardHead j={j} selected={selectedIds.includes(j.id)} onToggle={toggleSelect} />
           </Box>
           <Box data-card-body mt={2}>
             <CardBody j={j} />
@@ -877,7 +1107,7 @@ const JobCards = React.memo(function JobCards(props: {
             <CardFoot j={j} />
           </Box>
         </Box>
-      ))}
+      )})}
       </SimpleGrid>
     </>
   )
@@ -942,6 +1172,8 @@ export default function JobMonitorPage() {
   const totalPages = Math.max(1, Math.ceil((totalCount || 0) / (pageSize || 1)))
   const [protocols, setProtocols] = useState<{id:number; name:string}[]>([])
   const [workspaces, setWorkspaces] = useState<{id:number; name:string}[]>([])
+  const [allProtocols, setAllProtocols] = useState<{id:number; name:string}[]>([])
+  const [allWorkspaces, setAllWorkspaces] = useState<{id:number; name:string}[]>([])
   const [protocolFilter, setProtocolFilter] = useState('')
   const [workspaceFilter, setWorkspaceFilter] = useState('')
   const [loadingProtocols, setLoadingProtocols] = useState(false)
@@ -965,12 +1197,13 @@ export default function JobMonitorPage() {
   const [jobFiles, setJobFiles] = useState<JobFile[]>([])
   const [jobFilesTotal, setJobFilesTotal] = useState<number>(0)
   const [jobFilesHasMore, setJobFilesHasMore] = useState<boolean>(false)
-  const [filesFilter, setFilesFilter] = useState('')
+  const [filesFilterDebounced, setFilesFilterDebounced] = useState('')
   const [logContent, setLogContent] = useState('')
   const [historyHtml, setHistoryHtml] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string>('')
   const [previewMode, setPreviewMode] = useState<'iframe'|'text'|'img'>('iframe')
   const [previewText, setPreviewText] = useState<string>('')
+  const [filesActionsDisabled, setFilesActionsDisabled] = useState<boolean>(false)
   const [editValue, setEditValue] = useState('')
   const editModalSetValueRef = useRef<null | ((updater: (prev: string)=>string)=>void)>(null)
   const registerEditSetter = useCallback((setter: ((updater: (prev: string)=>string)=>void) | null) => {
@@ -982,14 +1215,17 @@ export default function JobMonitorPage() {
   const [showJobResultsPicker, setShowJobResultsPicker] = useState(false)
   const [filesSortField, setFilesSortField] = useState<'name'|'size'|'created'>('name')
   const [filesSortOrder, setFilesSortOrder] = useState<'asc'|'desc'>('asc')
+  
+
   const visibleJobFiles = useMemo(() => {
-    const q = (filesFilter || '').trim().toLowerCase()
+    const q = (filesFilterDebounced || '').trim().toLowerCase()
     if (!q) return jobFiles
     return jobFiles.filter(f => f.name.toLowerCase().includes(q))
-  }, [filesFilter, jobFiles])
+  }, [filesFilterDebounced, jobFiles])
   const filesObserverRef = useRef<IntersectionObserver | null>(null)
   const filesContainerRef = useRef<HTMLDivElement | null>(null)
   const filesSentinelRef = useRef<HTMLDivElement | null>(null)
+  const modalAbortRef = useRef<AbortController | null>(null)
   const isReadingFromURL = useRef<boolean>(false)
   // using module-scope formatBytes in FilesTable
 
@@ -998,23 +1234,27 @@ export default function JobMonitorPage() {
   }
 
   function resetModalState() {
+    try { modalAbortRef.current?.abort() } catch {}
+    modalAbortRef.current = null
     try {
       if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl)
     } catch {}
-    setOpenModal(null)
-    setModalLoading(false)
-    setModalError(null)
-    setJobFiles([])
-    setJobFilesTotal(0)
-    setJobFilesHasMore(false)
-    setFilesFilter('')
-    setLogContent('')
-    setHistoryHtml('')
-    setPreviewUrl('')
-    setPreviewText('')
-    setEditValue('')
-    setDependentsResults([])
-    setDependenciesResults([])
+    flushSync(() => {
+      setOpenModal(null)
+      setModalLoading(false)
+      setModalError(null)
+      setJobFiles([])
+      setJobFilesTotal(0)
+      setJobFilesHasMore(false)
+      setFilesFilterDebounced('')
+      setLogContent('')
+      setHistoryHtml('')
+      setPreviewUrl('')
+      setPreviewText('')
+      setEditValue('')
+      setDependentsResults([])
+      setDependenciesResults([])
+    })
   }
 
   const qs = useMemo(() => {
@@ -1041,20 +1281,30 @@ export default function JobMonitorPage() {
     return p.toString()
   }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, protocolId, aProtocolName, aProtocolNameNot, workspaceId, aWorkspaceName, aWorkspaceNameNot, statusText, statusNotText, aIdText, aIdNotText, mode, page, pageSize])
 
-  // write current filters to URL
+  // write current filters to URL (throttled)
+  const urlUpdateTimeoutRef = useRef<number | null>(null)
   useEffect(() => {
-    if (isReadingFromURL.current) {
-      // Skip URL update if we're currently reading from URL
-      return
-    }
+    if (isReadingFromURL.current) return
     const next = `?${qs}`
-    if (next !== location.search) {
+    if (next === location.search) return
+    if (urlUpdateTimeoutRef.current) {
+      window.clearTimeout(urlUpdateTimeoutRef.current)
+      urlUpdateTimeoutRef.current = null
+    }
+    urlUpdateTimeoutRef.current = window.setTimeout(() => {
       navigate({ search: next }, { replace: true })
+      urlUpdateTimeoutRef.current = null
+    }, 150)
+    return () => {
+      if (urlUpdateTimeoutRef.current) {
+        window.clearTimeout(urlUpdateTimeoutRef.current)
+        urlUpdateTimeoutRef.current = null
+      }
     }
   }, [qs])
 
   // read filters from URL on navigation (e.g., back/forward or external link)
-  useEffect(() => {
+  useLayoutEffect(() => {
     isReadingFromURL.current = true
 
     const sp = new URLSearchParams(location.search || '')
@@ -1121,20 +1371,67 @@ export default function JobMonitorPage() {
     const combined = [kw, ids].filter(s => (s || '').trim()).join(' ').trim()
     if (combined !== nameOrIdInput) setNameOrIdInput(combined)
 
-    // Use setTimeout to reset the flag after the current execution cycle
+    // Reset the guard and trigger a search on the next tick so effects can run with hydrated state
     setTimeout(() => {
       isReadingFromURL.current = false
+      try { forceNextRef.current = true } catch {}
+      try { runSearchRef.current ? runSearchRef.current() : void runSearch() } catch {}
     }, 0)
   }, [location.search])
 
   // Removed debounced parsing; parsing happens on apply/refresh
 
-  async function runSearch(e?: React.FormEvent) {
+  const lastQueryRef = useRef<string>('')
+  const lastPageRef = useRef<number>(1)
+  const lastPageSizeRef = useRef<number>(50)
+  const forceNextRef = useRef<boolean>(false)
+  const inFlightRef = useRef<boolean>(false)
+  const lastRunAtRef = useRef<number>(0)
+  const searchAbortRef = useRef<AbortController | null>(null)
+  const searchSeqRef = useRef<number>(0)
+  const searchCacheRef = useRef<Map<string, { rows: any[]; total?: number }>>(new Map())
+  const runSearch = useCallback(async function runSearch(e?: React.FormEvent) {
     e?.preventDefault()
-    setLoading(true)
+    // Coalesce: if query and paging unchanged, do nothing unless forced
+    const key = `${qs}|${page}|${pageSize}`
+    const force = forceNextRef.current
+    const now = Date.now()
+    if (!force && (key === `${lastQueryRef.current}|${lastPageRef.current}|${lastPageSizeRef.current}`)) {
+      return
+    }
+    if (!force && (now - lastRunAtRef.current) < 500) {
+      return
+    }
+    if (inFlightRef.current) {
+      return
+    }
+    forceNextRef.current = false
+    lastQueryRef.current = qs
+    lastPageRef.current = page
+    lastPageSizeRef.current = pageSize
+    lastRunAtRef.current = now
+    inFlightRef.current = true
+    // Use cached results if available to keep UI responsive while fetching
+    const cached = searchCacheRef.current.get(key)
+    if (!cached) {
+      setLoading(true)
+    } else {
+      // render cached content immediately
+      setResults(cached.rows || [])
+      if (typeof cached.total === 'number') setTotalCount(cached.total)
+      setSelectedIds([])
+    }
+    // allow spinner to paint before sending request
+    await new Promise(resolve => setTimeout(resolve, 0))
     setError(null)
+    // cancel previous in-flight search
+    try { searchAbortRef.current?.abort() } catch {}
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+    const thisSeq = ++searchSeqRef.current
+    let didAbort = false
     try {
-      const res = await apiGet(`/jobs/search/?${qs}`)
+      const res = await apiGet(`/jobs/search/?${qs}` , { signal: controller.signal })
       if (!res.ok) {
         // If page is invalid/out of range, reset to 1 silently
         if ((res.status === 404 || res.status === 400) && page !== 1) {
@@ -1145,6 +1442,11 @@ export default function JobMonitorPage() {
       }
       const data = await res.json()
       const rows = Array.isArray(data) ? data : (data.results || [])
+      // drop stale responses for superseded queries
+      const isLatest = (key === `${lastQueryRef.current}|${lastPageRef.current}|${lastPageSizeRef.current}`)
+      if (!isLatest) {
+        return
+      }
       if (!Array.isArray(data)) {
         const countNum = parseInt(data.count || 0)
         setTotalCount(countNum)
@@ -1153,21 +1455,45 @@ export default function JobMonitorPage() {
           setPage(1)
           return
         }
+        // update cache with total
+        searchCacheRef.current.set(key, { rows: rows || [], total: countNum })
       } else {
         // Legacy shape without count: if empty results while on page>1, reset to 1
         if ((rows || []).length === 0 && page > 1 && page !== 1) {
           setPage(1)
           return
         }
+        // update cache without total
+        searchCacheRef.current.set(key, { rows: rows || [] })
       }
       setResults(rows || [])
       setSelectedIds([])
     } catch (err: any) {
-      setError(`request failed${err?.message ? `: ${err.message}` : ''}`)
+      if (err?.name === 'AbortError') { didAbort = true }
+      else { setError(`request failed${err?.message ? `: ${err.message}` : ''}`) }
     } finally {
-      setLoading(false)
+      // only clear loading if this request is current and not aborted
+      const isCurrent = (thisSeq === searchSeqRef.current) && (key === `${lastQueryRef.current}|${lastPageRef.current}|${lastPageSizeRef.current}`)
+      if (!didAbort && isCurrent) {
+        setLoading(false)
+        inFlightRef.current = false
+      }
     }
-  }
+  }, [qs, page, pageSize])
+  
+  // ensure latest runSearch callable from setTimeout callbacks
+  const runSearchRef = useRef<() => void>(() => {})
+  useEffect(() => { runSearchRef.current = () => { void runSearch() } }, [runSearch])
+
+  // Scroll results to top on new query or page change
+  const resultsContainerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = resultsContainerRef.current
+    if (!el) return
+    el.scrollTop = 0
+  }, [qs, page])
+
+  const forceRefresh = useCallback(() => { forceNextRef.current = true; void runSearch() }, [runSearch])
 
   async function fetchAndReplaceJob(jobId: number) {
     try {
@@ -1178,13 +1504,11 @@ export default function JobMonitorPage() {
     } catch {}
   }
 
-  function toggleSelect(id: number) {
+  const toggleSelect = useCallback((id: number) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
-  function isSelected(id: number) {
-    return selectedIds.includes(id)
-  }
-  function toggleSelectAllCurrent() {
+  }, [])
+  const isSelected = useCallback((id: number) => selectedIds.includes(id), [selectedIds])
+  const toggleSelectAllCurrent = useCallback(() => {
     if (!results.length) return
     const currentPageIds = results.map(r => r.id)
     const allSelected = currentPageIds.every(id => selectedIds.includes(id))
@@ -1195,7 +1519,7 @@ export default function JobMonitorPage() {
       currentPageIds.forEach(id => set.add(id))
       setSelectedIds(Array.from(set))
     }
-  }
+  }, [results, selectedIds])
 
   async function bulkAction(ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') {
     if (!ids.length) return
@@ -1226,61 +1550,146 @@ export default function JobMonitorPage() {
     }
   }
 
-  // async search for protocols
+  // Prefetch protocols and workspaces with 30-min caching
   useEffect(() => {
-    let aborted = false
-    ;(async () => {
-      setLoadingProtocols(true)
+    const CACHE_TTL_MS = 30 * 60 * 1000
+    const now = Date.now()
+
+    function readCache<T = any>(key: string): T | null {
       try {
-        const res = await apiGet(`/protocols/?page_size=50${protocolFilter ? `&q=${encodeURIComponent(protocolFilter)}` : ''}`)
-        const data = await res.json()
-        if (!aborted) setProtocols(Array.isArray(data) ? data : (data.results || []))
+        const raw = localStorage.getItem(key)
+        if (!raw) return null
+        const obj = JSON.parse(raw)
+        if (!obj || typeof obj !== 'object') return null
+        if (typeof obj.ts !== 'number' || (now - obj.ts) > CACHE_TTL_MS) return null
+        return obj.data as T
+      } catch { return null }
+    }
+    function writeCache(key: string, data: any) {
+      try { localStorage.setItem(key, JSON.stringify({ ts: now, data })) } catch {}
+    }
+
+    let aborted = false
+    const cachedProtocols = readCache<any[]>('cache_protocols_v1')
+    const cachedWorkspaces = readCache<any[]>('cache_workspaces_v1')
+    if (cachedProtocols) { setAllProtocols(cachedProtocols); setProtocols(cachedProtocols) }
+    if (cachedWorkspaces) { setAllWorkspaces(cachedWorkspaces); setWorkspaces(cachedWorkspaces) }
+
+    const needProtocols = !cachedProtocols
+    const needWorkspaces = !cachedWorkspaces
+    if (needProtocols) setLoadingProtocols(true)
+    if (needWorkspaces) setLoadingWorkspaces(true)
+
+    ;(async () => {
+      try {
+        const tasks: Array<Promise<Response>> = []
+        if (needProtocols) tasks.push(apiGet('/protocols/?page_size=1000'))
+        if (needWorkspaces) tasks.push(apiGet('/workspaces/?page_size=1000'))
+        if (tasks.length === 0) return
+        const responses = await Promise.all(tasks)
+        let pRows: any[] | undefined
+        let wRows: any[] | undefined
+        for (const res of responses) {
+          const data = await res.json()
+          const rows = Array.isArray(data) ? data : (data.results || [])
+          if ((res.url || '').includes('/protocols/')) pRows = rows
+          else wRows = rows
+        }
+        if (!aborted) {
+          if (pRows) { setAllProtocols(pRows); setProtocols(pRows); writeCache('cache_protocols_v1', pRows) }
+          if (wRows) { setAllWorkspaces(wRows); setWorkspaces(wRows); writeCache('cache_workspaces_v1', wRows) }
+        }
       } catch {
-        if (!aborted) setProtocols([])
+        if (!aborted) {
+          if (needProtocols) { setAllProtocols([]); setProtocols([]) }
+          if (needWorkspaces) { setAllWorkspaces([]); setWorkspaces([]) }
+        }
       } finally {
-        if (!aborted) setLoadingProtocols(false)
+        if (!aborted) {
+          if (needProtocols) setLoadingProtocols(false)
+          if (needWorkspaces) setLoadingWorkspaces(false)
+        }
       }
     })()
-    return () => { aborted = true }
-  }, [protocolFilter])
 
-  // async search for workspaces
-  useEffect(() => {
-    let aborted = false
-    ;(async () => {
-      setLoadingWorkspaces(true)
+    // Background refresh every 30 minutes
+    const id = window.setInterval(async () => {
       try {
-        const res = await apiGet(`/workspaces/?page_size=100${workspaceFilter ? `&q=${encodeURIComponent(workspaceFilter)}` : ''}`)
-        const data = await res.json()
-        if (!aborted) setWorkspaces(Array.isArray(data) ? data : (data.results || []))
-      } catch {
-        if (!aborted) setWorkspaces([])
-      } finally {
-        if (!aborted) setLoadingWorkspaces(false)
-      }
-    })()
-    return () => { aborted = true }
-  }, [workspaceFilter])
+        const [pRes, wRes] = await Promise.all([
+          apiGet('/protocols/?page_size=1000'),
+          apiGet('/workspaces/?page_size=1000'),
+        ])
+        const pData = await pRes.json()
+        const wData = await wRes.json()
+        const pRows = Array.isArray(pData) ? pData : (pData.results || [])
+        const wRows = Array.isArray(wData) ? wData : (wData.results || [])
+        if (!aborted) {
+          setAllProtocols(pRows)
+          setAllWorkspaces(wRows)
+          setProtocols(pRows)
+          setWorkspaces(wRows)
+          writeCache('cache_protocols_v1', pRows)
+          writeCache('cache_workspaces_v1', wRows)
+        }
+      } catch {}
+    }, CACHE_TTL_MS)
 
-  // initial list
-  useEffect(() => { runSearch() /* eslint-disable-line */ }, [])
+    return () => { aborted = true; window.clearInterval(id) }
+  }, [])
+
+  // Filter client-side based on the local filter inputs
+  useEffect(() => {
+    const q = (protocolFilter || '').trim().toLowerCase()
+    if (!q) { setProtocols(allProtocols) }
+    else { setProtocols(allProtocols.filter(p => p.name.toLowerCase().includes(q) || String(p.id).includes(q))) }
+  }, [protocolFilter, allProtocols])
+
+  useEffect(() => {
+    const q = (workspaceFilter || '').trim().toLowerCase()
+    if (!q) { setWorkspaces(allWorkspaces) }
+    else { setWorkspaces(allWorkspaces.filter(w => w.name.toLowerCase().includes(q) || String(w.id).includes(q))) }
+  }, [workspaceFilter, allWorkspaces])
+
+  // initial list: only if there are no URL params to hydrate
+  useEffect(() => { if (!location.search) { runSearch() } /* eslint-disable-line */ }, [])
 
   // auto-search ONLY for selector-based filters; text filters require submit
   useEffect(() => {
     if (isReadingFromURL.current) return
-    // Debounce the search to avoid too many requests while typing
+    // Debounce the search and coalesce duplicate queries
     const timeoutId = setTimeout(() => {
       if (!loading) runSearch()
-    }, 300) // 300ms delay
+    }, 250)
     return () => clearTimeout(timeoutId)
-  }, [
-    protocolId, workspaceId, statusText, statusNotText, mode
-  ])
+  }, [protocolId, workspaceId, statusText, statusNotText, mode, runSearch])
 
-  // Apply current typed text filters and then run search
-  const applyTextFiltersAndSearch = useCallback(() => {
-    // Parse unified input into keywords and ids
-    const raw = (nameOrIdInput || '').trim()
+  // Apply text filters; optionally accept overrides to avoid stale state on submit
+  const applyTextFiltersAndSearch = useCallback((overrides?: {
+    nameOrIdInput?: string
+    jobNameNot?: string
+    protocolName?: string
+    protocolNameNot?: string
+    workspaceName?: string
+    workspaceNameNot?: string
+    parameter?: string
+    parameterNot?: string
+    inputFile?: string
+    inputFileNot?: string
+    idNotText?: string
+  }) => {
+    const effectiveNameOrId = (overrides?.nameOrIdInput ?? nameOrIdInput) || ''
+    const effectiveJobNameNot = overrides?.jobNameNot ?? jobNameNot
+    const effectiveProtocolName = overrides?.protocolName ?? protocolName
+    const effectiveProtocolNameNot = overrides?.protocolNameNot ?? protocolNameNot
+    const effectiveWorkspaceName = overrides?.workspaceName ?? workspaceName
+    const effectiveWorkspaceNameNot = overrides?.workspaceNameNot ?? workspaceNameNot
+    const effectiveParameter = overrides?.parameter ?? parameter
+    const effectiveParameterNot = overrides?.parameterNot ?? parameterNot
+    const effectiveInputFile = overrides?.inputFile ?? inputFile
+    const effectiveInputFileNot = overrides?.inputFileNot ?? inputFileNot
+    const effectiveIdNotText = overrides?.idNotText ?? idNotText
+
+    const raw = effectiveNameOrId.trim()
     const tokens = raw.split(/[\s,]+/).filter(Boolean)
     const idsParsed = tokens.filter(t=>/^\d+$/.test(t)).join(',')
     const namesParsed = tokens.filter(t=>!/^\d+$/.test(t)).join(' ')
@@ -1289,27 +1698,26 @@ export default function JobMonitorPage() {
     if (idsParsed !== idText) setIdText(idsParsed)
 
     setAKeywords(namesParsed)
-    setAJobNameNot(jobNameNot)
-    setAParameter(parameter)
-    setAParameterNot(parameterNot)
-    setAInputFile(inputFile)
-    setAInputFileNot(inputFileNot)
-    setAProtocolName(protocolName)
-    setAProtocolNameNot(protocolNameNot)
-    setAWorkspaceName(workspaceName)
-    setAWorkspaceNameNot(workspaceNameNot)
+    setAJobNameNot(effectiveJobNameNot)
+    setAParameter(effectiveParameter)
+    setAParameterNot(effectiveParameterNot)
+    setAInputFile(effectiveInputFile)
+    setAInputFileNot(effectiveInputFileNot)
+    setAProtocolName(effectiveProtocolName)
+    setAProtocolNameNot(effectiveProtocolNameNot)
+    setAWorkspaceName(effectiveWorkspaceName)
+    setAWorkspaceNameNot(effectiveWorkspaceNameNot)
     setAIdText(idsParsed)
-    setAIdNotText(idNotText)
+    setAIdNotText(effectiveIdNotText)
   }, [nameOrIdInput, jobNameNot, parameter, parameterNot, inputFile, inputFileNot, protocolName, protocolNameNot, workspaceName, workspaceNameNot, idText, idNotText, keywords])
 
   // When applied text filters change, run search with new query
   useEffect(() => {
     if (isReadingFromURL.current) return
     if (!loading) runSearch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, aProtocolName, aProtocolNameNot, aWorkspaceName, aWorkspaceNameNot, aIdText, aIdNotText])
+  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, aProtocolName, aProtocolNameNot, aWorkspaceName, aWorkspaceNameNot, aIdText, aIdNotText, runSearch])
 
-  useEffect(() => { if (!loading) runSearch() /* eslint-disable-line */ }, [page, pageSize])
+  useEffect(() => { if (!isReadingFromURL.current) runSearch() }, [page, pageSize, runSearch])
   
 
   // periodic refresh for changing job status; pauses on interaction (modal/dropdowns)
@@ -1320,7 +1728,7 @@ export default function JobMonitorPage() {
       // avoid refreshing while actively typing in inputs
       const ae = document.activeElement as HTMLElement | null
       const typing = !!ae && ['INPUT','TEXTAREA','SELECT'].includes(ae.tagName)
-      if (!loading && !document.hidden && !typing) runSearch()
+      if (!loading && !document.hidden && !typing) forceRefresh()
     }, 30000)
     return () => window.clearInterval(id)
     // include qs so filters are respected when changed
@@ -1328,13 +1736,24 @@ export default function JobMonitorPage() {
 
   // refresh when tab becomes visible again
   useEffect(() => {
-    const onVis = () => { if (!document.hidden && !loading) runSearch() }
+    const onVis = () => { if (!document.hidden && !loading) forceRefresh() }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [qs, loading])
 
-  // fetch canonical status choices once
+  // fetch canonical status choices with 30-min caching
   useEffect(() => {
+    const CACHE_TTL_MS = 30 * 60 * 1000
+    const now = Date.now()
+    try {
+      const raw = localStorage.getItem('cache_status_choices_v1')
+      if (raw) {
+        const obj = JSON.parse(raw)
+        if (obj && typeof obj.ts === 'number' && (now - obj.ts) <= CACHE_TTL_MS && Array.isArray(obj.data)) {
+          setStatusChoices(obj.data.map((d: any) => ({ value: Number(d.value), label: String(d.label) })))
+        }
+      }
+    } catch {}
     ;(async () => {
       try {
         const res = await apiGet('/jobs/status-choices/')
@@ -1342,22 +1761,49 @@ export default function JobMonitorPage() {
         const data = await res.json()
         if (Array.isArray(data) && data.length) {
           setStatusChoices(data.map((d: any) => ({ value: Number(d.value), label: String(d.label) })))
+          try { localStorage.setItem('cache_status_choices_v1', JSON.stringify({ ts: now, data })) } catch {}
         }
       } catch {}
     })()
   }, [])
 
-  // experimental: fetch runners list
+  // experimental: fetch runners list lazily with TTL cache
   useEffect(() => {
     if (!expEnableRunner) return
-    ;(async () => {
-      try {
-        const res = await apiGet('/jobs/runners/')
-        const data = await res.json()
-        if (Array.isArray(data)) setRunners(data)
-      } catch {}
-    })()
+    const CACHE_TTL_MS = 30 * 60 * 1000
+    const now = Date.now()
+    try {
+      const raw = localStorage.getItem('cache_runners_v1')
+      if (raw) {
+        const obj = JSON.parse(raw)
+        if (obj && typeof obj.ts === 'number' && (now - obj.ts) <= CACHE_TTL_MS && Array.isArray(obj.data)) {
+          setRunners(obj.data)
+        }
+      }
+    } catch {}
   }, [expEnableRunner])
+  const ensureRunnersLoaded = useCallback(async () => {
+    if (!expEnableRunner) return
+    if (runners.length > 0) return
+    try {
+      const res = await apiGet('/jobs/runners/')
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        setRunners(data)
+        try { localStorage.setItem('cache_runners_v1', JSON.stringify({ ts: Date.now(), data })) } catch {}
+      }
+    } catch {}
+  }, [expEnableRunner, runners.length])
+
+  // Preload runners if there are jobs with a runner assigned so labels show names
+  useEffect(() => {
+    if (!expEnableRunner) return
+    if (runners.length > 0) return
+    if (results.some(j => j.slave != null)) {
+      // fire and forget
+      void ensureRunnersLoaded()
+    }
+  }, [expEnableRunner, runners.length, results, ensureRunnersLoaded])
 
   async function doTerminate(id: number) {
     const res = await apiPost(`/jobs/${id}/terminate/`)
@@ -1389,36 +1835,69 @@ export default function JobMonitorPage() {
     }
   }
   async function doLockToggle(id: number) {
-    const res = await apiPost(`/jobs/${id}/lock/`)
-    if (res.ok) {
-      notify('lock state updated', 'success')
-      fetchAndReplaceJob(id)
-    } else {
-      notify(await extractError(res), 'error')
+    // optimistic toggle
+    let prev: Job | undefined
+    setResults(prevRows => prevRows.map(j => {
+      if (j.id === id) { prev = j; return { ...j, locked: (j.locked ? 0 : 1) as any } }
+      return j
+    }))
+    try {
+      const res = await apiPost(`/jobs/${id}/lock/`)
+      if (res.ok) {
+        notify('lock state updated', 'success')
+      } else {
+        // revert on failure
+        setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
+        notify(await extractError(res), 'error')
+      }
+    } catch (e: any) {
+      setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
+      notify(e?.message || 'request failed', 'error')
+    } finally {
+      // reconcile in background
+      void fetchAndReplaceJob(id)
     }
   }
 
   async function doChangeVisibility(id: number, vis: number) {
-    const res = await apiPost(`/jobs/${id}/visibility/`, JSON.stringify({ visibility: vis }))
-    if (res.ok) {
-      notify('visibility updated', 'success')
-      fetchAndReplaceJob(id)
-    } else {
-      notify(await extractError(res), 'error')
+    // optimistic update
+    let prev: Job | undefined
+    setResults(prevRows => prevRows.map(j => {
+      if (j.id === id) { prev = j; return { ...j, visibility: vis } }
+      return j
+    }))
+    try {
+      const res = await apiPost(`/jobs/${id}/visibility/`, JSON.stringify({ visibility: vis }))
+      if (res.ok) {
+        notify('visibility updated', 'success')
+      } else {
+        // revert
+        setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
+        notify(await extractError(res), 'error')
+      }
+    } catch (e: any) {
+      setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
+      notify(e?.message || 'request failed', 'error')
+    } finally {
+      // reconcile with server in background
+      void fetchAndReplaceJob(id)
     }
   }
 
   async function showFiles(job: Job, sort: 'name'|'size'|'created' = filesSortField, order: 'asc'|'desc' = filesSortOrder) {
-    setOpenModal({ type: 'files', job })
-    setModalLoading(true)
-    setModalError(null)
-    setJobFiles([])
-    setFilesFilter('')
-    // reset offset implicitly by clearing list
-    setFilesSortField(sort)
-    setFilesSortOrder(order)
+    flushSync(() => {
+      setOpenModal({ type: 'files', job })
+      setModalLoading(true)
+      setModalError(null)
+      setJobFiles([])
+      setFilesFilterDebounced('')
+      setFilesSortField(sort)
+      setFilesSortOrder(order)
+    })
     try {
-      const res = await apiGet(`/jobs/${job.id}/files/?limit=50&offset=0&sort=${encodeURIComponent(sort)}&order=${encodeURIComponent(order)}`)
+      modalAbortRef.current?.abort()
+      modalAbortRef.current = new AbortController()
+      const res = await apiGet(`/jobs/${job.id}/files/?limit=50&offset=0&sort=${encodeURIComponent(sort)}&order=${encodeURIComponent(order)}`, { signal: modalAbortRef.current.signal })
       const data = await res.json()
       if (Array.isArray(data)) {
         setJobFiles(data)
@@ -1432,6 +1911,7 @@ export default function JobMonitorPage() {
         // new shape returns pagination info; offset tracked via jobFiles.length
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') { return }
       setModalError(e?.message || 'failed to load files')
     } finally {
       setModalLoading(false)
@@ -1448,7 +1928,9 @@ export default function JobMonitorPage() {
     setModalError(null)
     try {
       const currentOffset = jobFiles.length
-      const res = await apiGet(`/jobs/${job.id}/files/?limit=200&offset=${currentOffset}&sort=${encodeURIComponent(filesSortField)}&order=${encodeURIComponent(filesSortOrder)}`)
+      modalAbortRef.current?.abort()
+      modalAbortRef.current = new AbortController()
+      const res = await apiGet(`/jobs/${job.id}/files/?limit=200&offset=${currentOffset}&sort=${encodeURIComponent(filesSortField)}&order=${encodeURIComponent(filesSortOrder)}` , { signal: modalAbortRef.current.signal })
       const data = await res.json()
       if (!Array.isArray(data) && Array.isArray(data.items)) {
         setJobFiles(prev => [...prev, ...data.items])
@@ -1470,6 +1952,7 @@ export default function JobMonitorPage() {
         setJobFilesHasMore(false)
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') { return }
       setModalError(e?.message || 'failed to load more files')
     } finally {
       setModalLoading(false)
@@ -1508,12 +1991,16 @@ export default function JobMonitorPage() {
     }
   }, [openModal, jobFilesHasMore, modalLoading, jobFiles.length, filesSortField, filesSortOrder])
   const showLog = useCallback(async function (job: Job, type: 'out'|'err') {
-    setOpenModal({ type: type === 'out' ? 'stdout' : 'stderr', job })
-    setModalLoading(true)
-    setModalError(null)
-    setLogContent('')
+    flushSync(() => {
+      setOpenModal({ type: type === 'out' ? 'stdout' : 'stderr', job })
+      setModalLoading(true)
+      setModalError(null)
+      setLogContent('')
+    })
     try {
-      const res = await apiGet(`/jobs/${job.id}/logs/?type=${type}`)
+      modalAbortRef.current?.abort()
+      modalAbortRef.current = new AbortController()
+      const res = await apiGet(`/jobs/${job.id}/logs/?type=${type}`, { signal: modalAbortRef.current.signal })
       const contentType = res.headers.get('Content-Type') || ''
       if (contentType.includes('application/json')) {
         const data = await res.json()
@@ -1537,18 +2024,23 @@ export default function JobMonitorPage() {
         setLogContent((txt || '').replace(/\r\n/g, '\n'))
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') { return }
       setModalError(e?.message || 'failed to load log')
     } finally {
       setModalLoading(false)
     }
   }, [])
   const showHistory = useCallback(async function (job: Job) {
-    setOpenModal({ type: 'history', job })
-    setModalLoading(true)
-    setModalError(null)
-    setHistoryHtml('')
+    flushSync(() => {
+      setOpenModal({ type: 'history', job })
+      setModalLoading(true)
+      setModalError(null)
+      setHistoryHtml('')
+    })
     try {
-      const res = await apiGet(`/jobs/${job.id}/history/`)
+      modalAbortRef.current?.abort()
+      modalAbortRef.current = new AbortController()
+      const res = await apiGet(`/jobs/${job.id}/history/`, { signal: modalAbortRef.current.signal })
       const contentType = res.headers.get('Content-Type') || ''
       if (contentType.includes('text/html')) {
         const html = await res.text()
@@ -1572,6 +2064,7 @@ export default function JobMonitorPage() {
         setHistoryHtml(html)
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') { return }
       setModalError(e?.message || 'failed to load history')
     } finally {
       setModalLoading(false)
@@ -1582,9 +2075,11 @@ export default function JobMonitorPage() {
     window.open(url, '_blank')
   }, [])
   const previewFile = useCallback(async function (job: Job, trace: string, name: string) {
-    setOpenModal({ type: 'preview', job, trace, name })
-    setModalLoading(true)
-    setModalError(null)
+    flushSync(() => {
+      setOpenModal({ type: 'preview', job, trace, name })
+      setModalLoading(true)
+      setModalError(null)
+    })
     // cleanup previous blob url if any
     if (previewUrl.startsWith('blob:')) {
       try { URL.revokeObjectURL(previewUrl) } catch {}
@@ -1593,8 +2088,10 @@ export default function JobMonitorPage() {
     setPreviewText('')
     setPreviewMode('iframe')
     try {
+      modalAbortRef.current?.abort()
+      modalAbortRef.current = new AbortController()
       // fetch the content to avoid cross-origin iframe restrictions; then render via blob url or text
-      const res = await apiGet(`/jobs/${job.id}/preview/?trace=${encodeURIComponent(trace)}`)
+      const res = await apiGet(`/jobs/${job.id}/preview/?trace=${encodeURIComponent(trace)}`, { signal: modalAbortRef.current.signal })
       const contentType = res.headers.get('Content-Type') || ''
       if (!res.ok) {
         throw new Error(await extractError(res))
@@ -1626,6 +2123,7 @@ export default function JobMonitorPage() {
         setPreviewMode('iframe')
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') { return }
       setModalError(e?.message || 'failed to preview file')
     } finally {
       setModalLoading(false)
@@ -1633,12 +2131,17 @@ export default function JobMonitorPage() {
   }, [previewUrl])
   const deleteFile = useCallback(async function (job: Job, trace: string) {
     if (!confirm('Delete this file?')) return
-    const res = await apiDelete(`/jobs/${job.id}/delete-file/?trace=${encodeURIComponent(trace)}`)
-    if (res.ok) {
-      notify('file deleted', 'success')
-      showFiles(job)
-    } else {
-      notify(await extractError(res), 'error')
+    setFilesActionsDisabled(true)
+    try {
+      const res = await apiDelete(`/jobs/${job.id}/delete-file/?trace=${encodeURIComponent(trace)}`)
+      if (res.ok) {
+        notify('file deleted', 'success')
+        showFiles(job)
+      } else {
+        notify(await extractError(res), 'error')
+      }
+    } finally {
+      setFilesActionsDisabled(false)
     }
   }, [notify, showFiles])
 
@@ -1738,52 +2241,52 @@ export default function JobMonitorPage() {
       <Heading as="h3" mb={4}>Job Status</Heading>
       <FiltersHeader
         nameOrIdInput={nameOrIdInput}
-        setNameOrIdInput={setNameOrIdInput}
+        setNameOrIdInput={useCallback((v: string)=>setNameOrIdInput(v),[])}
         jobNameNot={jobNameNot}
-        setJobNameNot={(v: string)=>{ setJobNameNot(v); setPage(1) }}
+        setJobNameNot={useCallback((v: string)=>{ setJobNameNot(v); setPage(1) }, [])}
         parameter={parameter}
-        setParameter={(v: string)=>{ setParameter(v); setPage(1) }}
+        setParameter={useCallback((v: string)=>{ setParameter(v); setPage(1) }, [])}
         parameterNot={parameterNot}
-        setParameterNot={(v: string)=>{ setParameterNot(v); setPage(1) }}
+        setParameterNot={useCallback((v: string)=>{ setParameterNot(v); setPage(1) }, [])}
         inputFile={inputFile}
-        setInputFile={(v: string)=>{ setInputFile(v); setPage(1) }}
+        setInputFile={useCallback((v: string)=>{ setInputFile(v); setPage(1) }, [])}
         inputFileNot={inputFileNot}
-        setInputFileNot={(v: string)=>{ setInputFileNot(v); setPage(1) }}
+        setInputFileNot={useCallback((v: string)=>{ setInputFileNot(v); setPage(1) }, [])}
         protocolId={protocolId}
-        setProtocolId={(v: string)=>{ setProtocolId(v); setPage(1) }}
+        setProtocolId={useCallback((v: string)=>{ setProtocolId(v); setPage(1) }, [])}
         protocolName={protocolName}
-        setProtocolName={(v: string)=>{ setProtocolName(v); setPage(1) }}
+        setProtocolName={useCallback((v: string)=>{ setProtocolName(v); setPage(1) }, [])}
         protocolNameNot={protocolNameNot}
-        setProtocolNameNot={(v: string)=>{ setProtocolNameNot(v); setPage(1) }}
+        setProtocolNameNot={useCallback((v: string)=>{ setProtocolNameNot(v); setPage(1) }, [])}
         workspaceId={workspaceId}
-        setWorkspaceId={(v: string)=>{ setWorkspaceId(v); setPage(1) }}
+        setWorkspaceId={useCallback((v: string)=>{ setWorkspaceId(v); setPage(1) }, [])}
         workspaceName={workspaceName}
-        setWorkspaceName={(v: string)=>{ setWorkspaceName(v); setPage(1) }}
+        setWorkspaceName={useCallback((v: string)=>{ setWorkspaceName(v); setPage(1) }, [])}
         workspaceNameNot={workspaceNameNot}
-        setWorkspaceNameNot={(v: string)=>{ setWorkspaceNameNot(v); setPage(1) }}
+        setWorkspaceNameNot={useCallback((v: string)=>{ setWorkspaceNameNot(v); setPage(1) }, [])}
         statusChoices={statusChoices}
         statusSel={statusSel}
-        setStatusSel={setStatusSel}
-        setStatusText={setStatusText}
+        setStatusSel={useCallback((v: number[])=>setStatusSel(v),[])}
+        setStatusText={useCallback((v: string)=>setStatusText(v),[])}
         statusNotSel={statusNotSel}
-        setStatusNotSel={setStatusNotSel}
-        setStatusNotText={setStatusNotText}
+        setStatusNotSel={useCallback((v: number[])=>setStatusNotSel(v),[])}
+        setStatusNotText={useCallback((v: string)=>setStatusNotText(v),[])}
         idNotText={idNotText}
-        setIdNotText={(v: string)=>{ setIdNotText(v); setPage(1) }}
+        setIdNotText={useCallback((v: string)=>{ setIdNotText(v); setPage(1) }, [])}
         mode={mode}
-        setMode={(v: 'all'|'any')=>{ setMode(v); setPage(1) }}
+        setMode={useCallback((v: 'all'|'any')=>{ setMode(v); setPage(1) }, [])}
         loading={loading}
-        runSearch={runSearch}
-        applyText={()=>{ setPage(1); applyTextFiltersAndSearch() }}
+        forceRefresh={forceRefresh}
+        applyText={useCallback((overrides) => { setPage(1); applyTextFiltersAndSearch(overrides) }, [applyTextFiltersAndSearch])}
         pageSize={pageSize}
-        setPageSize={(n: number)=>{ setPageSize(n); setPage(1) }}
-        setPage={setPage}
+        setPageSize={useCallback((n: number)=>{ setPageSize(n); setPage(1) }, [])}
+        setPage={useCallback((n: number)=>setPage(n), [])}
         viewMode={viewMode}
-        setViewMode={setViewMode}
+        setViewMode={useCallback((m: 'table'|'cards')=>setViewMode(m), [])}
         autoRefresh={autoRefresh}
-        setAutoRefresh={setAutoRefresh}
+        setAutoRefresh={useCallback((b: boolean)=>setAutoRefresh(b), [])}
         selectedIdsCount={selectedIds.length}
-        bulkAction={bulkAction}
+        bulkAction={useCallback((ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete')=>bulkAction(ids, action), [])}
         selectedIds={selectedIds}
         toggleSelectAllCurrent={toggleSelectAllCurrent}
         clearSelection={()=>setSelectedIds([])}
@@ -1795,14 +2298,6 @@ export default function JobMonitorPage() {
         setWorkspaceFilter={setWorkspaceFilter}
         loadingProtocols={loadingProtocols}
         loadingWorkspaces={loadingWorkspaces}
-        showProtoDD={showProtoDD}
-        setShowProtoDD={setShowProtoDD}
-        showWsDD={showWsDD}
-        setShowWsDD={setShowWsDD}
-        showStatusDD={showStatusDD}
-        setShowStatusDD={setShowStatusDD}
-        showStatusNotDD={showStatusNotDD}
-        setShowStatusNotDD={setShowStatusNotDD}
         showAdvancedFilters={showAdvancedFilters}
         setShowAdvancedFilters={setShowAdvancedFilters}
       />
@@ -1860,8 +2355,10 @@ export default function JobMonitorPage() {
           setOpenModal={setOpenModal}
           setModalError={setModalError}
           setModalLoading={setModalLoading}
+          modalLoading={modalLoading}
           setDependentsResults={setDependentsResults}
           setDependenciesResults={setDependenciesResults}
+          ensureRunnersLoaded={ensureRunnersLoaded}
         />
       )}
       <Flex mt={4} justify="center">
@@ -1870,7 +2367,7 @@ export default function JobMonitorPage() {
 
       <Modal isOpen={Boolean(openModal)} onClose={resetModalState} size={openModal?.type?.startsWith('edit_') || openModal?.type==='resume' ? '4xl' : '6xl'} scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW={(openModal && ['files','preview','stdout','stderr','history','dependents','dependencies'].includes(openModal.type)) ? '90vw' : undefined}>
           <ModalHeader fontSize="md">
             {openModal?.type === 'files' && `Files for job #${openModal?.job.id}`}
             {openModal?.type === 'preview' && `Preview: ${openModal?.name || ''}`}
@@ -1909,7 +2406,7 @@ export default function JobMonitorPage() {
                   try {
                     const payload = openModal.type === 'edit_param' ? { parameter: val } : openModal.type === 'edit_input' ? { input_file: val } : { comments: val }
                     const res = await apiPatch(`/jobs/${openModal.job.id}/`, JSON.stringify(payload))
-                    if (res.ok) { notify('updated', 'success'); resetModalState(); runSearch() } else { notify(await extractError(res), 'error') }
+                    if (res.ok) { notify('updated', 'success'); resetModalState(); fetchAndReplaceJob(openModal.job.id) } else { notify(await extractError(res), 'error') }
                   } catch (e:any) {
                     setModalError(e?.message || 'update failed')
                   } finally {
@@ -1919,17 +2416,15 @@ export default function JobMonitorPage() {
               />
             )}
             {!modalError && openModal?.type === 'files' && (
-              <Box data-files-container ref={filesContainerRef} maxH="70vh" overflowY="auto">
+              <Box data-files-container ref={filesContainerRef} maxH="70vh" overflowY="auto" overflowX="hidden">
                 <Box position="sticky" top={0} bg="white" zIndex={1} pb={2} pt={1}>
-                  <Flex gap={2} align="center">
-                    <Input size="sm" placeholder="filter files" value={filesFilter} onChange={(e)=>setFilesFilter(e.target.value)} flex="1" />
-                    <Button size="sm" onClick={()=>{ /* live filter; button kept for consistency */ }}>Filter</Button>
-                  </Flex>
+                  <FilesFilterBar initialValue={filesFilterDebounced} onChange={setFilesFilterDebounced} />
                 </Box>
                 <FilesTable
                   files={visibleJobFiles}
                   sortField={filesSortField}
                   sortOrder={filesSortOrder}
+                  actionsDisabled={filesActionsDisabled}
                   onSort={toggleFilesSort}
                   onPreview={(f)=>previewFile(openModal!.job, f.trace, f.name)}
                   onDownload={(f)=>downloadFile(openModal!.job, f.trace)}
@@ -1974,49 +2469,59 @@ export default function JobMonitorPage() {
             {!modalLoading && !modalError && openModal?.type === 'history' && (
               <Box fontSize="sm" maxW="none" dangerouslySetInnerHTML={{ __html: historyHtml }} />
             )}
-            {!modalLoading && !modalError && openModal?.type === 'dependents' && (
-              <JobTable
-                results={dependentsResults}
-                selectedIds={[]}
-                isSelected={()=>false}
-                toggleSelect={()=>{}}
-                toggleSelectAllCurrent={()=>{}}
-                statusMap={statusMap}
-                doChangeVisibility={(id, vis)=>doChangeVisibility(id, vis)}
-                doTerminate={(id)=>doTerminate(id)}
-                doRerun={(id, insitu)=>doRerun(id, insitu)}
-                doLockToggle={(id)=>doLockToggle(id)}
-                showFiles={(job)=>showFiles(job)}
-                showLog={(job, t)=>showLog(job, t)}
-                showHistory={(job)=>showHistory(job)}
-                doDeleteJob={(id)=>doDeleteJob(id)}
-                notify={notify}
-                fetchAndReplaceJob={fetchAndReplaceJob}
-                setOpenModal={setOpenModal}
-                setEditValue={setEditValue}
-              />
+            {openModal?.type === 'dependents' && (
+              modalLoading ? (
+                <Box fontSize="sm" opacity={0.7}>loading…</Box>
+              ) : !modalError ? (
+                <JobTable
+                  results={dependentsResults}
+                  selectedIds={[]}
+                  isSelected={()=>false}
+                  toggleSelect={()=>{}}
+                  toggleSelectAllCurrent={()=>{}}
+                  statusMap={statusMap}
+                  doChangeVisibility={(id, vis)=>doChangeVisibility(id, vis)}
+                  doTerminate={(id)=>doTerminate(id)}
+                  doRerun={(id, insitu)=>doRerun(id, insitu)}
+                  doLockToggle={(id)=>doLockToggle(id)}
+                  showFiles={(job)=>showFiles(job)}
+                  showLog={(job, t)=>showLog(job, t)}
+                  showHistory={(job)=>showHistory(job)}
+                  doDeleteJob={(id)=>doDeleteJob(id)}
+                  notify={notify}
+                  fetchAndReplaceJob={fetchAndReplaceJob}
+                  setOpenModal={setOpenModal}
+                  setEditValue={setEditValue}
+                  compact
+                />
+              ) : null
             )}
-            {!modalLoading && !modalError && openModal?.type === 'dependencies' && (
-              <JobTable
-                results={dependenciesResults}
-                selectedIds={[]}
-                isSelected={()=>false}
-                toggleSelect={()=>{}}
-                toggleSelectAllCurrent={()=>{}}
-                statusMap={statusMap}
-                doChangeVisibility={(id, vis)=>doChangeVisibility(id, vis)}
-                doTerminate={(id)=>doTerminate(id)}
-                doRerun={(id, insitu)=>doRerun(id, insitu)}
-                doLockToggle={(id)=>doLockToggle(id)}
-                showFiles={(job)=>showFiles(job)}
-                showLog={(job, t)=>showLog(job, t)}
-                showHistory={(job)=>showHistory(job)}
-                doDeleteJob={(id)=>doDeleteJob(id)}
-                notify={notify}
-                fetchAndReplaceJob={fetchAndReplaceJob}
-                setOpenModal={setOpenModal}
-                setEditValue={setEditValue}
-              />
+            {openModal?.type === 'dependencies' && (
+              modalLoading ? (
+                <Box fontSize="sm" opacity={0.7}>loading…</Box>
+              ) : !modalError ? (
+                <JobTable
+                  results={dependenciesResults}
+                  selectedIds={[]}
+                  isSelected={()=>false}
+                  toggleSelect={()=>{}}
+                  toggleSelectAllCurrent={()=>{}}
+                  statusMap={statusMap}
+                  doChangeVisibility={(id, vis)=>doChangeVisibility(id, vis)}
+                  doTerminate={(id)=>doTerminate(id)}
+                  doRerun={(id, insitu)=>doRerun(id, insitu)}
+                  doLockToggle={(id)=>doLockToggle(id)}
+                  showFiles={(job)=>showFiles(job)}
+                  showLog={(job, t)=>showLog(job, t)}
+                  showHistory={(job)=>showHistory(job)}
+                  doDeleteJob={(id)=>doDeleteJob(id)}
+                  notify={notify}
+                  fetchAndReplaceJob={fetchAndReplaceJob}
+                  setOpenModal={setOpenModal}
+                  setEditValue={setEditValue}
+                  compact
+                />
+              ) : null
             )}
             {!modalLoading && !modalError && openModal?.type === 'resume' && (
               <Box>
@@ -2069,21 +2574,23 @@ export default function JobMonitorPage() {
         </ModalContent>
       </Modal>
 
-      <JobResultsPicker
-        isOpen={showJobResultsPicker}
-        onClose={()=>setShowJobResultsPicker(false)}
-        onInsert={(tokens)=>{
-          if (tokens.length) {
-            const append = tokens.join(";")
-            try {
-              if (editModalSetValueRef.current) {
-                editModalSetValueRef.current(prev => (prev ? prev + ";" : "") + append)
-              }
-            } catch {}
-            setEditValue(prev => (prev ? prev + ";" : "") + append)
-          }
-        }}
-      />
+      {showJobResultsPicker && (
+        <JobResultsPicker
+          isOpen={true}
+          onClose={()=>setShowJobResultsPicker(false)}
+          onInsert={(tokens)=>{
+            if (tokens.length) {
+              const append = tokens.join(";")
+              try {
+                if (editModalSetValueRef.current) {
+                  editModalSetValueRef.current(prev => (prev ? prev + ";" : "") + append)
+                }
+              } catch {}
+              setEditValue(prev => (prev ? prev + ";" : "") + append)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
