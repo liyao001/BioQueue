@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from 'react-dom'
 import { formatBytes } from '../lib/format'
 import { apiGet, apiPost, apiDelete, apiPatch } from '../lib/api'
-import { useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, Flex, Box, Input, Button, ButtonGroup, Heading, Select, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, MenuItem, Portal, Spinner, HStack, Text, IconButton, Table, Thead, Tbody, Tr, Th, Td, Checkbox, SimpleGrid, Tooltip, Image, Link as ChakraLink, Slider, SliderTrack, SliderFilledTrack, SliderThumb, Textarea } from '@chakra-ui/react'
+import { useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, Flex, Box, Input, Button, ButtonGroup, Heading, Select, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, MenuItem, Portal, Spinner, HStack, Text, IconButton, Table, Thead, Tbody, Tr, Th, Td, Checkbox, SimpleGrid, Tooltip, Image, Link as ChakraLink, Slider, SliderTrack, SliderFilledTrack, SliderThumb, Textarea, CircularProgress } from '@chakra-ui/react'
 import Pager from '../components/Pager'
 import JobResultsPicker from '../components/JobResultsPicker'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
@@ -28,6 +28,7 @@ type Job = {
   slave?: number | null
   slave_name?: string
   visibility?: number
+  resume?: number
 }
 
 
@@ -38,6 +39,23 @@ function escapeHtml(s: string): string {
 }
 
 // extractError
+// shared caches for step progress to minimize redundant queries
+const stepMetaCache = new Map<number, { totalSteps: number; lastFetched: number }>()
+
+export const JobStepProgress = React.memo(function JobStepProgress({ job, totalSteps }: { job: Job, totalSteps: number }) {
+  if (!job || job.status !== 1 || !Number.isFinite(totalSteps) || totalSteps <= 0) return null
+  const cur = Math.max(0, Number(job.resume || 0))
+  const total = Math.max(0, Number(totalSteps))
+  const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((cur / total) * 100))) : 0
+  const tip = `step ${cur + 1} of ${total}`
+  return (
+    <Box pointerEvents="auto">
+      <Tooltip label={tip}>
+        <CircularProgress value={pct} size='26px' thickness='10px' color='green.400' trackColor='gray.200' />
+      </Tooltip>
+    </Box>
+  )
+})
 async function extractError(res: Response): Promise<string> {
   try {
     const data = await res.json()
@@ -598,6 +616,7 @@ const JobTable = React.memo(function JobTable(props: {
   fetchAndReplaceJob: (id: number)=>Promise<void>
   setOpenModal: (v: any)=>void
   setEditValue: (v: string)=>void
+  protocolStepCounts: Map<number, number>
   compact?: boolean
 }) {
   const {
@@ -605,6 +624,7 @@ const JobTable = React.memo(function JobTable(props: {
     statusMap, doChangeVisibility, doTerminate, doRerun, doLockToggle,
     showFiles, showLog, showHistory, doDeleteJob,
     notify, fetchAndReplaceJob, setOpenModal, setEditValue,
+    protocolStepCounts,
     compact,
   } = props
   // These props are used in inline event handlers but not directly in JSX
@@ -667,7 +687,18 @@ const JobTable = React.memo(function JobTable(props: {
                 <Td><Checkbox isChecked={isSelected(j.id)} onChange={()=>toggleSelect(j.id)} /></Td>
                 <Td>{j.id}</Td>
                 <Td>{j.job_name}</Td>
-                <Td><StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} /></Td>
+                <Td>
+                  <Box position="relative" w="26px" h="26px" display="inline-block">
+                    <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center">
+                      <StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} />
+                    </Box>
+                    {j.status === 1 && (
+                      <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center" pointerEvents="auto">
+                        <JobStepProgress job={j} totalSteps={protocolStepCounts.get(j.protocol) || 0} />
+                      </Box>
+                    )}
+                  </Box>
+                </Td>
                 <Td>{j.protocol_name || j.protocol}</Td>
                 <Td>{j.workspace_name || (j.workspace_id ?? '')}</Td>
                 <Td>{j.version ?? ''}</Td>
@@ -699,7 +730,7 @@ const JobTable = React.memo(function JobTable(props: {
                       }}><i className="fa-solid fa-circle-xmark"></i></Button></Tooltip>
                     )}
                     {([ -1, -3, 2 ].includes(j.status)) && (
-                      <Tooltip label="Resume from step"><Button size="sm" variant="outline" onClick={()=>{ setOpenModal({ type: 'resume', job: j }) }}><i className="fa-solid fa-rotate"></i></Button></Tooltip>
+                      <Tooltip label="Resume from step"><Button size="sm" variant="outline" onClick={()=>{ openResume(j) }}><i className="fa-solid fa-rotate"></i></Button></Tooltip>
                     )}
                     <Tooltip label="Comments / memo"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>{/* handled elsewhere */}}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
                     <Tooltip label="history"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>showHistory(j)}><i className="fa-solid fa-clock-rotate-left"></i></Button></Tooltip>
@@ -744,13 +775,16 @@ const JobCards = React.memo(function JobCards(props: {
   setModalLoading: (v: boolean)=>void
   setDependentsResults: (rows: Job[])=>void
   setDependenciesResults: (rows: Job[])=>void
+  protocolStepCounts: Map<number, number>
+  // open resume modal for a job (clears prior state first)
+  openResume: (job: Job) => void
   modalLoading?: boolean
   ensureRunnersLoaded?: () => Promise<void>
 }) {
   const {
     results, isSelected, toggleSelect, toggleSelectAllCurrent, clearSelection, doChangeVisibility, doRerun, doLockToggle,
     showFiles, showLog, showHistory, doDeleteJob, doTerminate, selectedIds, bulkAction, runners, workspaces, expEnableRunner, apiPatch,
-    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults, modalLoading, ensureRunnersLoaded,
+    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults, protocolStepCounts, openResume, modalLoading, ensureRunnersLoaded,
   } = props
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
   const markUpdating = useCallback((id: number, on: boolean) => {
@@ -825,7 +859,7 @@ const JobCards = React.memo(function JobCards(props: {
     return out
   }
   const CardHead = React.memo(function CardHead({ j, selected, onToggle }: { j: Job, selected: boolean, onToggle: (id:number)=>void }) {
-    return (
+  return (
       <Flex align="flex-start" justify="space-between">
         <Box>
           <Flex align="center" gap={2} fontSize="sm">
@@ -901,10 +935,23 @@ const JobCards = React.memo(function JobCards(props: {
           </Flex>
           <Heading size="md" mt={2}>{j.job_name}</Heading>
         </Box>
-        <Text textStyle="xl" fontWeight="bold"><StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} /></Text>
+        <Box position="relative" w="26px" h="26px" display="inline-block">
+          {/* status icon centered */}
+          <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center">
+            <StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} />
+          </Box>
+          {/* overlay progress when running */}
+          {j.status === 1 && (
+            <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center" pointerEvents="auto">
+              <JobStepProgress job={j} totalSteps={protocolStepCounts.get(j.protocol) || 0} />
+            </Box>
+          )}
+        </Box>
       </Flex>
     )
   })
+
+  // (legacy inline JobStepProgress removed)
   const CardBody = React.memo(function CardBody({ j }: { j: Job }) {
     const [wsFilterLocal, setWsFilterLocal] = useState('')
     const filteredWs = useMemo(() => {
@@ -1061,7 +1108,7 @@ const JobCards = React.memo(function JobCards(props: {
           }}><i className="fa-solid fa-triangle-exclamation"></i></Button></Tooltip>
         )}
         {([ -1, -3, 2 ].includes(j.status)) && (
-          <Tooltip label="Resume from step"><Button size="sm" onClick={()=>{ setOpenModal({ type: 'resume', job: j }) }}><i className="fa-solid fa-timeline"></i></Button></Tooltip>
+          <Tooltip label="Resume from step"><Button size="sm" onClick={()=>{ openResume(j) }}><i className="fa-solid fa-timeline"></i></Button></Tooltip>
         )}
         <Tooltip label="Comments / memo"><Button size="sm" colorScheme="blue" onClick={()=>{ setEditValue(j.comments || ''); setOpenModal({ type: 'edit_comments', job: j }) }}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
         <Tooltip label="Delete"><Button size="sm" colorScheme="red" onClick={()=>onDelete(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
@@ -1200,6 +1247,7 @@ export default function JobMonitorPage() {
   const [filesFilterDebounced, setFilesFilterDebounced] = useState('')
   const [logContent, setLogContent] = useState('')
   const [historyHtml, setHistoryHtml] = useState('')
+  const [historyItems, setHistoryItems] = useState<Array<{ operation: string; timestamp: string; protocol_ver?: any; entries: Array<{ text: string; kind: string; indent: number }> }>>([])
   const [previewUrl, setPreviewUrl] = useState<string>('')
   const [previewMode, setPreviewMode] = useState<'iframe'|'text'|'img'>('iframe')
   const [previewText, setPreviewText] = useState<string>('')
@@ -1249,13 +1297,29 @@ export default function JobMonitorPage() {
       setFilesFilterDebounced('')
       setLogContent('')
       setHistoryHtml('')
+      setHistoryItems([])
       setPreviewUrl('')
       setPreviewText('')
       setEditValue('')
       setDependentsResults([])
       setDependenciesResults([])
+      // clear resume modal state
+      setResumePoint(0)
+      setResumeMax(0)
+      setResumeSteps([])
     })
   }
+
+  const openResume = useCallback((job: Job) => {
+    flushSync(() => {
+      setResumePoint(0)
+      setResumeMax(0)
+      setResumeSteps([])
+      setModalError(null)
+      setModalLoading(true)
+      setOpenModal({ type: 'resume', job })
+    })
+  }, [])
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
@@ -1390,6 +1454,44 @@ export default function JobMonitorPage() {
   const searchAbortRef = useRef<AbortController | null>(null)
   const searchSeqRef = useRef<number>(0)
   const searchCacheRef = useRef<Map<string, { rows: any[]; total?: number }>>(new Map())
+  // per-protocol step counts for progress rendering
+  const [protocolStepCounts, setProtocolStepCounts] = useState<Map<number, number>>(new Map())
+
+  const ensureProtocolStepCounts = useCallback(async (rows: Job[]) => {
+    try {
+      const now = Date.now()
+      const protoSet = new Set<number>()
+      for (const r of (rows || [])) { if (typeof r.protocol === 'number') protoSet.add(r.protocol) }
+      const protos = Array.from(protoSet)
+      const need = protos.filter(p => {
+        const meta = stepMetaCache.get(p)
+        return !meta || (now - meta.lastFetched) > 30 * 60 * 1000
+      })
+      if (need.length) {
+        const resps = await Promise.all(need.map(p => apiGet(`/steps/?parent=${encodeURIComponent(String(p))}&page_size=1000`)))
+        for (let i = 0; i < need.length; i++) {
+          const p = need[i]
+          try {
+            const resp = resps[i]
+            if (!resp.ok) continue
+            const data = await resp.json()
+            const rows2 = Array.isArray(data) ? data : (data.results || [])
+            const cnt = Array.isArray(rows2) ? rows2.length : 0
+            stepMetaCache.set(p, { totalSteps: cnt, lastFetched: Date.now() })
+          } catch {}
+        }
+      }
+      // sync state map so components can read counts
+      setProtocolStepCounts(prev => {
+        const next = new Map(prev)
+        for (const p of protos) {
+          const meta = stepMetaCache.get(p)
+          if (meta) next.set(p, meta.totalSteps)
+        }
+        return next
+      })
+    } catch {}
+  }, [])
   const runSearch = useCallback(async function runSearch(e?: React.FormEvent) {
     e?.preventDefault()
     // Coalesce: if query and paging unchanged, do nothing unless forced
@@ -1467,6 +1569,8 @@ export default function JobMonitorPage() {
         searchCacheRef.current.set(key, { rows: rows || [] })
       }
       setResults(rows || [])
+      // ensure step counts available for visible protocols for progress rendering
+      try { await ensureProtocolStepCounts(Array.isArray(rows) ? rows as Job[] : []) } catch {}
       setSelectedIds([])
     } catch (err: any) {
       if (err?.name === 'AbortError') { didAbort = true }
@@ -1540,6 +1644,8 @@ export default function JobMonitorPage() {
         } else if (action === 'delete') {
           await apiDelete(`/jobs/${id}/`)
           setResults(prev => prev.filter(j => j.id !== id))
+          // clear cached search results to avoid briefly rendering stale data on next refresh
+          try { searchCacheRef.current.clear() } catch {}
         }
       }
       notify('bulk operation completed', 'success')
@@ -1810,6 +1916,8 @@ export default function JobMonitorPage() {
     if (res.ok) {
       notify('terminated', 'success')
       fetchAndReplaceJob(id)
+      // clear cached search results to avoid briefly rendering stale data on next refresh
+      try { searchCacheRef.current.clear() } catch {}
     } else {
       notify(await extractError(res), 'error')
     }
@@ -1820,6 +1928,8 @@ export default function JobMonitorPage() {
     if (res.ok) {
       notify('rerun requested', 'success')
       fetchAndReplaceJob(id)
+      // clear cached search results to avoid briefly rendering stale data on next refresh
+      try { searchCacheRef.current.clear() } catch {}
     } else {
       notify(await extractError(res), 'error')
     }
@@ -1830,6 +1940,8 @@ export default function JobMonitorPage() {
     if (res.ok) {
       notify('job deleted', 'success')
       setResults(prev => prev.filter(j => j.id !== id))
+      // clear cached search results to avoid briefly rendering stale data on next refresh
+      try { searchCacheRef.current.clear() } catch {}
     } else {
       notify(await extractError(res), 'error')
     }
@@ -1845,6 +1957,8 @@ export default function JobMonitorPage() {
       const res = await apiPost(`/jobs/${id}/lock/`)
       if (res.ok) {
         notify('lock state updated', 'success')
+        // clear cached search results to avoid briefly rendering stale data on next refresh
+        try { searchCacheRef.current.clear() } catch {}
       } else {
         // revert on failure
         setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
@@ -1870,6 +1984,8 @@ export default function JobMonitorPage() {
       const res = await apiPost(`/jobs/${id}/visibility/`, JSON.stringify({ visibility: vis }))
       if (res.ok) {
         notify('visibility updated', 'success')
+        // clear cached search results to avoid briefly rendering stale data on next refresh
+        try { searchCacheRef.current.clear() } catch {}
       } else {
         // revert
         setResults(rows => rows.map(j => j.id === id && prev ? prev! : j))
@@ -2040,28 +2156,15 @@ export default function JobMonitorPage() {
     try {
       modalAbortRef.current?.abort()
       modalAbortRef.current = new AbortController()
-      const res = await apiGet(`/jobs/${job.id}/history/`, { signal: modalAbortRef.current.signal })
+      const res = await apiGet(`/jobs/${job.id}/history/?format=json`, { signal: modalAbortRef.current.signal })
       const contentType = res.headers.get('Content-Type') || ''
       if (contentType.includes('text/html')) {
         const html = await res.text()
         setHistoryHtml(html)
       } else {
         const data = await res.json()
-        // render simple diff: + added (green), - removed (red)
-        let html = ''
-        for (const item of (Array.isArray(data) ? data : [])) {
-          html += `<div class="font-mono text-sm"><ul class="list-none m-0 p-0"><li>operation: ${escapeHtml(item.operation)} (${escapeHtml(item.timestamp)})</li><li>protocol version: ${escapeHtml(String(item.protocol_ver||''))}</li></ul>`
-          for (const e of (item.entries || [])) {
-            if (!e.text) continue
-            if (e.kind === 'added') {
-              html += `<span class="text-green-600">+&nbsp;${'&nbsp;'.repeat((e.indent||0)*2)}${escapeHtml(e.text)}</span><br/>`
-            } else if (e.kind === 'removed') {
-              html += `<span class="text-red-600">-&nbsp;${'&nbsp;'.repeat((e.indent||0)*2)}${escapeHtml(e.text)}</span><br/>`
-            }
-          }
-          html += `</div><hr class="my-2 border-gray-200 dark:border-gray-800"/>`
-        }
-        setHistoryHtml(html)
+        const items = Array.isArray(data) ? data : []
+        setHistoryItems(items)
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { return }
@@ -2158,7 +2261,7 @@ export default function JobMonitorPage() {
     initialValue: string
     onSave: (value: string) => Promise<void>
     onCancel: () => void
-    registerSetter?: (setter: ((updater: (prev: string)=>string) => void) | null) => void
+    registerSetter?: (setter: ((updater: (prev: string)=>string)=>void) | null) => void
     disableParamEdit?: boolean
     onOpenResultsPicker: () => void
   }) {
@@ -2326,6 +2429,7 @@ export default function JobMonitorPage() {
           fetchAndReplaceJob={fetchAndReplaceJob}
           setOpenModal={setOpenModal}
           setEditValue={setEditValue}
+          protocolStepCounts={protocolStepCounts}
         />
       ) : (
         <JobCards
@@ -2344,6 +2448,8 @@ export default function JobMonitorPage() {
           doTerminate={doTerminate}
           selectedIds={selectedIds}
           bulkAction={bulkAction}
+          protocolStepCounts={protocolStepCounts}
+          openResume={openResume}
           runners={runners}
           workspaces={workspaces}
           expEnableRunner={expEnableRunner}
@@ -2365,9 +2471,9 @@ export default function JobMonitorPage() {
         <Pager page={page} totalPages={totalPages} loading={loading} onChange={(v)=>setPage(v)} />
       </Flex>
 
-      <Modal isOpen={Boolean(openModal)} onClose={resetModalState} size={openModal?.type?.startsWith('edit_') || openModal?.type==='resume' ? '4xl' : '6xl'} scrollBehavior="inside">
+      <Modal isOpen={Boolean(openModal)} onClose={resetModalState} size={(openModal?.type==='edit_param' || openModal?.type==='edit_input') ? '6xl' : (openModal?.type?.startsWith('edit_') || openModal?.type==='resume' ? '4xl' : '6xl')} scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent maxW={(openModal && ['files','preview','stdout','stderr','history','dependents','dependencies'].includes(openModal.type)) ? '90vw' : undefined}>
+        <ModalContent maxW={(openModal && ['files','preview','stdout','stderr','history','edit_param','edit_input'].includes(openModal.type)) ? '90vw' : undefined}>
           <ModalHeader fontSize="md">
             {openModal?.type === 'files' && `Files for job #${openModal?.job.id}`}
             {openModal?.type === 'preview' && `Preview: ${openModal?.name || ''}`}
@@ -2467,7 +2573,53 @@ export default function JobMonitorPage() {
               <Box as="pre" fontFamily="mono" whiteSpace="pre-wrap" fontSize="sm">{logContent}</Box>
             )}
             {!modalLoading && !modalError && openModal?.type === 'history' && (
-              <Box fontSize="sm" maxW="none" dangerouslySetInnerHTML={{ __html: historyHtml }} />
+              historyHtml ? (
+                <Box fontSize="sm" maxW="none" dangerouslySetInnerHTML={{ __html: historyHtml }} />
+              ) : (
+                <Box fontFamily="mono" fontSize="sm">
+                  {historyItems && historyItems.length > 0 ? historyItems.map((item, idx) => (
+                    <Box key={idx} mb={3}>
+                      <Box as="ul" className="list-none" m={0} p={0}>
+                        <li>operation: {item.operation} ({item.timestamp})</li>
+                        <li>protocol version: {String(item.protocol_ver || '')}</li>
+                      </Box>
+                      <Box mt={1}>
+                        {item.entries && item.entries.map((e, i2) => {
+                          const s = (e.text || '').trim()
+                          if (!s || s === '{' || s === '}') return null
+                          const isAdd = e.kind === 'added'
+                          const isRem = e.kind === 'removed'
+                          const prefix = isAdd ? '+ ' : isRem ? '- ' : ''
+                          const fg = isAdd ? 'green.700' : isRem ? 'red.700' : 'gray.700'
+                          const bg = isAdd ? 'green.50' : isRem ? 'red.50' : 'gray.50'
+                          const border = isAdd ? 'green.400' : isRem ? 'red.400' : 'gray.300'
+                          return (
+                            <Box
+                              key={i2}
+                              pl={2}
+                              pr={2}
+                              py={0.5}
+                              ml={`${Math.max(0, e.indent) * 12}px`}
+                              borderLeftWidth="3px"
+                              borderLeftColor={border}
+                              bg={bg}
+                              color={fg}
+                              borderRadius="sm"
+                              mb={0.5}
+                              whiteSpace="pre-wrap"
+                            >
+                              {prefix}{'\u00A0'.repeat(Math.max(0, e.indent) * 0)}{s}
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                      <Box as="hr" my={2} borderColor="gray.200" _dark={{ borderColor: 'gray.800' }} />
+                    </Box>
+                  )) : (
+                    <Box opacity={0.7}>no history</Box>
+                  )}
+                </Box>
+              )
             )}
             {openModal?.type === 'dependents' && (
               modalLoading ? (
@@ -2492,6 +2644,7 @@ export default function JobMonitorPage() {
                   fetchAndReplaceJob={fetchAndReplaceJob}
                   setOpenModal={setOpenModal}
                   setEditValue={setEditValue}
+                  protocolStepCounts={protocolStepCounts}
                   compact
                 />
               ) : null
@@ -2519,6 +2672,7 @@ export default function JobMonitorPage() {
                   fetchAndReplaceJob={fetchAndReplaceJob}
                   setOpenModal={setOpenModal}
                   setEditValue={setEditValue}
+                  protocolStepCounts={protocolStepCounts}
                   compact
                 />
               ) : null

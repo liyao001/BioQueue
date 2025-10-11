@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Box, Button, ButtonGroup, Divider, Flex, Heading, IconButton, Input, Spinner, Table, Tbody, Td, Th, Thead, Tooltip, Tr, useToast, Tag, Switch, FormControl, FormLabel, FormHelperText, NumberInput, NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Textarea, Select, Menu, MenuButton, MenuList, MenuItemOption, MenuOptionGroup, Portal } from '@chakra-ui/react'
+import { Box, Button, ButtonGroup, Divider, Flex, Heading, IconButton, Input, Spinner, Table, Tbody, Td, Th, Thead, Tooltip, Tr, useToast, Tag, Switch, FormControl, FormLabel, FormHelperText, NumberInput, NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Textarea, Select, Menu, MenuButton, MenuList, MenuItemOption, MenuOptionGroup, Portal, Checkbox } from '@chakra-ui/react'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../lib/api'
 import Pager from '../components/Pager'
 
@@ -75,6 +75,13 @@ export default function ProtocolsPage() {
   const [newProtocolName, setNewProtocolName] = useState('')
   const [newProtocolDescription, setNewProtocolDescription] = useState('')
   const [savingProtocol, setSavingProtocol] = useState(false)
+
+  // clone protocol state
+  const [cloneModalOpen, setCloneModalOpen] = useState(false)
+  const [cloneName, setCloneName] = useState('')
+  const [cloneCopyDescription, setCloneCopyDescription] = useState(true)
+  const [cloneCopyShortcuts, setCloneCopyShortcuts] = useState(true)
+  const [cloning, setCloning] = useState(false)
 
   // For server-side pagination, we don't need client-side filtering
   // The search is handled by the q parameter in the API call
@@ -482,6 +489,91 @@ export default function ProtocolsPage() {
     }
   }
 
+  // clone protocol functions
+  function onStartCloneProtocol() {
+    if (!selectedId) return
+    const src = filteredProtocols.find(p => p.id === selectedId)
+    setCloneName(src ? `${src.name} (copy)` : '')
+    setCloneCopyDescription(true)
+    setCloneCopyShortcuts(true)
+    setCloneModalOpen(true)
+  }
+
+  function onCancelCloneProtocol() {
+    setCloneModalOpen(false)
+    setCloneName('')
+    setCloneCopyDescription(true)
+    setCloneCopyShortcuts(true)
+  }
+
+  async function onConfirmCloneProtocol() {
+    if (!selectedId) return
+    const nm = (cloneName || '').trim()
+    if (!nm) { toast({ title: 'name is required', status: 'error', duration: 3000, isClosable: true, position: 'bottom-right' }); return }
+    setCloning(true)
+    try {
+      const src = filteredProtocols.find(p => p.id === selectedId)
+      const payload: any = { name: nm }
+      if (cloneCopyDescription) {
+        const desc = String(src?.description || '').trim()
+        if (desc) payload.description = desc
+      }
+      const createRes = await apiPost('/protocols/', JSON.stringify(payload))
+      if (!createRes.ok) throw new Error(`${createRes.status}`)
+      const created = await createRes.json()
+      const newId = Number(created?.id)
+      if (!isFinite(newId)) throw new Error('protocol id missing')
+
+      // copy steps, preserve order and env
+      let ok = 0; let failed = 0
+      for (const st of steps) {
+        try {
+          const sPayload: any = { parent: newId, software: st.software, parameter: st.parameter, step_order: st.step_order }
+          if (st.env != null) sPayload.env = st.env
+          const sres = await apiPost('/steps/', JSON.stringify(sPayload))
+          if (sres.ok) ok++; else failed++
+        } catch {
+          failed++
+        }
+      }
+
+      // optionally copy shortcuts
+      if (cloneCopyShortcuts) {
+        try {
+          const scRes = await apiGet(`/shortcuts/?protocol=${selectedId}&page_size=500`)
+          if (scRes.ok) {
+            const data = await scRes.json()
+            const rows = Array.isArray(data) ? data : (data.results || [])
+            for (const sc of rows) {
+              const body = {
+                protocol: newId,
+                label: sc.label,
+                href_template: sc.href_template,
+                params_template: sc.params_template || '',
+                order: sc.order,
+                active: sc.active,
+              }
+              await apiPost('/shortcuts/', JSON.stringify(body))
+            }
+          }
+        } catch {}
+      }
+
+      toast({ title: failed ? `protocol cloned; steps: ${ok} ok, ${failed} failed` : 'protocol cloned', status: failed ? 'warning' : 'success', duration: 4000, isClosable: true, position: 'bottom-right' })
+      setCloneModalOpen(false)
+      setCloneName('')
+      setCloneCopyDescription(true)
+      setCloneCopyShortcuts(true)
+      setSelectedId(newId)
+      await loadProtocols()
+      await loadSteps(newId)
+    } catch (e: any) {
+      toast({ title: e?.message || 'clone failed', status: 'error', duration: 4000, isClosable: true, position: 'bottom-right' })
+    } finally {
+      setCloning(false)
+    }
+  }
+
   return (
     <Box mx="auto" px={{ base: 2, md: 4 }}>
       <Flex align="center" justify="space-between" mb={4}>
@@ -585,6 +677,7 @@ export default function ProtocolsPage() {
                       <>
                         <Button size="sm" variant="outline" onClick={() => onStartRenameProtocol(filteredProtocols.find(p => p.id === selectedId)!)}>Edit Name</Button>
                         <Button size="sm" variant="outline" onClick={() => onStartEditDescriptionProtocol(filteredProtocols.find(p => p.id === selectedId)!)}>Edit Description</Button>
+                        <Button size="sm" colorScheme="green" variant="solid" onClick={onStartCloneProtocol}>Clone Protocol</Button>
                         <Button size="sm" colorScheme="red" variant="outline" onClick={() => onDeleteProtocol(filteredProtocols.find(p => p.id === selectedId)!)}>Delete Protocol</Button>
                       </>
                     )}
@@ -843,6 +936,33 @@ export default function ProtocolsPage() {
           <ModalFooter>
             <Button variant="outline" mr={3} onClick={onCancelEditStep}>Cancel</Button>
             <Button colorScheme="blue" isLoading={savingStep} onClick={()=>{ if (editStepId!=null) onSaveEditStep(editStepId) }}>Save</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* clone protocol modal */}
+      <Modal isOpen={cloneModalOpen} onClose={onCancelCloneProtocol} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Clone protocol</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Flex direction="column" gap={3}>
+              <FormControl isRequired>
+                <FormLabel>New name</FormLabel>
+                <Input value={cloneName} onChange={(e)=>setCloneName(e.target.value)} placeholder="e.g. My Protocol (copy)" />
+              </FormControl>
+              <FormControl>
+                <Checkbox isChecked={cloneCopyDescription} onChange={(e)=>setCloneCopyDescription(e.target.checked)}>Copy description</Checkbox>
+              </FormControl>
+              <FormControl>
+                <Checkbox isChecked={cloneCopyShortcuts} onChange={(e)=>setCloneCopyShortcuts(e.target.checked)}>Copy shortcuts</Checkbox>
+              </FormControl>
+            </Flex>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" mr={3} onClick={onCancelCloneProtocol}>Cancel</Button>
+            <Button colorScheme="blue" isLoading={cloning} onClick={onConfirmCloneProtocol}>Clone</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
