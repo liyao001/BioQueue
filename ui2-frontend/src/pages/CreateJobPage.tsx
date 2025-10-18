@@ -5,7 +5,7 @@ import { apiGet, apiPost } from '../lib/api'
 import { formatBytes } from '../lib/format'
 import JobResultsPicker from '../components/JobResultsPicker'
 
-type ProtocolOption = { id: number; name: string }
+type ProtocolOption = { id: number; name: string; description?: string }
 type WorkspaceOption = { id: number; name: string }
 
 export default function CreateJobPage() {
@@ -165,6 +165,7 @@ export default function CreateJobPage() {
     if (!q) return uploads
     return uploads.filter(u => u.name.toLowerCase().includes(q))
   }, [uploadsFilter, uploads])
+  const selectedProtocol = useMemo(() => protocols.find(p => String(p.id) === protocolId), [protocols, protocolId])
   
 
   // auto-load default parameter keys when protocol is selected by the user, or when parameters are empty
@@ -185,7 +186,16 @@ export default function CreateJobPage() {
         const stepsArr: Array<any> = Array.isArray(stepsJson) ? stepsJson : (stepsJson.results || [])
         const refsArr: Array<any> = Array.isArray(refsJson) ? refsJson : (refsJson.results || [])
         const pid = parseInt(proto, 10)
-        const relSteps = stepsArr.filter(s => Number(s.parent) === pid)
+        const relStepsSorted = stepsArr
+          .filter(s => Number(s.parent) === pid)
+          .sort((a: any, b: any) => {
+            const ao = Number(a.step_order || 0)
+            const bo = Number(b.step_order || 0)
+            if (ao !== bo) return ao - bo
+            const ai = Number(a.id || 0)
+            const bi = Number(b.id || 0)
+            return ai - bi
+          })
         const predef = new Set<string>([
           'InputFile','LastOutput','Job','ThreadN','Output','LastOutput','Uploaded','Suffix','Workspace','UserBin','JobName',
         ])
@@ -193,7 +203,7 @@ export default function CreateJobPage() {
         const userKeys: string[] = []
         const seen = new Set<string>()
         const re = /\{\{(.*?)\}\}/gis
-        for (const st of relSteps) {
+        for (const st of relStepsSorted) {
            const par = String(st.parameter || '')
            let m: RegExpExecArray | null
            while ((m = re.exec(par)) !== null) {
@@ -392,6 +402,11 @@ export default function CreateJobPage() {
                           </MenuList>
                         </Portal>
                       </Menu>
+                      {selectedProtocol?.description ? (
+                        <Box mt={2} fontSize="sm" color="gray.600" whiteSpace="pre-wrap">
+                          {selectedProtocol.description}
+                        </Box>
+                      ) : null}
                     </FormControl>
 
                     <Divider my={4} />
