@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { Box, Button, Flex, FormControl, FormLabel, FormHelperText, Heading, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, Spinner, Table, Tbody, Td, Th, Thead, Tr, Textarea, Tooltip, useToast, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, Portal, Divider, SimpleGrid, Tag, Checkbox, Tabs, TabList, TabPanels, Tab, TabPanel, Alert, AlertIcon, AlertTitle, AlertDescription, ListItem, UnorderedList } from '@chakra-ui/react'
 import { apiGet, apiPost } from '../lib/api'
 import { formatBytes } from '../lib/format'
@@ -11,7 +11,6 @@ type WorkspaceOption = { id: number; name: string }
 export default function CreateJobPage() {
   useEffect(() => { document.title = 'New Job – BioQueue' }, [])
   const toast = useToast()
-  const navigate = useNavigate()
   const location = useLocation()
   const cloneFrom = (location.state as any)?.cloneFrom as undefined | {
     job_name?: string
@@ -35,16 +34,19 @@ export default function CreateJobPage() {
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([])
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [showProtoDD, setShowProtoDD] = useState(false)
-  const [showWsDD, setShowWsDD] = useState(false)
+  const [showProtoDDSingle, setShowProtoDDSingle] = useState(false)
+  const [showProtoDDArray, setShowProtoDDArray] = useState(false)
+  const [showWsDDSingle, setShowWsDDSingle] = useState(false)
+  const [showWsDDArray, setShowWsDDArray] = useState(false)
   const [protocolFilter, setProtocolFilter] = useState('')
   const [workspaceFilter, setWorkspaceFilter] = useState('')
   const [runners, setRunners] = useState<Array<{ id: number; name: string }>>([])
   const expEnableRunner = Boolean((import.meta as any).env?.VITE_EXPERIMENTAL_RUNNER)
   const [runnerId, setRunnerId] = useState('')
   const [runnerFilter, setRunnerFilter] = useState('')
-  const [showSingleJobRunnerDD, setShowSingleJobRunnerDD] = useState(false)
-  const [showBulkJobRunnerDD, setShowBulkJobRunnerDD] = useState(false)
+  const [showRunnerDDSingle, setShowRunnerDDSingle] = useState(false)
+  const [showRunnerDDBulk, setShowRunnerDDBulk] = useState(false)
+  const [showRunnerDDArray, setShowRunnerDDArray] = useState(false)
   const [arraySetting, setArraySetting] = useState('')
   const [isGpu, setIsGpu] = useState(false)
 
@@ -52,6 +54,9 @@ export default function CreateJobPage() {
   const [bulkJobText, setBulkJobText] = useState('')
   const [bulkJobFile, setBulkJobFile] = useState<File | null>(null)
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  // Array jobs tab state
+  const [arrayJobText, setArrayJobText] = useState('')
+  const [arrayParentGpu, setArrayParentGpu] = useState(false)
 
   // pickers
   const [showUploads, setShowUploads] = useState(false)
@@ -62,6 +67,16 @@ export default function CreateJobPage() {
   const [uploadsFilter, setUploadsFilter] = useState('')
 
   const protocolSelectionByUserRef = useRef(false)
+
+  function closeAllDropdowns() {
+    setShowProtoDDSingle(false)
+    setShowProtoDDArray(false)
+    setShowWsDDSingle(false)
+    setShowWsDDArray(false)
+    setShowRunnerDDSingle(false)
+    setShowRunnerDDBulk(false)
+    setShowRunnerDDArray(false)
+  }
 
   // if a clone id is provided in the url (?clone=123), fetch the job and prefill
   useEffect(() => {
@@ -345,6 +360,40 @@ export default function CreateJobPage() {
     }
   }
 
+  async function onArraySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!jobName.trim() || !protocolId.trim() || !arrayJobText.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      const payload: any = {
+        job_name: jobName.trim(),
+        protocol: parseInt(protocolId, 10),
+        job_list: arrayJobText,
+        is_gpu_job: arrayParentGpu ? 1 : 0,
+      }
+      if (workspaceId.trim()) payload.workspace = parseInt(workspaceId, 10)
+      if (runnerId.trim()) payload.target = parseInt(runnerId, 10)
+      const res = await apiPost('/jobs/array/', JSON.stringify(payload))
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast({ title: `array created (children: ${data?.created ?? '?'})`, status: 'success', duration: 3000, isClosable: true, position: 'bottom-right' })
+        setArrayJobText('')
+      } else {
+        try {
+          const d = await res.json()
+          const msg = d?.detail || d?.info || JSON.stringify(d)
+          toast({ title: msg, status: 'error', duration: 5000, isClosable: true, position: 'bottom-right' })
+        } catch {
+          toast({ title: `create failed (${res.status})`, status: 'error', duration: 5000, isClosable: true, position: 'bottom-right' })
+        }
+      }
+    } catch (err: any) {
+      toast({ title: err?.message || 'create failed', status: 'error', duration: 5000, isClosable: true, position: 'bottom-right' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   
 
   return (
@@ -357,11 +406,12 @@ export default function CreateJobPage() {
       </Flex>
 
       <Box borderWidth="1px" borderColor="gray.200" rounded="md" boxShadow="sm" bg="white" w="100%">
-        <Tabs variant="enclosed" colorScheme="blue">
+        <Tabs variant="enclosed" colorScheme="blue" isLazy lazyBehavior="unmount">
           <TabList>
             <Tab><i className="fas fa-tag"></i>&nbsp;Single Job</Tab>
             <Tab><i className="fas fa-tags"></i>&nbsp;Bulk Jobs</Tab>
             <Tab><i className="fas fa-scroll"></i>&nbsp;Bulk Jobs from File</Tab>
+            <Tab><i className="fas fa-layer-group"></i>&nbsp;Array Jobs</Tab>
           </TabList>
 
           <TabPanels>
@@ -385,15 +435,15 @@ export default function CreateJobPage() {
                           <Tag size="sm" colorScheme="blue">{protocols.find(p=>String(p.id)===protocolId)?.name || protocolId}</Tag>
                         ) : null}
                       </FormLabel>
-                      <Menu isOpen={showProtoDD} onClose={()=>setShowProtoDD(false)}>
-                        <MenuButton as={Button} onClick={()=>{ setShowProtoDD(!showProtoDD); setShowWsDD(false); setShowSingleJobRunnerDD(false) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
+                      <Menu isOpen={showProtoDDSingle} onClose={()=>setShowProtoDDSingle(false)}>
+                        <MenuButton as={Button} onClick={()=>{ const next = !showProtoDDSingle; closeAllDropdowns(); setShowProtoDDSingle(next) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
                           Protocol: {protocolId ? (protocols.find(p=>String(p.id)===protocolId)?.name || protocolId) : (loadingOptions ? 'loading…' : 'select')}
                         </MenuButton>
                         <Portal>
                           <MenuList minW="360px" p={2}>
                             <Input size="sm" placeholder="filter protocols" mb={2} value={protocolFilter} onChange={(e)=>setProtocolFilter(e.target.value)} />
                             <Box maxH="260px" overflowY="auto">
-                              <MenuOptionGroup type="radio" value={protocolId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; protocolSelectionByUserRef.current = true; setProtocolId(val); setShowProtoDD(false) }}>
+                              <MenuOptionGroup type="radio" value={protocolId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; protocolSelectionByUserRef.current = true; setProtocolId(val); setShowProtoDDSingle(false) }}>
                                 {filteredProtocols.map(p => (
                                   <MenuItemOption key={p.id} value={String(p.id)}>{p.id} - {p.name}</MenuItemOption>
                                 ))}
@@ -440,15 +490,15 @@ export default function CreateJobPage() {
                           <Tag size="sm">none</Tag>
                         )}
                       </FormLabel>
-                      <Menu isOpen={showWsDD} onClose={()=>setShowWsDD(false)}>
-                        <MenuButton as={Button} onClick={()=>{ setShowWsDD(!showWsDD); setShowProtoDD(false); setShowSingleJobRunnerDD(false) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
+                      <Menu isOpen={showWsDDSingle} onClose={()=>setShowWsDDSingle(false)}>
+                        <MenuButton as={Button} onClick={()=>{ const next = !showWsDDSingle; closeAllDropdowns(); setShowWsDDSingle(next) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
                           Workspace: {workspaceId ? (workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId) : (loadingOptions ? 'loading…' : '(none)')}
                         </MenuButton>
                         <Portal>
                           <MenuList minW="360px" p={2}>
                             <Input size="sm" placeholder="filter workspaces" mb={2} value={workspaceFilter} onChange={(e)=>setWorkspaceFilter(e.target.value)} />
                             <Box maxH="260px" overflowY="auto">
-                              <MenuOptionGroup type="radio" value={workspaceId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setWorkspaceId(val); setShowWsDD(false) }}>
+                              <MenuOptionGroup type="radio" value={workspaceId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setWorkspaceId(val); setShowWsDDSingle(false) }}>
                                 <MenuItemOption value="">(none)</MenuItemOption>
                                 {filteredWorkspaces.map(w => (
                                   <MenuItemOption key={w.id} value={String(w.id)}>{w.name}</MenuItemOption>
@@ -515,15 +565,15 @@ export default function CreateJobPage() {
                             <Tag size="sm">none</Tag>
                           )}
                         </FormLabel>
-                        <Menu isOpen={showSingleJobRunnerDD} onClose={()=>setShowSingleJobRunnerDD(false)}>
-                          <MenuButton as={Button} onClick={()=>{ setShowSingleJobRunnerDD(!showSingleJobRunnerDD); setShowProtoDD(false); setShowWsDD(false) }} w="100%" textAlign="left">
+                        <Menu isOpen={showRunnerDDSingle} onClose={()=>setShowRunnerDDSingle(false)}>
+                          <MenuButton as={Button} onClick={()=>{ const next = !showRunnerDDSingle; closeAllDropdowns(); setShowRunnerDDSingle(next) }} w="100%" textAlign="left">
                             Runner: {runnerId ? (runners.find(r=>String(r.id)===runnerId)?.name || runnerId) : '(none)'}
                           </MenuButton>
                           <Portal>
                             <MenuList minW="360px" p={2}>
                               <Input size="sm" placeholder="filter runners" mb={2} value={runnerFilter} onChange={(e)=>setRunnerFilter(e.target.value)} />
                               <Box maxH="260px" overflowY="auto">
-                                <MenuOptionGroup type="radio" value={runnerId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setRunnerId(val); setShowSingleJobRunnerDD(false) }}>
+                                <MenuOptionGroup type="radio" value={runnerId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setRunnerId(val); setShowRunnerDDSingle(false) }}>
                                   <MenuItemOption value="">(none)</MenuItemOption>
                                   {filteredRunners.map(r => (
                                     <MenuItemOption key={r.id} value={String(r.id)}>{r.name}</MenuItemOption>
@@ -601,15 +651,15 @@ export default function CreateJobPage() {
                           <Tag size="sm">none</Tag>
                         )}
                       </FormLabel>
-                      <Menu isOpen={showBulkJobRunnerDD} onClose={()=>setShowBulkJobRunnerDD(false)}>
-                        <MenuButton as={Button} onClick={()=>{ setShowBulkJobRunnerDD(!showBulkJobRunnerDD); setShowProtoDD(false); setShowWsDD(false) }} w="100%" textAlign="left">
+                      <Menu isOpen={showRunnerDDBulk} onClose={()=>setShowRunnerDDBulk(false)}>
+                        <MenuButton as={Button} onClick={()=>{ const next = !showRunnerDDBulk; closeAllDropdowns(); setShowRunnerDDBulk(next) }} w="100%" textAlign="left">
                           Runner: {runnerId ? (runners.find(r=>String(r.id)===runnerId)?.name || runnerId) : '(none)'}
                         </MenuButton>
                         <Portal>
                           <MenuList minW="360px" p={2}>
                             <Input size="sm" placeholder="filter runners" mb={2} value={runnerFilter} onChange={(e)=>setRunnerFilter(e.target.value)} />
                             <Box maxH="260px" overflowY="auto">
-                              <MenuOptionGroup type="radio" value={runnerId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setRunnerId(val); setShowBulkJobRunnerDD(false) }}>
+                              <MenuOptionGroup type="radio" value={runnerId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setRunnerId(val); setShowRunnerDDBulk(false) }}>
                                 <MenuItemOption value="">(none)</MenuItemOption>
                                 {filteredRunners.map(r => (
                                   <MenuItemOption key={r.id} value={String(r.id)}>{r.name}</MenuItemOption>
@@ -682,6 +732,142 @@ export default function CreateJobPage() {
                 </Flex>
               </Box>
             </TabPanel>
+
+          {/* Array Jobs Tab */}
+          <TabPanel p={{ base: 3, md: 4 }}>
+            <Box as="form" onSubmit={onArraySubmit}>
+              <SimpleGrid columns={1} spacing={6}>
+                <Box>
+                  <FormControl isRequired>
+                    <FormLabel>Parent job name</FormLabel>
+                    <Input value={jobName} onChange={(e)=>setJobName(e.target.value)} placeholder="enter job name" w="100%" />
+                  </FormControl>
+
+                  <Divider my={4} />
+
+                  <FormControl isRequired>
+                    <FormLabel display="flex" alignItems="center" gap={2}>
+                      Protocol
+                      {protocolId ? (
+                        <Tag size="sm" colorScheme="blue">{protocols.find(p=>String(p.id)===protocolId)?.name || protocolId}</Tag>
+                      ) : null}
+                    </FormLabel>
+                    <Menu isOpen={showProtoDDArray} onClose={()=>setShowProtoDDArray(false)}>
+                      <MenuButton as={Button} onClick={()=>{ const next = !showProtoDDArray; closeAllDropdowns(); setShowProtoDDArray(next) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
+                        Protocol: {protocolId ? (protocols.find(p=>String(p.id)===protocolId)?.name || protocolId) : (loadingOptions ? 'loading…' : 'select')}
+                      </MenuButton>
+                      <Portal>
+                        <MenuList minW="360px" p={2}>
+                          <Input size="sm" placeholder="filter protocols" mb={2} value={protocolFilter} onChange={(e)=>setProtocolFilter(e.target.value)} />
+                          <Box maxH="260px" overflowY="auto">
+                            <MenuOptionGroup type="radio" value={protocolId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; protocolSelectionByUserRef.current = true; setProtocolId(val); setShowProtoDDArray(false) }}>
+                              {filteredProtocols.map(p => (
+                                <MenuItemOption key={p.id} value={String(p.id)}>{p.id} - {p.name}</MenuItemOption>
+                              ))}
+                            </MenuOptionGroup>
+                          </Box>
+                        </MenuList>
+                      </Portal>
+                    </Menu>
+                  </FormControl>
+
+                  <Divider my={4} />
+
+                  <FormControl>
+                    <FormLabel display="flex" alignItems="center" gap={2}>
+                      Workspace
+                      {workspaceId ? (
+                        <Tag size="sm" colorScheme="gray">{workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId}</Tag>
+                      ) : (
+                        <Tag size="sm">none</Tag>
+                      )}
+                    </FormLabel>
+                    <Menu isOpen={showWsDDArray} onClose={()=>setShowWsDDArray(false)}>
+                      <MenuButton as={Button} onClick={()=>{ const next = !showWsDDArray; closeAllDropdowns(); setShowWsDDArray(next) }} w="100%" textAlign="left" isDisabled={loadingOptions}>
+                        Workspace: {workspaceId ? (workspaces.find(w=>String(w.id)===workspaceId)?.name || workspaceId) : (loadingOptions ? 'loading…' : '(none)')}
+                      </MenuButton>
+                      <Portal>
+                        <MenuList minW="360px" p={2}>
+                          <Input size="sm" placeholder="filter workspaces" mb={2} value={workspaceFilter} onChange={(e)=>setWorkspaceFilter(e.target.value)} />
+                          <Box maxH="260px" overflowY="auto">
+                            <MenuOptionGroup type="radio" value={workspaceId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setWorkspaceId(val); setShowWsDDArray(false) }}>
+                              <MenuItemOption value="">(none)</MenuItemOption>
+                              {filteredWorkspaces.map(w => (
+                                <MenuItemOption key={w.id} value={String(w.id)}>{w.name}</MenuItemOption>
+                              ))}
+                            </MenuOptionGroup>
+                          </Box>
+                        </MenuList>
+                      </Portal>
+                    </Menu>
+                  </FormControl>
+
+                  <Divider my={4} />
+
+                  <FormControl>
+                    <FormLabel>Array job table</FormLabel>
+                    <Textarea
+                      value={arrayJobText}
+                      onChange={(e)=>setArrayJobText(e.target.value)}
+                      rows={12}
+                      placeholder={"input_file\tparameter[\tis_gpu][\tsuffix] (one per line)"}
+                      w="100%"
+                      fontFamily="mono"
+                    />
+                    <FormHelperText>2–4 tab-separated columns per line; suffix defaults to line index</FormHelperText>
+                  </FormControl>
+                </Box>
+
+                <Box>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Parent GPU Required</FormLabel>
+                      <Checkbox isChecked={arrayParentGpu} onChange={(e)=>setArrayParentGpu(e.target.checked)} colorScheme="orange">GPU for parent</Checkbox>
+                    </FormControl>
+                    {expEnableRunner && (
+                      <FormControl>
+                        <FormLabel display="flex" alignItems="center" gap={2}>
+                          Runner
+                          {runnerId ? (
+                            <Tag size="sm" colorScheme="orange">{runners.find(r=>String(r.id)===runnerId)?.name || runnerId}</Tag>
+                          ) : (
+                            <Tag size="sm">none</Tag>
+                          )}
+                        </FormLabel>
+                        <Menu isOpen={showRunnerDDArray} onClose={()=>setShowRunnerDDArray(false)}>
+                          <MenuButton as={Button} onClick={()=>{ const next = !showRunnerDDArray; closeAllDropdowns(); setShowRunnerDDArray(next) }} w="100%" textAlign="left">
+                            Runner: {runnerId ? (runners.find(r=>String(r.id)===runnerId)?.name || runnerId) : '(none)'}
+                          </MenuButton>
+                          <Portal>
+                            <MenuList minW="360px" p={2}>
+                              <Input size="sm" placeholder="filter runners" mb={2} value={runnerFilter} onChange={(e)=>setRunnerFilter(e.target.value)} />
+                              <Box maxH="260px" overflowY="auto">
+                                <MenuOptionGroup type="radio" value={runnerId} onChange={(v)=>{ const val = Array.isArray(v) ? v[0] : v as string; setRunnerId(val); setShowRunnerDDArray(false) }}>
+                                  <MenuItemOption value="">(none)</MenuItemOption>
+                                  {filteredRunners.map(r => (
+                                    <MenuItemOption key={r.id} value={String(r.id)}>{r.name}</MenuItemOption>
+                                  ))}
+                                </MenuOptionGroup>
+                              </Box>
+                            </MenuList>
+                          </Portal>
+                        </Menu>
+                      </FormControl>
+                    )}
+                  </SimpleGrid>
+                </Box>
+              </SimpleGrid>
+
+              <Divider my={5} />
+
+              <Flex align="center" gap={3} justify="flex-end">
+                <Button variant="outline" onClick={()=>setArrayJobText('')} isDisabled={submitting}>Clear</Button>
+                <Button type="submit" colorScheme="purple" isDisabled={!jobName.trim() || !protocolId.trim() || !arrayJobText.trim()} isLoading={submitting}>
+                  Create Array Jobs
+                </Button>
+              </Flex>
+            </Box>
+          </TabPanel>
           </TabPanels>
         </Tabs>
       </Box>

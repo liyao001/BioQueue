@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { SYSTEM_TOKENS, buildTokens } from '../lib/autocompleteTokens'
 import { useLocation } from 'react-router-dom'
 import { Box, Button, ButtonGroup, Divider, Flex, Heading, IconButton, Input, Spinner, Table, Tbody, Td, Th, Thead, Tooltip, Tr, useToast, Tag, Switch, FormControl, FormLabel, FormHelperText, NumberInput, NumberInputField, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Textarea, Select, Menu, MenuButton, MenuList, MenuItemOption, MenuOptionGroup, Portal, Checkbox } from '@chakra-ui/react'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../lib/api'
@@ -39,15 +40,10 @@ export default function ProtocolsPage() {
 
   // references for autocomplete tokens
   const [references, setReferences] = useState<Array<{ id: number; name?: string; label?: string }>>([])
-  const systemTokens = useMemo(() => [ 
-    'InputFile', 'InputFile:', 
-    'Job', 'JobName', 'LastOutput', 'LastOutput:', 
-    'Output:', 'AllOutputBefore', 'Suffix', 'Suffix:', 
-    'ThreadN', 'Workspace', 'UserBin' ], [])
+  const systemTokens = useMemo(() => SYSTEM_TOKENS, [])
   const tokens = useMemo(() => {
     const userRefsRaw = references.map(r => String(r.name || r.label || `Ref${r.id}`)).filter(Boolean)
-    // Only include the exact reference name for user refs (no colon variant)
-    return Array.from(new Set([ ...systemTokens, ...userRefsRaw ])).sort((a, b) => a.localeCompare(b))
+    return buildTokens(userRefsRaw)
   }, [references, systemTokens])
 
   // shortcuts state

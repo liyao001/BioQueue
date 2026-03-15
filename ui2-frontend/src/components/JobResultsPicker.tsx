@@ -240,7 +240,7 @@ export default function JobResultsPicker({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside" motionPreset="none">
+    <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside" motionPreset="none" isCentered>
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>Select results from a job</ModalHeader>

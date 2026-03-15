@@ -1,12 +1,13 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Box, Portal, Textarea } from '@chakra-ui/react'
 
-export default function AutocompleteTextarea({ value, onChange, rows = 6, placeholder, tokens }: {
+export default function AutocompleteTextarea({ value, onChange, rows = 6, placeholder, tokens, isDisabled = false }: {
   value: string
   onChange: (v: string) => void
   rows?: number
   placeholder?: string
   tokens: string[]
+  isDisabled?: boolean
 }) {
   const ref = useRef<HTMLTextAreaElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -17,6 +18,7 @@ export default function AutocompleteTextarea({ value, onChange, rows = 6, placeh
   const sortedTokens = useMemo(() => Array.from(new Set(tokens)).sort((a, b) => a.localeCompare(b)), [tokens])
 
   const updateSuggestions = useCallback(() => {
+    if (isDisabled) { setOpen(false); return }
     const el = ref.current
     if (!el) { setOpen(false); return }
     const caret = el.selectionStart || 0
@@ -108,6 +110,7 @@ export default function AutocompleteTextarea({ value, onChange, rows = 6, placeh
         rows={rows}
         placeholder={placeholder}
         fontFamily="mono"
+        isDisabled={isDisabled}
       />
       {open && (
         <Portal>

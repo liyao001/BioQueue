@@ -5,6 +5,8 @@ import { apiGet, apiPost, apiDelete, apiPatch } from '../lib/api'
 import { useToast, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, Flex, Box, Input, Button, ButtonGroup, Heading, Select, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, MenuItem, Portal, Spinner, HStack, Text, IconButton, Table, Thead, Tbody, Tr, Th, Td, Checkbox, SimpleGrid, Tooltip, Image, Link as ChakraLink, Slider, SliderTrack, SliderFilledTrack, SliderThumb, Textarea, CircularProgress } from '@chakra-ui/react'
 import Pager from '../components/Pager'
 import JobResultsPicker from '../components/JobResultsPicker'
+import AutocompleteTextarea from '../components/AutocompleteTextarea'
+import { SYSTEM_TOKENS, buildTokens } from '../lib/autocompleteTokens'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 
 
@@ -34,9 +36,7 @@ type Job = {
 
 type JobFile = { name: string; file_size: number; file_create: string; trace: string; is_link: boolean }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'} as any)[c] || c)
-}
+// removed unused escapeHtml
 
 // extractError
 // shared caches for step progress to minimize redundant queries
@@ -295,6 +295,9 @@ const FiltersHeader = React.memo(function FiltersHeader(props: {
   const [showWsDD, setShowWsDD] = useState(false)
   const [showStatusDD, setShowStatusDD] = useState(false)
   const [showStatusNotDD, setShowStatusNotDD] = useState(false)
+  void showProtoDD; void showWsDD; void showStatusDD; void showStatusNotDD; // avoid unused warnings for state values referenced only in JSX
+  // silence lints when some setters are only used inside JSX callbacks below
+  void setShowProtoDD; void setShowWsDD; void setShowStatusDD; void setShowStatusNotDD;
   // Localize the heavy text input to avoid page-wide re-renders while typing
   const [localNameOrId, setLocalNameOrId] = useState(nameOrIdInput)
   useEffect(() => { setLocalNameOrId(nameOrIdInput) }, [nameOrIdInput])
@@ -614,19 +617,20 @@ const JobTable = React.memo(function JobTable(props: {
   doDeleteJob: (id: number)=>void
   notify: (msg: string, type?: 'success'|'error')=>void
   fetchAndReplaceJob: (id: number)=>Promise<void>
-  setOpenModal: (v: any)=>void
-  setEditValue: (v: string)=>void
   protocolStepCounts: Map<number, number>
   compact?: boolean
+  openResume: (job: Job) => void
 }) {
   const {
     results, selectedIds, isSelected, toggleSelect, toggleSelectAllCurrent,
     statusMap, doChangeVisibility, doTerminate, doRerun, doLockToggle,
     showFiles, showLog, showHistory, doDeleteJob,
-    notify, fetchAndReplaceJob, setOpenModal, setEditValue,
+    notify, fetchAndReplaceJob,
     protocolStepCounts,
     compact,
+    openResume,
   } = props
+  const selectedIdsSet = useMemo(() => new Set<number>(selectedIds), [selectedIds])
   // These props are used in inline event handlers but not directly in JSX
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void doLockToggle
@@ -634,8 +638,6 @@ const JobTable = React.memo(function JobTable(props: {
   void showFiles
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void showLog
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void setEditValue
   return (
     <Box overflowX="auto">
       <Table size="sm" variant="simple">
@@ -649,7 +651,7 @@ const JobTable = React.memo(function JobTable(props: {
             </Tr>
           ) : (
             <Tr>
-              <Th><Checkbox isChecked={results.length>0 && results.every(r=>selectedIds.includes(r.id))} onChange={toggleSelectAllCurrent} /></Th>
+              <Th><Checkbox isChecked={results.length>0 && results.every(r=>selectedIdsSet.has(r.id))} onChange={toggleSelectAllCurrent} /></Th>
               <Th>id</Th>
               <Th>name</Th>
               <Th>status</Th>
@@ -746,12 +748,10 @@ const JobTable = React.memo(function JobTable(props: {
   )
 })
 
-const JobCards = React.memo(function JobCards(props: {
-  results: Job[]
-  isSelected: (id: number)=>boolean
-  toggleSelect: (id: number)=>void
-  toggleSelectAllCurrent: ()=>void
-  clearSelection: ()=>void
+const JobCard = React.memo(React.forwardRef<HTMLDivElement, {
+  job: Job
+  selected: boolean
+  onToggle: (id: number)=>void
   doChangeVisibility: (id: number, vis: number)=>void
   doRerun: (id: number, insitu: boolean)=>void
   doLockToggle: (id: number)=>void
@@ -760,8 +760,6 @@ const JobCards = React.memo(function JobCards(props: {
   showHistory: (job: Job)=>void
   doDeleteJob: (id: number)=>void
   doTerminate: (id: number)=>void
-  selectedIds: number[]
-  bulkAction: (ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') => void
   runners: {id:number; name:string}[]
   workspaces: {id:number; name:string}[]
   expEnableRunner: boolean
@@ -776,88 +774,45 @@ const JobCards = React.memo(function JobCards(props: {
   setDependentsResults: (rows: Job[])=>void
   setDependenciesResults: (rows: Job[])=>void
   protocolStepCounts: Map<number, number>
-  // open resume modal for a job (clears prior state first)
   openResume: (job: Job) => void
   modalLoading?: boolean
   ensureRunnersLoaded?: () => Promise<void>
-}) {
+  buildShortcuts: (job: Job) => Array<{ label: string; href: string }>
+}>(function JobCard(props, ref) {
   const {
-    results, isSelected, toggleSelect, toggleSelectAllCurrent, clearSelection, doChangeVisibility, doRerun, doLockToggle,
-    showFiles, showLog, showHistory, doDeleteJob, doTerminate, selectedIds, bulkAction, runners, workspaces, expEnableRunner, apiPatch,
-    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults, protocolStepCounts, openResume, modalLoading, ensureRunnersLoaded,
+    job: j, selected, onToggle,
+    doChangeVisibility, doRerun, doLockToggle, showFiles, showLog, showHistory, doDeleteJob, doTerminate,
+    runners, workspaces, expEnableRunner, apiPatch,
+    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading,
+    setDependentsResults, setDependenciesResults, protocolStepCounts, openResume, modalLoading, ensureRunnersLoaded,
+    buildShortcuts,
   } = props
-  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
-  const markUpdating = useCallback((id: number, on: boolean) => {
-    setUpdatingIds(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
-  }, [])
-  // Track per-job relation fetches (dependents/dependencies) to avoid duplicate clicks
-  const [relationsLoadingIds, setRelationsLoadingIds] = useState<Set<number>>(new Set())
-  const markRelationsLoading = useCallback((id: number, on: boolean) => {
-    setRelationsLoadingIds(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
-  }, [])
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void modalLoading
+  const [isUpdating, setIsUpdating] = useState<boolean>(false)
+  const [relationsLoading, setRelationsLoading] = useState<boolean>(false)
+
   const onChangeVisibility = useCallback(async (id: number, vis: number) => {
-    markUpdating(id, true)
-    try { await doChangeVisibility(id, vis) } finally { markUpdating(id, false) }
-  }, [doChangeVisibility, markUpdating])
+    setIsUpdating(true)
+    try { await doChangeVisibility(id, vis) } finally { setIsUpdating(false) }
+  }, [doChangeVisibility])
   const onRerun = useCallback(async (id: number, insitu: boolean) => {
-    markUpdating(id, true)
-    try { await doRerun(id, insitu) } finally { markUpdating(id, false) }
-  }, [doRerun, markUpdating])
+    setIsUpdating(true)
+    try { await doRerun(id, insitu) } finally { setIsUpdating(false) }
+  }, [doRerun])
   const onTerminate = useCallback(async (id: number) => {
-    markUpdating(id, true)
-    try { await doTerminate(id) } finally { markUpdating(id, false) }
-  }, [doTerminate, markUpdating])
+    setIsUpdating(true)
+    try { await doTerminate(id) } finally { setIsUpdating(false) }
+  }, [doTerminate])
   const onDelete = useCallback(async (id: number) => {
-    markUpdating(id, true)
-    try { await doDeleteJob(id) } finally { markUpdating(id, false) }
-  }, [doDeleteJob, markUpdating])
+    setIsUpdating(true)
+    try { await doDeleteJob(id) } finally { setIsUpdating(false) }
+  }, [doDeleteJob])
   const onLockToggle = useCallback(async (id: number) => {
-    markUpdating(id, true)
-    try { await doLockToggle(id) } finally { markUpdating(id, false) }
-  }, [doLockToggle, markUpdating])
-  const [shortcutsConfig, setShortcutsConfig] = useState<{ [protocolId: number]: Array<{ label: string; href_template: string; params_template?: string }> }>({})
-  const [sharedShortcuts, setSharedShortcuts] = useState<Array<{ label: string; href_template: string; params_template?: string }>>([])
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        // load all active shortcuts in one call (server can paginate, keep page_size large if supported)
-        const res = await apiGet('/shortcuts/?active=1&page_size=500')
-        if (!res.ok) return
-        const data = await res.json()
-        const rows = Array.isArray(data) ? data : (data.results || [])
-        const map: { [k: number]: Array<{ label: string; href_template: string; params_template?: string }> } = {}
-        const shared: Array<{ label: string; href_template: string; params_template?: string }> = []
-        for (const r of rows) {
-          if (r.protocol === null || typeof r.protocol === 'undefined') {
-            shared.push({ label: String(r.label || ''), href_template: String(r.href_template || ''), params_template: r.params_template || '' })
-            continue
-          }
-          const pid = Number(r.protocol)
-          if (!map[pid]) map[pid] = []
-          map[pid].push({ label: String(r.label || ''), href_template: String(r.href_template || ''), params_template: r.params_template || '' })
-        }
-        if (mounted) { setShortcutsConfig(map); setSharedShortcuts(shared) }
-      } catch (e: any) { console.debug('[Shortcuts] load error', e?.message || e) }
-    })()
-    return () => { mounted = false }
-  }, [])
-  function buildShortcuts(job: Job): Array<{ label: string; href: string }> {
-    const pid = Number(job.protocol)
-    const out: Array<{ label: string; href: string }> = []
-    const items = [...(sharedShortcuts || []), ...(shortcutsConfig[pid] || [])]
-    for (const it of items) {
-      let href = it.href_template.replace('{id}', String(job.id))
-      if (it.params_template && it.params_template.trim()) {
-        const extra = it.params_template.replace('{id}', String(job.id))
-        if (extra.startsWith('?') || extra.startsWith('&')) href += extra
-        else if (extra.startsWith('/')) href += extra
-        else href += (href.includes('?') ? '&' : '?') + extra
-      }
-      out.push({ label: it.label, href })
-    }
-    return out
-  }
+    setIsUpdating(true)
+    try { await doLockToggle(id) } finally { setIsUpdating(false) }
+  }, [doLockToggle])
+
   const CardHead = React.memo(function CardHead({ j, selected, onToggle }: { j: Job, selected: boolean, onToggle: (id:number)=>void }) {
   return (
       <Flex align="flex-start" justify="space-between">
@@ -867,22 +822,22 @@ const JobCards = React.memo(function JobCards(props: {
             <Text opacity={0.7}>#{j.id}</Text>
             <ButtonGroup variant="outline" isAttached>
               {j.visibility !== 0 && (
-                <Tooltip label="Hide"><IconButton size="xs" aria-label="hide" title="hide" onClick={()=>onChangeVisibility(j.id, 0)} icon={<i className="fas fa-ban"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
+                <Tooltip label="Hide"><IconButton size="xs" aria-label="hide" title="hide" onClick={()=>onChangeVisibility(j.id, 0)} icon={<i className="fas fa-ban"></i>} isDisabled={isUpdating} /></Tooltip>
               )}
               {j.visibility !== 2 && (
-                <Tooltip label="Visible in workspace"><IconButton size="xs" aria-label="visible in workspace" title="visible in workspace" onClick={()=>onChangeVisibility(j.id, 2)} icon={<i className="fa-solid fa-eye-slash"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
+                <Tooltip label="Visible in workspace"><IconButton size="xs" aria-label="visible in workspace" title="visible in workspace" onClick={()=>onChangeVisibility(j.id, 2)} icon={<i className="fa-solid fa-eye-slash"></i>} isDisabled={isUpdating} /></Tooltip>
               )}
               {j.visibility !== 1 && (
-                <Tooltip label="Visible"><IconButton size="xs" aria-label="Visible" title="Visible" onClick={()=>onChangeVisibility(j.id, 1)} icon={<i className="fa-solid fa-eye"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
+                <Tooltip label="Visible"><IconButton size="xs" aria-label="Visible" title="Visible" onClick={()=>onChangeVisibility(j.id, 1)} icon={<i className="fa-solid fa-eye"></i>} isDisabled={isUpdating} /></Tooltip>
               )}
-              <Tooltip label={(j.locked ? 1 : 0) ? 'Unlock' : 'Lock'}><IconButton size="xs" aria-label={(j.locked ? 1 : 0) ? 'unlock' : 'lock'} onClick={()=>onLockToggle(j.id)} icon={(j.locked ? 1 : 0) ? <i className="fa-solid fa-lock-open"></i> : <i className="fa-solid fa-lock"></i>} isDisabled={updatingIds.has(j.id)} /></Tooltip>
+              <Tooltip label={(j.locked ? 1 : 0) ? 'Unlock' : 'Lock'}><IconButton size="xs" aria-label={(j.locked ? 1 : 0) ? 'unlock' : 'lock'} onClick={()=>onLockToggle(j.id)} icon={(j.locked ? 1 : 0) ? <i className="fa-solid fa-lock-open"></i> : <i className="fa-solid fa-lock"></i>} isDisabled={isUpdating} /></Tooltip>
               <Tooltip label="Clone this job"><IconButton aria-label="clone" size="xs" variant="outline" onClick={()=>window.open(`/jobs/new?clone=${j.id}`, '_blank', 'noopener,noreferrer')} icon={<i className="fa-regular fa-clone"></i>} /></Tooltip>
-            <Tooltip label="Dependents (Jobs that reference this job's results)"><IconButton aria-label="dependents" size="xs" variant="outline" isDisabled={updatingIds.has(j.id) || relationsLoadingIds.has(j.id)} onClick={async()=>{
+              <Tooltip label="Dependents (Jobs that reference this job's results)"><IconButton aria-label="dependents" size="xs" variant="outline" isDisabled={isUpdating || relationsLoading} onClick={async()=>{
                 setModalError(null)
                 flushSync(()=>{ setModalLoading(true); setOpenModal({ type: 'dependents', job: j }) })
                 setDependentsResults([])
                 try {
-                  markRelationsLoading(j.id, true)
+                  setRelationsLoading(true)
                   const res = await apiGet(`/jobs/${j.id}/dependents/?depth=1&page_size=100`)
                   if (!res.ok) {
                     setModalError(await extractError(res))
@@ -894,16 +849,16 @@ const JobCards = React.memo(function JobCards(props: {
                 } catch (e:any) {
                   setModalError(e?.message || 'failed to load dependents')
                 } finally {
-                  markRelationsLoading(j.id, false)
+                  setRelationsLoading(false)
                   setModalLoading(false)
                 }
               }} icon={<i className="fa-solid fa-diagram-project"></i>} /></Tooltip>
-            <Tooltip label="Dependencies (Jobs that this job depends on)"><IconButton aria-label="dependencies" size="xs" variant="outline" isDisabled={updatingIds.has(j.id) || relationsLoadingIds.has(j.id)} onClick={async()=>{
+              <Tooltip label="Dependencies (Jobs that this job depends on)"><IconButton aria-label="dependencies" size="xs" variant="outline" isDisabled={isUpdating || relationsLoading} onClick={async()=>{
                 setModalError(null)
                 flushSync(()=>{ setModalLoading(true); setOpenModal({ type: 'dependencies', job: j }) })
                 setDependenciesResults([])
                 try {
-                  markRelationsLoading(j.id, true)
+                  setRelationsLoading(true)
                   const res = await apiGet(`/jobs/${j.id}/dependencies/?depth=1&page_size=100`)
                   if (!res.ok) {
                     setModalError(await extractError(res))
@@ -915,7 +870,7 @@ const JobCards = React.memo(function JobCards(props: {
                 } catch (e:any) {
                   setModalError(e?.message || 'failed to load dependencies')
                 } finally {
-                  markRelationsLoading(j.id, false)
+                  setRelationsLoading(false)
                   setModalLoading(false)
                 }
               }} icon={<i className="fa-solid fa-diagram-next"></i>} /></Tooltip>
@@ -936,11 +891,9 @@ const JobCards = React.memo(function JobCards(props: {
           <Heading size="md" mt={2}>{j.job_name}</Heading>
         </Box>
         <Box position="relative" w="26px" h="26px" display="inline-block">
-          {/* status icon centered */}
           <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center">
             <StatusBadge n={j.status} label={statusMap.get(j.status) || String(j.status)} />
           </Box>
-          {/* overlay progress when running */}
           {j.status === 1 && (
             <Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center" pointerEvents="auto">
               <JobStepProgress job={j} totalSteps={protocolStepCounts.get(j.protocol) || 0} />
@@ -951,7 +904,6 @@ const JobCards = React.memo(function JobCards(props: {
     )
   })
 
-  // (legacy inline JobStepProgress removed)
   const CardBody = React.memo(function CardBody({ j }: { j: Job }) {
     const [wsFilterLocal, setWsFilterLocal] = useState('')
     const filteredWs = useMemo(() => {
@@ -983,14 +935,14 @@ const JobCards = React.memo(function JobCards(props: {
                   )}
                   <Box maxH="260px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
                     <MenuOptionGroup type="radio" value={j.workspace_id ? String(j.workspace_id) : ''} onChange={async (val)=>{
-                      markUpdating(j.id, true)
+                      setIsUpdating(true)
                       try {
                         const v = Array.isArray(val) ? val[0] : (val as string)
                         const payload = v ? { workspace: parseInt(v, 10) } : { workspace: null }
                         setModalLoading(true); await new Promise(r=>setTimeout(r,0)); const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
                         if (res.ok) { notify('workspace updated', 'success'); fetchAndReplaceJob(j.id) } else { try { const d = await res.json(); notify(d?.detail || 'update failed', 'error') } catch { notify('update failed', 'error') } }
                       } finally {
-                        markUpdating(j.id, false)
+                        setIsUpdating(false)
                       }
                     }}>
                       <MenuItemOption value="">(none)</MenuItemOption>
@@ -1048,7 +1000,7 @@ const JobCards = React.memo(function JobCards(props: {
             <Flex align="center" gap={2}>
               <Text as="b" className="field-label">Runner</Text>
               <Menu onOpen={ensureRunnersLoaded}>
-                <MenuButton as={Button} size="xs" variant="outline" w="auto" textAlign="left" isDisabled={updatingIds.has(j.id)}>
+                <MenuButton as={Button} size="xs" variant="outline" w="auto" textAlign="left" isDisabled={isUpdating}>
                   {j.slave ? (j.slave_name || (runners.find(r=>r.id===j.slave)?.name) || j.slave) : '(none)'}
                 </MenuButton>
                 <Portal>
@@ -1059,14 +1011,14 @@ const JobCards = React.memo(function JobCards(props: {
                     )}
                     <Box maxH="260px" overflowY="auto" sx={{ WebkitOverflowScrolling: 'touch' }}>
                       <MenuOptionGroup type="radio" value={j.slave ? String(j.slave) : ''} onChange={async (val)=>{
-                        markUpdating(j.id, true)
+                        setIsUpdating(true)
                         try {
                           const v = Array.isArray(val) ? val[0] : (val as string)
                           const payload = v ? { slave: parseInt(v, 10) } : { slave: null }
                           setModalLoading(true); await new Promise(r=>setTimeout(r,0)); const res = await apiPatch(`/jobs/${j.id}/`, JSON.stringify(payload))
                           if (res.ok) { notify('runner updated', 'success'); fetchAndReplaceJob(j.id) } else { notify(await (async(r)=>{ try{ const d=await r.json(); return (d?.detail||d?.info||JSON.stringify(d)) }catch{ try{const t=await r.text(); return t||`${r.status}`}catch{return `${r.status}`}} })(res), 'error') }
                         } finally {
-                          markUpdating(j.id, false)
+                          setIsUpdating(false)
                         }
                       }}>
                         <MenuItemOption value="">(none)</MenuItemOption>
@@ -1086,6 +1038,7 @@ const JobCards = React.memo(function JobCards(props: {
       </Box>
     )
   })
+
   const CardFoot = React.memo(function CardFoot({ j }: { j: Job }) {
     return (
       <Flex flexWrap="wrap" gap={2} justify="center">
@@ -1096,7 +1049,6 @@ const JobCards = React.memo(function JobCards(props: {
         {(j.status <= 0 || j.status < 1) && (
           <>
             <Tooltip label="Rerun (clean)"><Button size="sm" colorScheme="orange" onClick={()=>onRerun(j.id, false)}><i className="fa-solid fa-rotate-right"></i></Button></Tooltip>
-            {/* <Tooltip label="Rerun (inplace)"><Button size="sm" colorScheme="yellow" onClick={()=>doRerun(j.id, true)}><i className="fa-solid fa-arrows-rotate"></i></Button></Tooltip> */}
           </>
         )}
         {(j.status !== 0 && j.status !== 1) && (
@@ -1116,6 +1068,123 @@ const JobCards = React.memo(function JobCards(props: {
       </Flex>
     )
   })
+
+  return (
+    <Box ref={ref} position="relative" borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }} opacity={isUpdating ? 0.6 : 1}>
+          {isUpdating && (
+            <>
+              <Box position="absolute" top={0} left={0} right={0} bottom={0} bg="whiteAlpha.50" zIndex={10} />
+              <Flex position="absolute" top={0} left={0} right={0} bottom={0} align="center" justify="center" zIndex={11}>
+                <Spinner size="sm" />
+              </Flex>
+            </>
+          )}
+          <Box data-card-head>
+        <CardHead j={j} selected={selected} onToggle={onToggle} />
+          </Box>
+          <Box data-card-body mt={2}>
+            <CardBody j={j} />
+          </Box>
+          <Box data-card-foot mt={3}>
+            <CardFoot j={j} />
+          </Box>
+        </Box>
+  )
+}))
+
+const JobCards = React.memo(function JobCards(props: {
+  results: Job[]
+  isSelected: (id: number)=>boolean
+  toggleSelect: (id: number)=>void
+  toggleSelectAllCurrent: ()=>void
+  clearSelection: ()=>void
+  doChangeVisibility: (id: number, vis: number)=>void
+  doRerun: (id: number, insitu: boolean)=>void
+  doLockToggle: (id: number)=>void
+  showFiles: (job: Job)=>void
+  showLog: (job: Job, type: 'out'|'err')=>void
+  showHistory: (job: Job)=>void
+  doDeleteJob: (id: number)=>void
+  doTerminate: (id: number)=>void
+  selectedIds: number[]
+  bulkAction: (ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') => void
+  runners: {id:number; name:string}[]
+  workspaces: {id:number; name:string}[]
+  expEnableRunner: boolean
+  apiPatch: typeof import('../lib/api').apiPatch
+  notify: (msg: string, type?: 'success'|'error')=>void
+  fetchAndReplaceJob: (id: number)=>Promise<void>
+  statusMap: Map<number, string>
+  setEditValue: (v: string)=>void
+  setOpenModal: (v: any)=>void
+  setModalError: (v: string | null)=>void
+  setModalLoading: (v: boolean)=>void
+  setDependentsResults: (rows: Job[])=>void
+  setDependenciesResults: (rows: Job[])=>void
+  protocolStepCounts: Map<number, number>
+  // open resume modal for a job (clears prior state first)
+  openResume: (job: Job) => void
+  modalLoading?: boolean
+  ensureRunnersLoaded?: () => Promise<void>
+}) {
+  const {
+    results, isSelected, toggleSelect, toggleSelectAllCurrent, clearSelection, doChangeVisibility, doRerun, doLockToggle,
+    showFiles, showLog, showHistory, doDeleteJob, doTerminate, selectedIds, bulkAction, runners, workspaces, expEnableRunner, apiPatch,
+    notify, fetchAndReplaceJob, statusMap, setEditValue, setOpenModal, setModalError, setModalLoading, setDependentsResults, setDependenciesResults, protocolStepCounts, openResume, modalLoading, ensureRunnersLoaded,
+  } = props
+  const selectedIdsSet = useMemo(() => new Set<number>(selectedIds), [selectedIds])
+  // mark intentionally unused props to silence lints for compact/table dual usage
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void isSelected
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void toggleSelectAllCurrent
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void clearSelection
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void bulkAction
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void modalLoading
+  const [shortcutsConfig, setShortcutsConfig] = useState<{ [protocolId: number]: Array<{ label: string; href_template: string; params_template?: string }> }>({})
+  const [sharedShortcuts, setSharedShortcuts] = useState<Array<{ label: string; href_template: string; params_template?: string }>>([])
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        // load all active shortcuts in one call (server can paginate, keep page_size large if supported)
+        const res = await apiGet('/shortcuts/?active=1&page_size=500')
+        if (!res.ok) return
+        const data = await res.json()
+        const rows = Array.isArray(data) ? data : (data.results || [])
+        const map: { [k: number]: Array<{ label: string; href_template: string; params_template?: string }> } = {}
+        const shared: Array<{ label: string; href_template: string; params_template?: string }> = []
+        for (const r of rows) {
+          if (r.protocol === null || typeof r.protocol === 'undefined') {
+            shared.push({ label: String(r.label || ''), href_template: String(r.href_template || ''), params_template: r.params_template || '' })
+            continue
+          }
+          const pid = Number(r.protocol)
+          if (!map[pid]) map[pid] = []
+          map[pid].push({ label: String(r.label || ''), href_template: String(r.href_template || ''), params_template: r.params_template || '' })
+        }
+        if (mounted) { setShortcutsConfig(map); setSharedShortcuts(shared) }
+      } catch (e: any) { console.debug('[Shortcuts] load error', e?.message || e) }
+    })()
+    return () => { mounted = false }
+  }, [])
+  const buildShortcuts = useCallback((job: Job) => {
+    const pid = Number(job.protocol)
+    const items = [...(sharedShortcuts || []), ...(shortcutsConfig[pid] || [])]
+    return items.map(it => {
+      let href = it.href_template.replace('{id}', String(job.id))
+      if (it.params_template && it.params_template.trim()) {
+        const extra = it.params_template.replace('{id}', String(job.id))
+        if (extra.startsWith('?') || extra.startsWith('&')) href += extra
+        else if (extra.startsWith('/')) href += extra
+        else href += (href.includes('?') ? '&' : '?') + extra
+      }
+      return { label: it.label, href }
+    })
+  }, [sharedShortcuts, shortcutsConfig])
   return (
     <>
       {/* <Flex align="center" gap={2} mb={3} p={2} borderWidth="1px" borderColor="gray.200" rounded="md" bg="white">
@@ -1132,29 +1201,40 @@ const JobCards = React.memo(function JobCards(props: {
         )}
       </Flex> */}
       <SimpleGrid spacing={6} columns={{ base: 1, sm: 2, lg: 3 }}>
-      {results.map(j => {
-        const isUpdating = updatingIds.has(j.id)
-        return (
-        <Box key={j.id} position="relative" borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }} opacity={isUpdating ? 0.6 : 1}>
-          {isUpdating && (
-            <>
-              <Box position="absolute" top={0} left={0} right={0} bottom={0} bg="whiteAlpha.50" zIndex={10} />
-              <Flex position="absolute" top={0} left={0} right={0} bottom={0} align="center" justify="center" zIndex={11}>
-                <Spinner size="sm" />
-              </Flex>
-            </>
-          )}
-          <Box data-card-head>
-            <CardHead j={j} selected={selectedIds.includes(j.id)} onToggle={toggleSelect} />
-          </Box>
-          <Box data-card-body mt={2}>
-            <CardBody j={j} />
-          </Box>
-          <Box data-card-foot mt={3}>
-            <CardFoot j={j} />
-          </Box>
-        </Box>
-      )})}
+        {results.map(j => (
+          <JobCard
+            key={j.id}
+            job={j}
+            selected={selectedIdsSet.has(j.id)}
+            onToggle={toggleSelect}
+            doChangeVisibility={doChangeVisibility}
+            doRerun={doRerun}
+            doLockToggle={doLockToggle}
+            showFiles={showFiles}
+            showLog={showLog}
+            showHistory={showHistory}
+            doDeleteJob={doDeleteJob}
+            doTerminate={doTerminate}
+            runners={runners}
+            workspaces={workspaces}
+            expEnableRunner={expEnableRunner}
+            apiPatch={apiPatch}
+            notify={notify}
+            fetchAndReplaceJob={fetchAndReplaceJob}
+            statusMap={statusMap}
+            setEditValue={setEditValue}
+            setOpenModal={setOpenModal}
+            setModalError={setModalError}
+            setModalLoading={setModalLoading}
+            setDependentsResults={setDependentsResults}
+            setDependenciesResults={setDependenciesResults}
+            protocolStepCounts={protocolStepCounts}
+            openResume={openResume}
+            modalLoading={modalLoading}
+            ensureRunnersLoaded={ensureRunnersLoaded}
+            buildShortcuts={buildShortcuts}
+          />
+        ))}
       </SimpleGrid>
     </>
   )
@@ -1209,6 +1289,7 @@ export default function JobMonitorPage() {
   const [aIdNotText, setAIdNotText] = useState('')
   const [results, setResults] = useState<Job[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const selectedIdsSet = useMemo(() => new Set<number>(selectedIds), [selectedIds])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -1227,10 +1308,6 @@ export default function JobMonitorPage() {
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false)
   const [viewMode, setViewMode] = useState<'table'|'cards'>('cards')
   const [nameOrIdInput, setNameOrIdInput] = useState('')
-  const [showProtoDD, setShowProtoDD] = useState(false)
-  const [showWsDD, setShowWsDD] = useState(false)
-  const [showStatusDD, setShowStatusDD] = useState(false)
-  const [showStatusNotDD, setShowStatusNotDD] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [runners, setRunners] = useState<{id:number; name:string}[]>([])
   const expEnableRunner = Boolean(import.meta.env.VITE_EXPERIMENTAL_RUNNER)
@@ -1257,6 +1334,13 @@ export default function JobMonitorPage() {
   const registerEditSetter = useCallback((setter: ((updater: (prev: string)=>string)=>void) | null) => {
     editModalSetValueRef.current = setter
   }, [])
+  // ensure edit modals never show stale spinners
+  useEffect(() => {
+    if (!openModal) return
+    if (openModal.type === 'edit_param' || openModal.type === 'edit_input' || openModal.type === 'edit_comments') {
+      setModalLoading(false)
+    }
+  }, [openModal?.type])
   const [resumePoint, setResumePoint] = useState<number>(0)
   const [resumeMax, setResumeMax] = useState<number>(0)
   const [resumeSteps, setResumeSteps] = useState<Array<{ id: number; software: string; parameter: string; step_order: number }>>([])
@@ -1277,9 +1361,9 @@ export default function JobMonitorPage() {
   const isReadingFromURL = useRef<boolean>(false)
   // using module-scope formatBytes in FilesTable
 
-  function notify(msg: string, type: 'success'|'error' = 'error', ms = 3000) {
+  const notify = useCallback((msg: string, type: 'success'|'error' = 'error', ms = 3000) => {
     toast({ title: msg, status: type, duration: ms, isClosable: true, position: 'bottom-right' })
-  }
+  }, [toast])
 
   function resetModalState() {
     try { modalAbortRef.current?.abort() } catch {}
@@ -1481,14 +1565,20 @@ export default function JobMonitorPage() {
           } catch {}
         }
       }
-      // sync state map so components can read counts
+      // sync state map so components can read counts; avoid no-op updates
       setProtocolStepCounts(prev => {
+        let changed = false
         const next = new Map(prev)
         for (const p of protos) {
           const meta = stepMetaCache.get(p)
-          if (meta) next.set(p, meta.totalSteps)
+          if (!meta) continue
+          const prevVal = next.get(p)
+          if (prevVal !== meta.totalSteps) {
+            next.set(p, meta.totalSteps)
+            changed = true
+          }
         }
-        return next
+        return changed ? next : prev
       })
     } catch {}
   }, [])
@@ -1599,23 +1689,23 @@ export default function JobMonitorPage() {
 
   const forceRefresh = useCallback(() => { forceNextRef.current = true; void runSearch() }, [runSearch])
 
-  async function fetchAndReplaceJob(jobId: number) {
+  const fetchAndReplaceJob = useCallback(async function fetchAndReplaceJob(jobId: number) {
     try {
       const res = await apiGet(`/jobs/${jobId}/`)
       if (!res.ok) return
       const data = await res.json()
       setResults(prev => prev.map(j => (j.id === jobId ? { ...j, ...data } : j)))
     } catch {}
-  }
+  }, [])
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }, [])
-  const isSelected = useCallback((id: number) => selectedIds.includes(id), [selectedIds])
+  const isSelected = useCallback((id: number) => selectedIdsSet.has(id), [selectedIdsSet])
   const toggleSelectAllCurrent = useCallback(() => {
     if (!results.length) return
     const currentPageIds = results.map(r => r.id)
-    const allSelected = currentPageIds.every(id => selectedIds.includes(id))
+    const allSelected = currentPageIds.every(id => selectedIdsSet.has(id))
     if (allSelected) {
       setSelectedIds(prev => prev.filter(id => !currentPageIds.includes(id)))
     } else {
@@ -1623,7 +1713,7 @@ export default function JobMonitorPage() {
       currentPageIds.forEach(id => set.add(id))
       setSelectedIds(Array.from(set))
     }
-  }, [results, selectedIds])
+  }, [results, selectedIdsSet, selectedIds])
 
   async function bulkAction(ids: number[], action: 'terminate'|'rerun_clean'|'rerun_insitu'|'delete') {
     if (!ids.length) return
@@ -1828,7 +1918,7 @@ export default function JobMonitorPage() {
 
   // periodic refresh for changing job status; pauses on interaction (modal/dropdowns)
   useEffect(() => {
-    const paused = !autoRefresh || Boolean(openModal) || showProtoDD || showWsDD || showStatusDD
+    const paused = !autoRefresh || Boolean(openModal)
     if (paused) return
     const id = window.setInterval(() => {
       // avoid refreshing while actively typing in inputs
@@ -1838,14 +1928,18 @@ export default function JobMonitorPage() {
     }, 30000)
     return () => window.clearInterval(id)
     // include qs so filters are respected when changed
-  }, [autoRefresh, openModal, showProtoDD, showWsDD, showStatusDD, loading, qs])
+  }, [autoRefresh, openModal, loading, qs])
 
   // refresh when tab becomes visible again
   useEffect(() => {
-    const onVis = () => { if (!document.hidden && !loading) forceRefresh() }
+    const onVis = () => {
+      if (!document.hidden && !loading && autoRefresh && !openModal) {
+        forceRefresh()
+      }
+    }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [qs, loading])
+  }, [qs, loading, autoRefresh, openModal])
 
   // fetch canonical status choices with 30-min caching
   useEffect(() => {
@@ -1911,7 +2005,7 @@ export default function JobMonitorPage() {
     }
   }, [expEnableRunner, runners.length, results, ensureRunnersLoaded])
 
-  async function doTerminate(id: number) {
+  const doTerminate = useCallback(async function doTerminate(id: number) {
     const res = await apiPost(`/jobs/${id}/terminate/`)
     if (res.ok) {
       notify('terminated', 'success')
@@ -1921,8 +2015,8 @@ export default function JobMonitorPage() {
     } else {
       notify(await extractError(res), 'error')
     }
-  }
-  async function doRerun(id: number, insitu = false) {
+  }, [notify])
+  const doRerun = useCallback(async function doRerun(id: number, insitu = false) {
     if (!confirm(`Rerun this job${insitu ? ' in-situ' : ' (clean)'}?`)) return
     const res = await apiPost(`/jobs/${id}/rerun/${insitu ? '?insitu=1' : ''}`)
     if (res.ok) {
@@ -1933,8 +2027,8 @@ export default function JobMonitorPage() {
     } else {
       notify(await extractError(res), 'error')
     }
-  }
-  async function doDeleteJob(id: number) {
+  }, [notify])
+  const doDeleteJob = useCallback(async function doDeleteJob(id: number) {
     if (!confirm('Delete this job? This cannot be undone.')) return
     const res = await apiDelete(`/jobs/${id}/`)
     if (res.ok) {
@@ -1945,8 +2039,8 @@ export default function JobMonitorPage() {
     } else {
       notify(await extractError(res), 'error')
     }
-  }
-  async function doLockToggle(id: number) {
+  }, [notify])
+  const doLockToggle = useCallback(async function doLockToggle(id: number) {
     // optimistic toggle
     let prev: Job | undefined
     setResults(prevRows => prevRows.map(j => {
@@ -1971,9 +2065,9 @@ export default function JobMonitorPage() {
       // reconcile in background
       void fetchAndReplaceJob(id)
     }
-  }
+  }, [notify])
 
-  async function doChangeVisibility(id: number, vis: number) {
+  const doChangeVisibility = useCallback(async function doChangeVisibility(id: number, vis: number) {
     // optimistic update
     let prev: Job | undefined
     setResults(prevRows => prevRows.map(j => {
@@ -1998,7 +2092,7 @@ export default function JobMonitorPage() {
       // reconcile with server in background
       void fetchAndReplaceJob(id)
     }
-  }
+  }, [notify])
 
   async function showFiles(job: Job, sort: 'name'|'size'|'created' = filesSortField, order: 'asc'|'desc' = filesSortOrder) {
     flushSync(() => {
@@ -2274,17 +2368,49 @@ export default function JobMonitorPage() {
       return () => { registerSetter(null) }
     }, [registerSetter])
     const isEditingDisabled = disableParamEdit && (mode === 'edit_param' || mode === 'edit_input')
+    // tokens for autocomplete: base system tokens + dynamic references (loaded on demand)
+    const systemTokens = useMemo(() => SYSTEM_TOKENS, [])
+    const [refTokens, setRefTokens] = useState<string[]>([])
+    useEffect(() => {
+      let mounted = true
+      if (mode === 'edit_input') {
+        ;(async () => {
+          try {
+            const res = await apiGet('/references/?page_size=500')
+            if (!res.ok) return
+            const data = await res.json()
+            const rows = Array.isArray(data) ? data : (data.results || [])
+            const names = rows.map((r: any) => String(r.name || r.label || ''))
+            if (mounted) setRefTokens(names.filter(Boolean))
+          } catch {}
+        })()
+      }
+      return () => { mounted = false }
+    }, [mode])
+    const autocompleteTokens = useMemo(() => buildTokens(refTokens), [systemTokens, refTokens])
+
     return (
       <Box>
-        <Textarea
-          value={val}
-          onChange={(e)=>setVal(e.target.value)}
-          rows={10}
-          size="sm"
-          resize="vertical"
-          fontFamily="mono"
-          isDisabled={isEditingDisabled}
-        />
+        {mode === 'edit_input' ? (
+          <AutocompleteTextarea
+            value={val}
+            onChange={(v)=>setVal(v)}
+            rows={10}
+            placeholder="Type input files; use {{Token}} to insert variable references"
+            tokens={autocompleteTokens}
+            isDisabled={isEditingDisabled}
+          />
+        ) : (
+          <Textarea
+            value={val}
+            onChange={(e)=>setVal(e.target.value)}
+            rows={10}
+            size="sm"
+            resize="vertical"
+            fontFamily="mono"
+            isDisabled={isEditingDisabled}
+          />
+        )}
         {mode === 'edit_input' && (
           <Flex mt={2} gap={2}>
             <Button size="sm" variant="outline" onClick={onOpenResultsPicker} isDisabled={isEditingDisabled}>
@@ -2427,9 +2553,8 @@ export default function JobMonitorPage() {
           doDeleteJob={doDeleteJob}
           notify={notify}
           fetchAndReplaceJob={fetchAndReplaceJob}
-          setOpenModal={setOpenModal}
-          setEditValue={setEditValue}
           protocolStepCounts={protocolStepCounts}
+          openResume={openResume}
         />
       ) : (
         <JobCards
@@ -2471,7 +2596,7 @@ export default function JobMonitorPage() {
         <Pager page={page} totalPages={totalPages} loading={loading} onChange={(v)=>setPage(v)} />
       </Flex>
 
-      <Modal isOpen={Boolean(openModal)} onClose={resetModalState} size={(openModal?.type==='edit_param' || openModal?.type==='edit_input') ? '6xl' : (openModal?.type?.startsWith('edit_') || openModal?.type==='resume' ? '4xl' : '6xl')} scrollBehavior="inside">
+      <Modal isOpen={Boolean(openModal)} onClose={resetModalState} size={(openModal?.type==='edit_param' || openModal?.type==='edit_input') ? '6xl' : (openModal?.type?.startsWith('edit_') || openModal?.type==='resume' ? '4xl' : '6xl')} scrollBehavior="inside" isCentered>
         <ModalOverlay />
         <ModalContent maxW={(openModal && ['files','preview','stdout','stderr','history','edit_param','edit_input'].includes(openModal.type)) ? '90vw' : undefined}>
           <ModalHeader fontSize="md">
@@ -2489,7 +2614,7 @@ export default function JobMonitorPage() {
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            {(modalLoading && (openModal?.type !== 'files' || jobFiles.length === 0)) && (
+            {(modalLoading && !(['edit_param','edit_input','edit_comments'].includes(openModal?.type || '')) && (openModal?.type !== 'files' || jobFiles.length === 0)) && (
               <Flex align="center" gap={2} fontSize="sm" opacity={0.8} justify="center"><Spinner size="sm" /> loading…</Flex>
             )}
             {modalError && <Box mb={3} p={2} borderRadius="md" border="1px" borderColor="red.300" bg="red.50" color="red.700" _dark={{ bg: "red.900/20", color: "red.300" }}>{modalError}</Box>}
@@ -2642,9 +2767,8 @@ export default function JobMonitorPage() {
                   doDeleteJob={(id)=>doDeleteJob(id)}
                   notify={notify}
                   fetchAndReplaceJob={fetchAndReplaceJob}
-                  setOpenModal={setOpenModal}
-                  setEditValue={setEditValue}
                   protocolStepCounts={protocolStepCounts}
+                  openResume={openResume}
                   compact
                 />
               ) : null
@@ -2670,9 +2794,8 @@ export default function JobMonitorPage() {
                   doDeleteJob={(id)=>doDeleteJob(id)}
                   notify={notify}
                   fetchAndReplaceJob={fetchAndReplaceJob}
-                  setOpenModal={setOpenModal}
-                  setEditValue={setEditValue}
                   protocolStepCounts={protocolStepCounts}
+                  openResume={openResume}
                   compact
                 />
               ) : null
@@ -2740,6 +2863,7 @@ export default function JobMonitorPage() {
                   editModalSetValueRef.current(prev => (prev ? prev + ";" : "") + append)
                 }
               } catch {}
+              // also reflect into the modal's local state if it's open by calling the registered setter above
               setEditValue(prev => (prev ? prev + ";" : "") + append)
             }
           }}
