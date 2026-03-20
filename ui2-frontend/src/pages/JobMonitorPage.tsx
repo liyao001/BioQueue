@@ -31,6 +31,11 @@ type Job = {
   slave_name?: string
   visibility?: number
   resume?: number
+  audit?: number
+  /** Parent job id when this job is part of an array (child job). */
+  parent_job?: number | null
+  /** 0 = array parent (virtual), 1 = normal or child executable job. */
+  is_executable?: number
 }
 
 
@@ -117,7 +122,21 @@ const FilesTable = React.memo(function FilesTable({
           <Tr key={f.trace} data-trace={f.trace}>
             <Td py={1} pr={2} wordBreak="break-word" whiteSpace="normal">
               {f.is_link && <i className="fa-solid fa-link" style={{ marginRight: '0.25rem', opacity: 0.7 }} title="link"></i>}
-              <Button variant="link" size="sm" colorScheme="blue" onClick={()=>onPreview(f)} title="preview" isDisabled={!!actionsDisabled} whiteSpace="normal" textAlign="left">
+              <Button
+                variant="link"
+                size="sm"
+                colorScheme="blue"
+                onClick={() => {
+                  // If user selected part of the filename, do not open preview.
+                  if (window.getSelection?.()?.toString().length) return
+                  onPreview(f)
+                }}
+                title="preview"
+                isDisabled={!!actionsDisabled}
+                whiteSpace="normal"
+                textAlign="left"
+                userSelect="text"
+              >
                 {f.name}
               </Button>
             </Td>
@@ -620,6 +639,9 @@ const JobTable = React.memo(function JobTable(props: {
   protocolStepCounts: Map<number, number>
   compact?: boolean
   openResume: (job: Job) => void
+  setEditValue?: (v: string)=>void
+  setOpenModal?: (v: any)=>void
+  setModalError?: (v: string | null)=>void
 }) {
   const {
     results, selectedIds, isSelected, toggleSelect, toggleSelectAllCurrent,
@@ -629,6 +651,9 @@ const JobTable = React.memo(function JobTable(props: {
     protocolStepCounts,
     compact,
     openResume,
+    setEditValue = (_: string) => {},
+    setOpenModal = (_: any) => {},
+    setModalError = (_: string | null) => {},
   } = props
   const selectedIdsSet = useMemo(() => new Set<number>(selectedIds), [selectedIds])
   // These props are used in inline event handlers but not directly in JSX
@@ -734,6 +759,10 @@ const JobTable = React.memo(function JobTable(props: {
                     {([ -1, -3, 2 ].includes(j.status)) && (
                       <Tooltip label="Resume from step"><Button size="sm" variant="outline" onClick={()=>{ openResume(j) }}><i className="fa-solid fa-rotate"></i></Button></Tooltip>
                     )}
+                    {(j.is_executable === 0) && (
+                      <Tooltip label="View array"><Button size="xs" variant="outline" onClick={()=>window.open(`?parent_job=${j.id}`, '_blank', 'noopener,noreferrer')}><i className="fa-solid fa-layer-group"></i></Button></Tooltip>
+                    )}
+                    <Tooltip label="Rename"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>{ setEditValue(j.job_name || ''); setOpenModal({ type: 'rename', job: j }); setModalError(null) }} isDisabled={!!(j.locked)}><i className="fa-solid fa-i-cursor"></i></Button></Tooltip>
                     <Tooltip label="Comments / memo"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>{/* handled elsewhere */}}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
                     <Tooltip label="history"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>showHistory(j)}><i className="fa-solid fa-clock-rotate-left"></i></Button></Tooltip>
                     <Tooltip label="delete"><Button size="xs" variant="outline" colorScheme="blue" onClick={()=>doDeleteJob(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
@@ -874,6 +903,9 @@ const JobCard = React.memo(React.forwardRef<HTMLDivElement, {
                   setModalLoading(false)
                 }
               }} icon={<i className="fa-solid fa-diagram-next"></i>} /></Tooltip>
+              {(j.is_executable === 0) && (
+                <Tooltip label="View all jobs in this array"><IconButton aria-label="view array" size="xs" variant="outline" onClick={()=>window.open(`?parent_job=${j.id}`, '_blank', 'noopener,noreferrer')} icon={<i className="fa-solid fa-layer-group"></i>} /></Tooltip>
+              )}
               {(() => { const links = buildShortcuts(j); return links.length ? (
                 <Tooltip label="Shortcuts"><Menu>
                   <MenuButton as={IconButton} size="xs" aria-label="shortcuts" icon={<i className="fa-solid fa-ellipsis"></i>} variant="outline" />
@@ -887,6 +919,8 @@ const JobCard = React.memo(React.forwardRef<HTMLDivElement, {
                 </Menu></Tooltip>
               ) : null })()}
             </ButtonGroup>
+          </Flex>
+          <Flex align="center" gap={2} mt={1}>
           </Flex>
           <Heading size="md" mt={2}>{j.job_name}</Heading>
         </Box>
@@ -1062,6 +1096,7 @@ const JobCard = React.memo(React.forwardRef<HTMLDivElement, {
         {([ -1, -3, 2 ].includes(j.status)) && (
           <Tooltip label="Resume from step"><Button size="sm" onClick={()=>{ openResume(j) }}><i className="fa-solid fa-timeline"></i></Button></Tooltip>
         )}
+        <Tooltip label="Rename"><Button size="sm" variant="outline" onClick={()=>{ setEditValue(j.job_name || ''); setOpenModal({ type: 'rename', job: j }); setModalError(null) }} isDisabled={!!(j.locked)}><i className="fa-solid fa-i-cursor"></i></Button></Tooltip>
         <Tooltip label="Comments / memo"><Button size="sm" colorScheme="blue" onClick={()=>{ setEditValue(j.comments || ''); setOpenModal({ type: 'edit_comments', job: j }) }}><i className="fa-solid fa-comment-dots"></i></Button></Tooltip>
         <Tooltip label="Delete"><Button size="sm" colorScheme="red" onClick={()=>onDelete(j.id)}><i className="fa-solid fa-trash"></i></Button></Tooltip>
         </ButtonGroup>
@@ -1069,8 +1104,10 @@ const JobCard = React.memo(React.forwardRef<HTMLDivElement, {
     )
   })
 
+  const isAuditWarn = Number(j.audit || 0) !== 0
+
   return (
-    <Box ref={ref} position="relative" borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" borderColor={j.status === -3 ? 'red.300' : 'gray.200'} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : 'green.300' }} opacity={isUpdating ? 0.6 : 1}>
+    <Box ref={ref} position="relative" borderWidth="1px" borderRadius="md" p="3" boxShadow="sm" bg={isAuditWarn ? 'orange.50' : undefined} borderColor={j.status === -3 ? 'red.300' : (isAuditWarn ? 'orange.300' : 'gray.200')} _hover={{ boxShadow: 'lg', borderColor: j.status === -3 ? 'red.400' : (isAuditWarn ? 'orange.400' : 'green.300') }} opacity={isUpdating ? 0.6 : 1}>
           {isUpdating && (
             <>
               <Box position="absolute" top={0} left={0} right={0} bottom={0} bg="whiteAlpha.50" zIndex={10} />
@@ -1311,9 +1348,13 @@ export default function JobMonitorPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [runners, setRunners] = useState<{id:number; name:string}[]>([])
   const expEnableRunner = Boolean(import.meta.env.VITE_EXPERIMENTAL_RUNNER)
+  /** When set, we are viewing children of this array (parent) job; search is filtered by parent_job=arrayParentId. */
+  const [arrayParentId, setArrayParentId] = useState<number | null>(null)
+  /** Parent job details when viewing array children (for breadcrumb). */
+  const [arrayParentJob, setArrayParentJob] = useState<Job | null>(null)
 
   // modal state
-  const [openModal, setOpenModal] = useState<null | { type: 'files'|'stdout'|'stderr'|'history'|'edit_param'|'edit_input'|'edit_comments'|'preview'|'dependents'|'dependencies'|'resume'; job: Job; trace?: string; name?: string }>(null)
+  const [openModal, setOpenModal] = useState<null | { type: 'files'|'stdout'|'stderr'|'history'|'edit_param'|'edit_input'|'edit_comments'|'preview'|'dependents'|'dependencies'|'resume'|'rename'; job: Job; trace?: string; name?: string }>(null)
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [dependentsResults, setDependentsResults] = useState<Job[]>([])
@@ -1330,6 +1371,7 @@ export default function JobMonitorPage() {
   const [previewText, setPreviewText] = useState<string>('')
   const [filesActionsDisabled, setFilesActionsDisabled] = useState<boolean>(false)
   const [editValue, setEditValue] = useState('')
+  const [renamePreview, setRenamePreview] = useState<{ filesRenamed?: number; dirsRenamed?: number; conflicts?: string[] } | null>(null)
   const editModalSetValueRef = useRef<null | ((updater: (prev: string)=>string)=>void)>(null)
   const registerEditSetter = useCallback((setter: ((updater: (prev: string)=>string)=>void) | null) => {
     editModalSetValueRef.current = setter
@@ -1365,6 +1407,28 @@ export default function JobMonitorPage() {
     toast({ title: msg, status: type, duration: ms, isClosable: true, position: 'bottom-right' })
   }, [toast])
 
+  // When viewing array children via URL (e.g. ?parent_job=123), fetch parent job for breadcrumb
+  useEffect(() => {
+    if (!arrayParentId || arrayParentJob != null) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await apiGet(`/jobs/${arrayParentId}/`)
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled) setArrayParentJob(data as Job)
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [arrayParentId, arrayParentJob])
+
+  const onBackToAllJobs = useCallback(() => {
+    setArrayParentId(null)
+    setArrayParentJob(null)
+    setPage(1)
+    forceNextRef.current = true
+  }, [])
+
   function resetModalState() {
     try { modalAbortRef.current?.abort() } catch {}
     modalAbortRef.current = null
@@ -1387,6 +1451,7 @@ export default function JobMonitorPage() {
       setEditValue('')
       setDependentsResults([])
       setDependenciesResults([])
+      setRenamePreview(null)
       // clear resume modal state
       setResumePoint(0)
       setResumeMax(0)
@@ -1424,10 +1489,11 @@ export default function JobMonitorPage() {
     if (aIdText.trim()) p.set('id', aIdText.trim())
     if (aIdNotText.trim()) p.set('id_not', aIdNotText.trim())
     if (mode !== 'all') p.set('mode', mode)
+    if (arrayParentId != null) p.set('parent_job', String(arrayParentId))
     p.set('page', String(page))
     p.set('page_size', String(pageSize))
     return p.toString()
-  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, protocolId, aProtocolName, aProtocolNameNot, workspaceId, aWorkspaceName, aWorkspaceNameNot, statusText, statusNotText, aIdText, aIdNotText, mode, page, pageSize])
+  }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, protocolId, aProtocolName, aProtocolNameNot, workspaceId, aWorkspaceName, aWorkspaceNameNot, statusText, statusNotText, aIdText, aIdNotText, mode, arrayParentId, page, pageSize])
 
   // write current filters to URL (throttled)
   const urlUpdateTimeoutRef = useRef<number | null>(null)
@@ -1514,6 +1580,10 @@ export default function JobMonitorPage() {
     if (pg !== page) setPage(pg)
     const psz = (()=>{ const v = parseInt(sp.get('page_size') || '12', 10); return Number.isFinite(v) && v>0 ? v : 12 })()
     if (psz !== pageSize) setPageSize(psz)
+    const parentIdParam = sp.get('parent_job') || sp.get('parent')
+    const nextParentId = parentIdParam && /^\d+$/.test(parentIdParam) ? parseInt(parentIdParam, 10) : null
+    setArrayParentId(nextParentId)
+    if (!nextParentId) setArrayParentJob(null)
 
     // Seed unified input from URL-derived pieces
     const combined = [kw, ids].filter(s => (s || '').trim()).join(' ').trim()
@@ -1540,6 +1610,8 @@ export default function JobMonitorPage() {
   const searchCacheRef = useRef<Map<string, { rows: any[]; total?: number }>>(new Map())
   // per-protocol step counts for progress rendering
   const [protocolStepCounts, setProtocolStepCounts] = useState<Map<number, number>>(new Map())
+  // short-lived overlay for locally edited fields to prevent stale responses from overwriting
+  const localEditsRef = useRef<Map<number, { fields: Partial<Job>; expiresAt: number }>>(new Map())
 
   const ensureProtocolStepCounts = useCallback(async (rows: Job[]) => {
     try {
@@ -1634,9 +1706,9 @@ export default function JobMonitorPage() {
       }
       const data = await res.json()
       const rows = Array.isArray(data) ? data : (data.results || [])
-      // drop stale responses for superseded queries
-      const isLatest = (key === `${lastQueryRef.current}|${lastPageRef.current}|${lastPageSizeRef.current}`)
-      if (!isLatest) {
+      // drop stale responses for superseded queries (sequence + key)
+      const isCurrent = (thisSeq === searchSeqRef.current) && (key === `${lastQueryRef.current}|${lastPageRef.current}|${lastPageSizeRef.current}`)
+      if (!isCurrent) {
         return
       }
       if (!Array.isArray(data)) {
@@ -1658,7 +1730,16 @@ export default function JobMonitorPage() {
         // update cache without total
         searchCacheRef.current.set(key, { rows: rows || [] })
       }
-      setResults(rows || [])
+      // Overlay any recent local edits to prevent flicker
+      const now2 = Date.now()
+      const rowsWithOverlay = (rows || []).map((r: any) => {
+        try {
+          const pin = localEditsRef.current.get(Number(r?.id))
+          if (pin && pin.expiresAt > now2) { return { ...r, ...pin.fields } }
+        } catch {}
+        return r
+      })
+      setResults(rowsWithOverlay as any)
       // ensure step counts available for visible protocols for progress rendering
       try { await ensureProtocolStepCounts(Array.isArray(rows) ? rows as Job[] : []) } catch {}
       setSelectedIds([])
@@ -1694,7 +1775,15 @@ export default function JobMonitorPage() {
       const res = await apiGet(`/jobs/${jobId}/`)
       if (!res.ok) return
       const data = await res.json()
-      setResults(prev => prev.map(j => (j.id === jobId ? { ...j, ...data } : j)))
+      // Respect any active local edits overlay for this job id
+      let merged = data
+      try {
+        const pin = localEditsRef.current.get(jobId)
+        if (pin && pin.expiresAt > Date.now()) {
+          merged = { ...(data || {}), ...(pin.fields || {}) }
+        }
+      } catch {}
+      setResults(prev => prev.map(j => (j.id === jobId ? { ...j, ...merged } : j)))
     } catch {}
   }, [])
 
@@ -1913,7 +2002,7 @@ export default function JobMonitorPage() {
     if (!loading) runSearch()
   }, [aKeywords, aJobNameNot, aParameter, aParameterNot, aInputFile, aInputFileNot, aProtocolName, aProtocolNameNot, aWorkspaceName, aWorkspaceNameNot, aIdText, aIdNotText, runSearch])
 
-  useEffect(() => { if (!isReadingFromURL.current) runSearch() }, [page, pageSize, runSearch])
+  useEffect(() => { if (!isReadingFromURL.current) runSearch() }, [page, pageSize, arrayParentId, runSearch])
   
 
   // periodic refresh for changing job status; pauses on interaction (modal/dropdowns)
@@ -2468,6 +2557,16 @@ export default function JobMonitorPage() {
   return (
     <div>
       <Heading as="h3" mb={4}>Job Status</Heading>
+      {arrayParentId != null && (
+        <Flex align="center" gap={2} mb={3} fontSize="sm">
+          <Text color="gray.600">
+            Array: <strong>{arrayParentJob?.job_name ?? `#${arrayParentId}`}</strong>
+          </Text>
+          <Button size="xs" variant="outline" leftIcon={<i className="fa-solid fa-arrow-left"></i>} onClick={onBackToAllJobs}>
+            Back to all jobs
+          </Button>
+        </Flex>
+      )}
       <FiltersHeader
         nameOrIdInput={nameOrIdInput}
         setNameOrIdInput={useCallback((v: string)=>setNameOrIdInput(v),[])}
@@ -2555,6 +2654,9 @@ export default function JobMonitorPage() {
           fetchAndReplaceJob={fetchAndReplaceJob}
           protocolStepCounts={protocolStepCounts}
           openResume={openResume}
+          setEditValue={setEditValue}
+          setOpenModal={setOpenModal}
+          setModalError={setModalError}
         />
       ) : (
         <JobCards
@@ -2611,6 +2713,7 @@ export default function JobMonitorPage() {
             {openModal?.type === 'dependents' && `Dependents for job #${openModal?.job.id}`}
             {openModal?.type === 'dependencies' && `Dependencies for job #${openModal?.job.id}`}
             {openModal?.type === 'resume' && `Resume job #${openModal?.job.id}`}
+            {openModal?.type === 'rename' && `Rename job #${openModal?.job.id}`}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -2637,7 +2740,24 @@ export default function JobMonitorPage() {
                   try {
                     const payload = openModal.type === 'edit_param' ? { parameter: val } : openModal.type === 'edit_input' ? { input_file: val } : { comments: val }
                     const res = await apiPatch(`/jobs/${openModal.job.id}/`, JSON.stringify(payload))
-                    if (res.ok) { notify('updated', 'success'); resetModalState(); fetchAndReplaceJob(openModal.job.id) } else { notify(await extractError(res), 'error') }
+                    if (res.ok) {
+                      // Optimistically update local row to avoid flicker
+                      const updated = (openModal.type === 'edit_param') ? { parameter: val } : (openModal.type === 'edit_input') ? { input_file: val } : { comments: val }
+                      // Pin the edited fields locally for a short window so stale responses cannot overwrite
+                      try {
+                        const pinForMs = 5000
+                        localEditsRef.current.set(openModal.job.id, { fields: updated as any, expiresAt: Date.now() + pinForMs })
+                      } catch {}
+                      setResults(prev => prev.map(r => r.id === openModal!.job.id ? { ...r, ...updated } : r))
+                      // Clear cached search results and force a fresh search; also abort in-flight
+                      try { searchCacheRef.current.clear() } catch {}
+                      forceNextRef.current = true
+                      try { runSearchRef.current?.() } catch {}
+                      notify('updated', 'success')
+                      resetModalState()
+                      // Reconcile with server data in background
+                      fetchAndReplaceJob(openModal.job.id)
+                    } else { notify(await extractError(res), 'error') }
                   } catch (e:any) {
                     setModalError(e?.message || 'update failed')
                   } finally {
@@ -2645,6 +2765,72 @@ export default function JobMonitorPage() {
                   }
                 }}
               />
+            )}
+            {openModal?.type === 'rename' && (
+              <Box>
+                <Box mb={2} fontSize="sm" opacity={0.8}>This will rename files and directories under this job's results folder that start with the current job name. Operation aborts if any conflicts exist.</Box>
+                <Input value={editValue} onChange={(e)=>{ setEditValue(e.target.value); setRenamePreview(null) }} placeholder="New job name" />
+                {renamePreview && (
+                  <Box mt={3} fontSize="sm">
+                    {Array.isArray(renamePreview.conflicts) && renamePreview.conflicts.length > 0 ? (
+                      <Box>
+                        <Box color="red.600" mb={2}>Conflicts detected ({renamePreview.conflicts.length}):</Box>
+                        <Box maxH="200px" overflowY="auto" borderWidth="1px" rounded="md" p={2} bg="white">
+                          {renamePreview.conflicts.map((p, i) => (
+                            <Box key={i} fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap">{p}</Box>
+                          ))}
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box color="green.600">Would rename approx. {renamePreview.filesRenamed ?? 0} files and {renamePreview.dirsRenamed ?? 0} folders.</Box>
+                    )}
+                  </Box>
+                )}
+                <Flex mt={3} gap={2} justify="flex-end">
+                  <Button size="sm" variant="outline" onClick={resetModalState}>Cancel</Button>
+                  <Button size="sm" variant="outline" onClick={async()=>{
+                    if (!openModal) return
+                    setModalLoading(true)
+                    setModalError(null)
+                    try {
+                      const res = await apiPost(`/jobs/${openModal.job.id}/rename/`, JSON.stringify({ new_name: editValue, dry_run: 1 }))
+                      const data = await res.json()
+                      setRenamePreview(data || null)
+                      if (!res.ok && res.status !== 409) {
+                        notify(await extractError(res), 'error')
+                      }
+                    } catch (e: any) {
+                      setModalError(e?.message || 'preview failed')
+                    } finally {
+                      setModalLoading(false)
+                    }
+                  }}>Preview</Button>
+                  <Button size="sm" colorScheme="blue" isDisabled={!!(renamePreview && Array.isArray(renamePreview.conflicts) && renamePreview.conflicts.length > 0)} onClick={async()=>{
+                    if (!openModal) return
+                    setModalLoading(true)
+                    setModalError(null)
+                    try {
+                      const res = await apiPost(`/jobs/${openModal.job.id}/rename/`, JSON.stringify({ new_name: editValue }))
+                      if (res.ok) {
+                        notify('renamed', 'success')
+                        setResults(prev => prev.map(r => r.id === openModal.job.id ? { ...r, job_name: editValue } : r))
+                        resetModalState()
+                        fetchAndReplaceJob(openModal.job.id)
+                      } else if (res.status === 409) {
+                        const data = await res.json()
+                        setRenamePreview(data || null)
+                        notify('conflicts detected', 'error')
+                      } else {
+                        notify(await extractError(res), 'error')
+                      }
+                    } catch (e: any) {
+                      setModalError(e?.message || 'rename failed')
+                    } finally {
+                      setModalLoading(false)
+                    }
+                  }}>Rename</Button>
+                </Flex>
+              </Box>
             )}
             {!modalError && openModal?.type === 'files' && (
               <Box data-files-container ref={filesContainerRef} maxH="70vh" overflowY="auto" overflowX="hidden">

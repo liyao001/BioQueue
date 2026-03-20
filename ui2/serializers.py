@@ -198,6 +198,8 @@ class _ProtocolScopedMixin:
 class JobSerializer(_ProtocolScopedMixin, serializers.ModelSerializer):
     protocol_name = serializers.CharField(source="protocol.name", read_only=True)
     workspace_name = serializers.CharField(source="workspace.name", read_only=True)
+    parent_job = serializers.IntegerField(source="parent_job_id", read_only=True)
+    is_executable = serializers.IntegerField(read_only=True)
     # allow updating workspace (nullable fk)
     workspace = serializers.PrimaryKeyRelatedField(queryset=Workspace.objects.all(), allow_null=True, required=False)
     # runner (slave) is handled by drf as a normal fk; allow null updates
@@ -225,12 +227,18 @@ class JobSerializer(_ProtocolScopedMixin, serializers.ModelSerializer):
             "slave",
             "slave_name",
             "array_setting",
+            "parent_job",
+            "is_executable",
             "version",
             "create_time",
             "update_time",
             "visibility",
-            "comments"
+            "comments",
+            "audit",
         ]
+        extra_kwargs = {
+            "audit": {"read_only": True},
+        }
 
     def get_fields(self):
         fields = super().get_fields()
@@ -350,7 +358,8 @@ class ProtocolShortcutSerializer(_AutoUserCreateMixin, _ProtocolScopedMixin, ser
         self._limit_protocol_queryset(fields)
         return fields
 
-        
- 
-
+class RunnerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Slave
+        fields = ["id", "name", "comment"]
 

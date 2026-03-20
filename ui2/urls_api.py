@@ -18,6 +18,7 @@ from .api import (
     LogoutView,
     MeView,
     ProtocolShortcutViewSet,
+    RunnerViewSet,
 )
 
 router = DefaultRouter()
@@ -31,6 +32,7 @@ router.register(r"trainings", TrainingViewSet)
 router.register(r"predictions", PredictionViewSet)
 router.register(r"virtual-environments", VirtualEnvironmentViewSet)
 router.register(r"shortcuts", ProtocolShortcutViewSet)
+router.register(r"runners", RunnerViewSet, basename="runner")
 
 urlpatterns = [
     path("", include(router.urls)),

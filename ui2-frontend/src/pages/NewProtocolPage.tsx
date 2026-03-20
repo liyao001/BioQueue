@@ -38,6 +38,21 @@ export default function NewProtocolPage() {
   const [newEnv, setNewEnv] = useState('')
   const [loadingEnvs, setLoadingEnvs] = useState(false)
 
+  // environment filtering (add-step and per-row selectors)
+  const [envFilter, setEnvFilter] = useState('')
+  const filteredEnvironmentsAdd = useMemo(() => {
+    const q = envFilter.trim().toLowerCase()
+    if (!q) return environments
+    return environments.filter(e => `${e.name} ${e.ve_type}`.toLowerCase().includes(q))
+  }, [environments, envFilter])
+
+  const [rowEnvFilter, setRowEnvFilter] = useState('')
+  const filteredEnvironmentsRow = useMemo(() => {
+    const q = rowEnvFilter.trim().toLowerCase()
+    if (!q) return environments
+    return environments.filter(e => `${e.name} ${e.ve_type}`.toLowerCase().includes(q))
+  }, [environments, rowEnvFilter])
+
   // references for autocomplete tokens
   const [references, setReferences] = useState<Array<{ id: number; name?: string; label?: string }>>([])
   const systemTokens = useMemo(() => [
@@ -184,22 +199,35 @@ export default function NewProtocolPage() {
                           )}
                         </MenuButton>
                         <Portal>
-                          <MenuList minW="250px" p={1}>
-                            <MenuOptionGroup
-                              type="radio"
-                              value={st.env ? String(st.env) : ''}
-                              onChange={(v) => {
-                                const envId = v ? parseInt(v as string, 10) : null
-                                setSteps(prev => prev.map((x, i) => i === idx ? { ...x, env: envId } : x))
-                              }}
-                            >
-                              <MenuItemOption value="">none</MenuItemOption>
-                              {environments.map(env => (
-                                <MenuItemOption key={env.id} value={String(env.id)} fontSize="sm">
-                                  {env.name} ({env.ve_type})
-                                </MenuItemOption>
-                              ))}
-                            </MenuOptionGroup>
+                          <MenuList minW="320px" p={2} zIndex={1600}>
+                            <Input size="sm" placeholder="filter environments" mb={2} value={rowEnvFilter} onChange={(e)=>setRowEnvFilter(e.target.value)} />
+                            <Box maxH="260px" overflowY="auto">
+                              <MenuOptionGroup
+                                type="radio"
+                                value={st.env ? String(st.env) : ''}
+                                onChange={(v) => {
+                                  const envId = v ? parseInt(v as string, 10) : null
+                                  setSteps(prev => prev.map((x, i) => i === idx ? { ...x, env: envId } : x))
+                                }}
+                              >
+                                <MenuItemOption value="">none</MenuItemOption>
+                                {filteredEnvironmentsRow.map(env => (
+                                  <MenuItemOption key={env.id} value={String(env.id)} fontSize="sm">
+                                    {env.name} ({env.ve_type})
+                                  </MenuItemOption>
+                                ))}
+                                {st.env && !filteredEnvironmentsRow.find(e => e.id === st.env) && (
+                                  <MenuItemOption value={String(st.env)} fontSize="sm" opacity={0.6}>
+                                    {environments.find(e => e.id === st.env)?.name || `Env ${st.env}`} (selected)
+                                  </MenuItemOption>
+                                )}
+                              </MenuOptionGroup>
+                              {filteredEnvironmentsRow.length === 0 && !st.env && rowEnvFilter && (
+                                <Box fontSize="sm" opacity={0.7} textAlign="center" py={2}>
+                                  no environments match "{rowEnvFilter}"
+                                </Box>
+                              )}
+                            </Box>
                           </MenuList>
                         </Portal>
                       </Menu>
@@ -241,15 +269,28 @@ export default function NewProtocolPage() {
                     )}
                   </MenuButton>
                   <Portal>
-                    <MenuList minW="300px" p={2}>
-                      <MenuOptionGroup type="radio" value={newEnv} onChange={(v) => setNewEnv(v as string)}>
-                        <MenuItemOption value="">none</MenuItemOption>
-                        {environments.map(env => (
-                          <MenuItemOption key={env.id} value={String(env.id)}>
-                            {env.name} ({env.ve_type})
-                          </MenuItemOption>
-                        ))}
-                      </MenuOptionGroup>
+                    <MenuList minW="360px" p={2} zIndex={1600}>
+                      <Input size="sm" placeholder="filter environments" mb={2} value={envFilter} onChange={(e)=>setEnvFilter(e.target.value)} />
+                      <Box maxH="260px" overflowY="auto">
+                        <MenuOptionGroup type="radio" value={newEnv} onChange={(v) => setNewEnv(v as string)}>
+                          <MenuItemOption value="">none</MenuItemOption>
+                          {filteredEnvironmentsAdd.map(env => (
+                            <MenuItemOption key={env.id} value={String(env.id)} fontSize="sm">
+                              {env.name} ({env.ve_type})
+                            </MenuItemOption>
+                          ))}
+                          {newEnv && !filteredEnvironmentsAdd.find(e => String(e.id) === newEnv) && (
+                            <MenuItemOption value={newEnv} fontSize="sm" opacity={0.6}>
+                              {environments.find(e => String(e.id) === newEnv)?.name || newEnv} (selected)
+                            </MenuItemOption>
+                          )}
+                        </MenuOptionGroup>
+                        {filteredEnvironmentsAdd.length === 0 && !newEnv && envFilter && (
+                          <Box fontSize="sm" opacity={0.7} textAlign="center" py={2}>
+                            no environments match "{envFilter}"
+                          </Box>
+                        )}
+                      </Box>
                     </MenuList>
                   </Portal>
                 </Menu>

@@ -12,12 +12,12 @@ import os
 import re
 import operator
 from functools import reduce
-from QueueDB.models import Job, ProtocolList, Protocol, Step, Reference, Workspace, Sample, Training, Prediction, VirtualEnvironment, Environment, FileArchive, JobStatus, Audition, Slave, CrossAccess, ProtocolShortcut
+from QueueDB.models import Job, ProtocolList, Protocol, Step, Reference, Workspace, Sample, Training, Prediction, VirtualEnvironment, Environment, FileArchive, JobStatus, Audition, Slave, CrossAccess, ProtocolShortcut, job_audition
 from django.contrib.auth import authenticate, login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import csrf_exempt
-from .tools import delete_job_file_tree, list_job_files, open_job_file_response, delete_job_file_by_trace, build_preview_response
+from .tools import delete_job_file_tree, list_job_files, open_job_file_response, delete_job_file_by_trace, build_preview_response, rename_job_files
 from worker.bases import get_config, get_job_log
 from .serializers import (
     JobSerializer,
@@ -31,6 +31,7 @@ from .serializers import (
     PredictionSerializer,
     VirtualEnvironmentSerializer,
     ProtocolShortcutSerializer,
+    RunnerSerializer,
 )
 
 
@@ -249,6 +250,162 @@ class JobViewSet(viewsets.ModelViewSet):
             Job.objects.bulk_create(jobs_to_create)
         return Response({"created": len(jobs_to_create), "errors": errors})
 
+    @action(detail=False, methods=["post"], url_path="array", permission_classes=[permissions.IsAuthenticated])
+    def create_array(self, request):
+        """
+        POST /jobs/array/
+
+        Create a legacy-style array job: a virtual parent job plus multiple child jobs.
+
+        Body params (JSON or form):
+          - protocol: int (required)
+          - job_name: str (required)
+          - job_list: str (required) lines format: input_file\tparameter[\tis_gpu][\tsuffix]
+          - workspace: int|null (optional)
+          - target: int (optional runner id)
+          - is_gpu_job: 0/1 (optional; applied to parent only)
+        """
+        delegate = getattr(getattr(request.user, "queuedb_profile_related", None), "delegate", request.user)
+
+        # parse and validate protocol
+        try:
+            proto_id = int(request.data.get("protocol"))
+        except Exception:
+            return Response({"detail": "protocol is required and must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        protocol = ProtocolList.objects.filter(id=proto_id).first()
+        if protocol is None:
+            return Response({"detail": "protocol not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not (request.user.is_staff or protocol.user is None or int(getattr(protocol.user, "id", -1)) == int(getattr(delegate, "id", -1))):
+            return Response({"detail": "No permission to use the requested protocol"}, status=status.HTTP_403_FORBIDDEN)
+
+        # basic inputs
+        job_name = (request.data.get("job_name") or "").strip()
+        if not job_name:
+            return Response({"detail": "job_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        raw_list = request.data.get("job_list")
+        if raw_list is None:
+            return Response({"detail": "job_list is required"}, status=status.HTTP_400_BAD_REQUEST)
+        job_list_text = str(raw_list)
+
+        # optional fields
+        try:
+            parent_gpu = int(request.data.get("is_gpu_job", 0))
+        except Exception:
+            parent_gpu = 0
+        # workspace (limit to delegate)
+        ws_obj = None
+        ws_id = request.data.get("workspace")
+        if ws_id not in (None, ""):
+            try:
+                ws_id_int = int(ws_id)
+                ws_candidate = Workspace.objects.filter(user=delegate, id=ws_id_int).first()
+                if ws_candidate:
+                    ws_obj = ws_candidate
+            except Exception:
+                pass
+        # runner (slave)
+        slave_obj = None
+        target = request.data.get("target")
+        if target not in (None, ""):
+            try:
+                slave_obj = Slave.objects.filter(id=int(target)).first()
+            except Exception:
+                slave_obj = None
+
+        # create virtual parent job
+        try:
+            run_dir = get_config('env', 'workspace')
+        except Exception:
+            run_dir = ""
+        parent_job = Job(
+            protocol=protocol,
+            protocol_ver=protocol.ver,
+            job_name=job_name,
+            parameter=";",
+            run_dir=run_dir,
+            user=delegate,
+            input_file=";",
+            is_gpu_job=parent_gpu,
+            workspace=ws_obj,
+            slave=slave_obj,
+            array_setting="",
+            is_executable=0,
+        )
+        parent_job.save()
+        # create parent folder and set result like legacy: <id>v<version+1>
+        try:
+            parent_job.result = f"{parent_job.id}v{int(parent_job.version or -1)+1}"
+            parent_job.save(update_fields=["result"])
+        except Exception:
+            pass
+        try:
+            base_dir = str(run_dir or os.getcwd())
+            out_dir = os.path.join(base_dir, str(getattr(delegate, "id", "")), str(parent_job.result or ""))
+            if out_dir.strip():
+                os.makedirs(out_dir, exist_ok=True)
+        except Exception:
+            # do not fail the whole request due to FS error
+            pass
+
+        # parse child lines
+        errors = []
+        children = []
+        lines = job_list_text.splitlines()
+        for i, raw in enumerate(lines):
+            line = (raw or "").strip()
+            if not line:
+                continue
+            cols = line.split("\t")
+            if not (2 <= len(cols) <= 4):
+                errors.append({"line": i + 1, "error": "expected 2-4 tab-separated columns"})
+                continue
+            try:
+                in_file = cols[0]
+                param = cols[1]
+                try:
+                    is_gpu = int(cols[2]) if len(cols) >= 3 and cols[2] != "" else 0
+                except Exception:
+                    is_gpu = 0
+                try:
+                    suffix = cols[3] if len(cols) >= 4 and cols[3] != "" else i
+                except Exception:
+                    suffix = i
+                children.append(Job(
+                    parent_job=parent_job,
+                    protocol=protocol,
+                    protocol_ver=protocol.ver,
+                    job_name=f"{job_name}_{suffix}",
+                    input_file=in_file,
+                    parameter=param,
+                    run_dir=run_dir,
+                    user=delegate,
+                    is_gpu_job=is_gpu,
+                    array_setting=i,
+                    visibility=0,
+                    workspace=ws_obj,
+                    slave=slave_obj,
+                ))
+            except Exception as e:
+                errors.append({"line": i + 1, "error": str(e)})
+
+        if children:
+            Job.objects.bulk_create(children)
+            # optional auditing for created children (parity with legacy);
+            # apply only for reasonably small arrays to avoid heavy latency.
+            if len(children) <= 1000:
+                try:
+                    for j in Job.objects.filter(parent_job=parent_job):
+                        job_audition(sender=Job, instance=j, created=True)
+                except Exception:
+                    # auditing should not block job creation
+                    pass
+
+        return Response({
+            "parent_id": parent_job.id,
+            "created": len(children),
+            "errors": errors,
+        })
+
     @action(detail=False, methods=["get"], url_path="status-counts", permission_classes=[permissions.IsAuthenticated])
     def status_counts(self, request):
         """
@@ -374,6 +531,50 @@ class JobViewSet(viewsets.ModelViewSet):
             "limit": limit,
             "has_more": has_more,
         })
+
+    @action(detail=True, methods=["post"], url_path="rename", permission_classes=[permissions.IsAuthenticated])
+    def rename(self, request, pk=None):
+        """
+        POST /jobs/{id}/rename/
+
+        Body params:
+          - new_name: str (required)
+          - dry_run: 0/1 (optional)
+
+        Behavior:
+          - Forbid when job is locked.
+          - Compute renames for files/dirs whose basenames start with old job name variants.
+          - If conflicts exist, return 409 with details.
+          - If no conflicts and not dry_run, perform renames and update job_name.
+        """
+        job = self.get_object()
+        if job.locked:
+            return Response({"detail": "This job is locked, please unlock first"}, status=status.HTTP_400_BAD_REQUEST)
+        new_name = (request.data.get("new_name") or "").strip()
+        if not new_name:
+            return Response({"detail": "new_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            dry_param = request.data.get("dry_run", request.query_params.get("dry_run", 0))
+            dry_run = bool(int(dry_param))
+        except Exception:
+            dry_run = False
+
+        try:
+            result = rename_job_files(job, new_name, dry_run=dry_run)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if result.get("conflicts"):
+            return Response(result, status=status.HTTP_409_CONFLICT)
+        if not dry_run:
+            old = job.job_name or ""
+            job.job_name = new_name
+            try:
+                job.save(update_fields=["job_name"])  # update timestamp as well
+            except Exception:
+                job.save()
+            _audit_operation(job, "Renamed job", comment=f"{old} -> {new_name}")
+        return Response(result)
 
     @action(detail=False, methods=["get"], url_path="workspace-files", permission_classes=[permissions.IsAuthenticated])
     def workspace_files(self, request):
@@ -582,6 +783,7 @@ class JobViewSet(viewsets.ModelViewSet):
           - id: space/comma separated ints (OR among values)
           - id_not: ids to exclude
           - workspace: workspace id
+          - parent_job: when set, return only children of this array parent (otherwise only top-level jobs)
         """
         # scope by current user's delegate and optional shared scope
         delegate = getattr(request.user, "queuedb_profile_related", None)
@@ -605,6 +807,14 @@ class JobViewSet(viewsets.ModelViewSet):
             qs = qs.filter(workspace_id=int(ws_id))
         else:
             apply_vis_filter = True
+
+        # array jobs: top-level only by default; use parent_job=<id> to list children of that parent
+        parent_job_param = request.query_params.get("parent_job") or request.query_params.get("parent")
+        listing_array_children = bool(parent_job_param and str(parent_job_param).isdigit())
+        if listing_array_children:
+            qs = qs.filter(parent_job_id=int(parent_job_param))
+        else:
+            qs = qs.filter(parent_job__isnull=True)
 
         def split_tokens(val: str):
             return [t for t in re.split(r"[\s,]+", (val or "").strip()) if t]
@@ -701,10 +911,12 @@ class JobViewSet(viewsets.ModelViewSet):
         if group_qs:
             qs = qs.filter(reduce(operator.or_ if use_or else operator.and_, group_qs))
 
-        if apply_vis_filter:
-            qs = qs.filter(visibility=1)
-        else:
-            qs = qs.filter(visibility__gte=1)
+        # Array child jobs are created with visibility=0 (legacy); main list hides them via visibility filter.
+        if not listing_array_children:
+            if apply_vis_filter:
+                qs = qs.filter(visibility=1)
+            else:
+                qs = qs.filter(visibility__gte=1)
         qs = qs.order_by("-create_time", "-pk")
         page = self.paginate_queryset(qs)
         if page is not None:
@@ -1361,6 +1573,123 @@ class ProtocolShortcutViewSet(viewsets.ModelViewSet):
                 pass
         return qs.order_by("protocol_id", "order", "id")
 
+
+class RunnerViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Slave.objects.all().order_by("name")
+    serializer_class = RunnerSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def _scoped_jobs_queryset(self, request):
+        delegate = getattr(getattr(request.user, "queuedb_profile_related", None), "delegate", request.user)
+        scope = (request.query_params.get("scope", "own") or "own").lower()
+        if getattr(request.user, "is_staff", False) and scope == "all":
+            return Job.objects.all()
+        if scope in ("shared", "all"):
+            owner_ids = list(CrossAccess.objects.filter(grantee=delegate, allow_read=1).values_list("user_id", flat=True))
+        else:
+            owner_ids = []
+        if scope == "shared":
+            qs = Job.objects.filter(user_id__in=owner_ids)
+        elif scope == "all":
+            qs = Job.objects.filter(Q(user=delegate) | Q(user_id__in=owner_ids))
+        else:
+            qs = Job.objects.filter(user=delegate)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        runners = list(self.get_queryset().values("id", "name", "comment"))
+        if not runners:
+            return Response([])
+        # aggregate counts per runner/status within scope; only WAITING/RUNNING
+        allowed_status = [JobStatus.WAITING, JobStatus.RUNNING]
+        base_qs = self._scoped_jobs_queryset(request).filter(status__in=allowed_status)
+        agg = base_qs.values("slave_id", "status").annotate(count=Count("id"))
+        # build mapping
+        status_labels = {int(v): str(l) for (v, l) in JobStatus.choices}
+        per_runner = {}
+        for row in agg:
+            sid = row.get("slave_id")
+            if sid is None:
+                continue
+            per_runner.setdefault(int(sid), {}).update({int(row["status"]): int(row["count"])})
+        out = []
+        for r in runners:
+            sid = int(r["id"])
+            present = per_runner.get(sid, {})
+            counts = []
+            total = 0
+            for v in [int(JobStatus.WAITING), int(JobStatus.RUNNING)]:
+                label = status_labels.get(v, str(v))
+                c = int(present.get(v, 0))
+                total += c
+                counts.append({"value": v, "label": str(label), "count": c})
+            out.append({
+                "id": sid,
+                "name": r.get("name", ""),
+                "comment": r.get("comment", ""),
+                "total": total,
+                "counts": counts,
+            })
+        return Response(out)
+
+    def retrieve(self, request, pk=None):
+        try:
+            runner = Slave.objects.get(id=int(pk))
+        except Exception:
+            return Response({"detail": "runner not found"}, status=status.HTTP_404_NOT_FOUND)
+        allowed_status = [JobStatus.WAITING, JobStatus.RUNNING]
+        base_qs = self._scoped_jobs_queryset(request).filter(slave_id=runner.id, status__in=allowed_status)
+        agg = base_qs.values("status").annotate(count=Count("id"))
+        present = {int(row["status"]): int(row["count"]) for row in agg}
+        counts = []
+        total = 0
+        status_labels = {int(v): str(l) for (v, l) in JobStatus.choices}
+        for v in [int(JobStatus.WAITING), int(JobStatus.RUNNING)]:
+            c = int(present.get(v, 0))
+            total += c
+            counts.append({"value": v, "label": status_labels.get(v, str(v)), "count": c})
+        return Response({
+            "id": runner.id,
+            "name": runner.name,
+            "comment": runner.comment,
+            "total": total,
+            "counts": counts,
+        })
+
+    @action(detail=True, methods=["get"], url_path="jobs")
+    def jobs(self, request, pk=None):
+        try:
+            runner_id = int(pk)
+        except Exception:
+            return Response({"detail": "invalid runner id"}, status=status.HTTP_400_BAD_REQUEST)
+        allowed_status = [JobStatus.WAITING, JobStatus.RUNNING]
+        base_qs = self._scoped_jobs_queryset(request).filter(slave_id=runner_id)
+        # optional status filter (comma separated ints)
+        raw_status = (request.query_params.get("status", "") or "").strip()
+        vals = []
+        if raw_status:
+            for t in re.split(r"[\s,]+", raw_status):
+                if not t:
+                    continue
+                try:
+                    vals.append(int(t))
+                except Exception:
+                    continue
+        # restrict to allowed statuses; if provided, intersect
+        if vals:
+            vals = [v for v in vals if v in [int(JobStatus.WAITING), int(JobStatus.RUNNING)]]
+        if vals:
+            base_qs = base_qs.filter(status__in=vals)
+        else:
+            base_qs = base_qs.filter(status__in=allowed_status)
+        base_qs = base_qs.order_by("-id")
+        page = self.paginate_queryset(base_qs)
+        if page is not None:
+            ser = JobSerializer(page, many=True)
+            return self.get_paginated_response(ser.data)
+        ser = JobSerializer(base_qs, many=True)
+        return Response(ser.data)
 
 @method_decorator(csrf_exempt, name="dispatch")
 class LoginView(APIView):
