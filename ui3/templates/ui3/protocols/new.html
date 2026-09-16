@@ -1,0 +1,35 @@
+{% extends "ui3/base.html" %}
+{% block title %}New Protocol – BioQueue{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-1">New Protocol</h1>
+<p class="text-sm opacity-70 mb-4 page-head-sub">Define a protocol name and optional steps</p>
+{% if error %}
+  <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+{% endif %}
+<form method="post" class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
+  {% csrf_token %}
+  <label class="form-control">
+    <div class="label"><span class="label-text">Protocol name</span></div>
+    <input class="ui-input w-full" name="name" placeholder="e.g. RNA-seq pipeline" required value="{{ form.name }}">
+  </label>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Description</span></div>
+    <textarea class="ui-input w-full" name="description" rows="3" placeholder="optional description">{{ form.description }}</textarea>
+  </label>
+  <div class="flex items-center justify-between gap-2 flex-wrap">
+    <h2 class="font-semibold">Steps</h2>
+    <button class="ui-btn shrink-0" type="button"
+            hx-get="{% url 'ui3:protocol_step_row' %}"
+            hx-target="#draft-steps"
+            hx-swap="beforeend"><i class="fas fa-plus"></i> Add step</button>
+  </div>
+  {{ token_list|json_script:"ui3-tokens" }}
+  <div id="draft-steps" class="space-y-2">
+    {% include "ui3/protocols/_step_draft_row.html" %}
+  </div>
+  <div class="flex gap-2 pt-1">
+    <button class="ui-btn ui-btn-primary" type="submit">Create protocol</button>
+    <a class="ui-btn" href="{% url 'ui3:protocols' %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "ui3/base.html" %}
+{% block title %}Account – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Account</h1>
+  <p class="text-sm opacity-70 page-head-sub">Password and workspace folder paths for {{ user.username }}</p>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+  <div class="card bg-base-100 shadow-sm p-5">
+    <h2 class="text-lg font-semibold">Change password</h2>
+    {% if password_error %}
+      <div class="alert alert-error mt-3"><span>{{ password_error }}</span></div>
+    {% endif %}
+    <form method="post" action="{% url 'ui3:account' %}" class="mt-3 space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="password">
+      <label class="form-control">
+        <div class="label"><span class="label-text">Current password</span></div>
+        <input class="ui-input w-full" type="password" name="old_password" autocomplete="current-password" required>
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">New password</span></div>
+        <input class="ui-input w-full" type="password" name="new_password" autocomplete="new-password" required>
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Confirm new password</span></div>
+        <input class="ui-input w-full" type="password" name="new_password_2" autocomplete="new-password" required>
+      </label>
+      <div class="flex justify-end">
+        <button class="ui-btn ui-btn-primary" type="submit">Update password</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card bg-base-100 shadow-sm p-5">
+    <h2 class="text-lg font-semibold">Folder paths</h2>
+    <p class="text-sm opacity-70 mt-1">Defaults live under the workspace root. Custom upload and archive paths override those folders; bin stays <code class="text-xs">workspace/bin</code>.</p>
+    <dl class="mt-3 text-sm space-y-1">
+      <div><dt class="field-label inline">Workspace</dt> <dd class="inline font-mono break-all">{{ folders.workspace }}</dd></div>
+      <div><dt class="field-label inline">Uploads</dt> <dd class="inline font-mono break-all">{{ folders.uploads }}</dd></div>
+      <div><dt class="field-label inline">Bin</dt> <dd class="inline font-mono break-all">{{ folders.bin }}</dd></div>
+      <div><dt class="field-label inline">Archives</dt> <dd class="inline font-mono break-all">{{ folders.archives }}</dd></div>
+    </dl>
+    {% if folder_error %}
+      <div class="alert alert-error mt-3"><span>{{ folder_error }}</span></div>
+    {% endif %}
+    <form method="post" action="{% url 'ui3:account' %}" class="mt-3 space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="folders">
+      <label class="form-control">
+        <div class="label">
+          <span class="label-text">Custom uploads folder</span>
+          <span class="label-text-alt">leave blank for default</span>
+        </div>
+        <input class="ui-input w-full" type="text" name="upload_folder" value="{{ upload_folder }}" maxlength="1024" placeholder="{{ folders.workspace }}/uploads">
+      </label>
+      <label class="form-control">
+        <div class="label">
+          <span class="label-text">Custom archives folder</span>
+          <span class="label-text-alt">leave blank for default</span>
+        </div>
+        <input class="ui-input w-full" type="text" name="archive_folder" value="{{ archive_folder }}" maxlength="1024" placeholder="{{ folders.workspace }}/archives">
+      </label>
+      <div class="flex justify-end">
+        <button class="ui-btn ui-btn-primary" type="submit">Save folder paths</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow-sm p-5 mt-4">
+  <h2 class="text-lg font-semibold">Clean unlinked job folders</h2>
+  <p class="text-sm opacity-70 mt-1">Removes directories under the workspace root that are not a current job result and are not <code>refs</code>, <code>bin</code>, <code>uploads</code>, or <code>archives</code>.</p>
+  <form method="post" action="{% url 'ui3:clean_folders' %}" class="mt-3 flex justify-end"
+        onsubmit="return confirm('Delete unlinked folders under the workspace root? This cannot be undone.');">
+    {% csrf_token %}
+    <button class="ui-btn icon-btn-danger" type="submit">Clean unlinked folders</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 class="font-bold text-lg pr-8">Edit virtual environment #{{ env.id }}</h3>
+    <form class="mt-3 space-y-2" method="post" action="{% url 'ui3:environment_edit' env.id %}"
+          hx-post="{% url 'ui3:environment_edit' env.id %}"
+          hx-target="#environment-table"
+          hx-swap="outerHTML">
+      {% csrf_token %}
+      <input class="ui-input w-full" name="name" value="{{ env.name }}" maxlength="50" required>
+      <select class="ui-select w-full" name="ve_type" aria-label="Type">
+        {% for t in ve_types %}
+        <option value="{{ t }}" {% if env.ve_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      <input class="ui-input w-full font-mono" name="value" value="{{ env.value }}" required>
+      <input class="ui-input w-full font-mono" name="activation_command" value="{{ env.activation_command|default:'' }}" placeholder="Activation command (optional)">
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
+        <button class="ui-btn" type="button"
+                hx-post="{% url 'ui3:environment_delete' env.id %}"
+                hx-confirm="Delete this virtual environment?"
+                hx-target="#environment-table"
+                hx-swap="outerHTML">Delete</button>
+        <button class="ui-btn ui-btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

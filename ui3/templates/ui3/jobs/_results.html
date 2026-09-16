@@ -1,0 +1,30 @@
+{% load ui3_tags %}
+{# hx-disinherit: children must not inherit outerHTML swap (that destroyed #modal-root). #}
+<div id="job-results"
+     hx-disinherit="hx-swap hx-target hx-push-url"
+     data-ui3-quiet
+     {% if auto_refresh %}
+     hx-get="{{ job_list_url }}?{{ qs }}"
+     hx-trigger="every 8s[window.ui3 && !window.ui3.shouldPauseAutoRefresh()]"
+     hx-swap="outerHTML"
+     {% endif %}>
+  <div class="flex items-center justify-between gap-2 mb-2 text-sm">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" class="checkbox checkbox-sm" id="select-all-page"
+             onchange="ui3.toggleSelectAll(this.checked)" aria-label="Select all on page">
+      <span>Select all on page</span>
+    </label>
+    <span class="opacity-70">{% if page_obj %}{{ page_obj.paginator.count }} job{{ page_obj.paginator.count|pluralize }}{% endif %}</span>
+  </div>
+  {% if jobs %}
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+    {% for job in jobs %}
+      {% include "ui3/jobs/_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="job-card p-6 text-sm opacity-70">No jobs match these filters.</div>
+  {% endif %}
+  {% if not job_list_url %}{% url 'ui3:jobs' as job_list_url %}{% endif %}
+  {% include "ui3/partials/pager.html" with list_url=job_list_url hx_target="#job-results" hx_include="#job-filters" %}
+</div>

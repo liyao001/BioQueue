@@ -1,0 +1,15 @@
+{% if has_more %}
+<div id="job-files-more-{{ job.id }}"
+     class="py-3 text-center text-sm opacity-70"
+     data-ui3-quiet
+     hx-get="{% url 'ui3:job_files' job.id %}?partial=rows&q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}&limit={{ limit }}&offset={{ next_offset }}"
+     hx-trigger="intersect once root:#job-files-scroll-{{ job.id }}"
+     hx-target="#job-files-tbody-{{ job.id }}"
+     hx-swap="beforeend"
+     hx-indicator="this">
+  <span class="loading loading-spinner loading-sm htmx-indicator mr-1"></span>
+  Loading more…
+</div>
+{% else %}
+<div id="job-files-more-{{ job.id }}"></div>
+{% endif %}

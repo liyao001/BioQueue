@@ -1,0 +1,55 @@
+{% extends "ui3/base.html" %}
+{% block title %}References – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">References</h1>
+    <p class="text-sm opacity-70 page-head-sub">Manage custom reference files</p>
+  </div>
+</div>
+
+<form id="reference-filters" class="filter-bar flex flex-wrap gap-2 mb-4"
+      hx-get="{% url 'ui3:references' %}"
+      hx-target="#reference-table"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="#page-size-select"
+      hx-trigger="submit, input delay:400ms from:input">
+  <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, path, or id">
+  <button class="btn btn-sm" type="submit">Search</button>
+</form>
+
+{% include "ui3/references/_table.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Add reference</h2>
+  <p class="text-sm opacity-70 mb-4">Give the file a short name and the path jobs will resolve (for example <span class="font-mono">{% verbatim %}{{hg38}}{% endverbatim %}</span>).</p>
+  <form method="post" action="{% url 'ui3:reference_create' %}"
+        hx-post="{% url 'ui3:reference_create' %}"
+        hx-target="#reference-table"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <label class="form-control">
+        <div class="label"><span class="label-text">Name</span></div>
+        <input class="ui-input w-full" name="name" maxlength="255" placeholder="hg38" required autocomplete="off">
+      </label>
+      <label class="form-control lg:col-span-2">
+        <div class="label"><span class="label-text">Path</span></div>
+        <input class="ui-input w-full font-mono" name="path" maxlength="500" placeholder="/path/to/genome.fa" required autocomplete="off">
+      </label>
+    </div>
+    <label class="form-control mt-4">
+      <div class="label">
+        <span class="label-text">Description</span>
+        <span class="label-text-alt">optional</span>
+      </div>
+      <textarea class="ui-input w-full" name="description" rows="3" placeholder="Human genome GRCh38, used by alignment protocols"></textarea>
+    </label>
+    <div class="mt-4 flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Create reference</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

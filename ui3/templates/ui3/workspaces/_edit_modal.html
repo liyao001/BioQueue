@@ -1,0 +1,23 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 class="font-bold text-lg pr-8">Edit workspace #{{ ws.id }}</h3>
+    <form class="mt-3 space-y-2" method="post" action="{% url 'ui3:workspace_edit' ws.id %}"
+          hx-post="{% url 'ui3:workspace_edit' ws.id %}"
+          hx-target="#workspace-table"
+          hx-swap="outerHTML">
+      {% csrf_token %}
+      <input class="ui-input w-full" name="name" value="{{ ws.name }}" maxlength="255" required>
+      <textarea class="textarea textarea-bordered w-full" name="description" rows="4">{{ ws.description }}</textarea>
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
+        <button class="ui-btn" type="button"
+                hx-post="{% url 'ui3:workspace_delete' ws.id %}"
+                hx-confirm="Delete this workspace?"
+                hx-target="#workspace-table"
+                hx-swap="outerHTML">Delete</button>
+        <button class="ui-btn ui-btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,39 @@
+{% load ui3_tags %}
+<div id="archive-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Job</th>
+        <th>Protocol</th>
+        <th>Status</th>
+        <th>Description</th>
+        <th>Share list</th>
+        <th>Archive file</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in archives %}
+      <tr>
+        <td>{{ a.id }}</td>
+        <td>
+          {% if a.job_id %}
+          <a class="hover:underline" href="{% url 'ui3:jobs' %}?id={{ a.job_id }}">#{{ a.job_id }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-sm">{{ a.protocol.name }} <span class="opacity-60">{{ a.protocol_ver }}</span></td>
+        <td>{{ a.ui3_status }}</td>
+        <td class="text-sm break-words">{{ a.description|default:"" }}</td>
+        <td class="text-sm break-all">{{ a.shared_with|default:"" }}</td>
+        <td class="font-mono text-xs break-all">{{ a.archive_file|default:"" }}</td>
+        <td class="text-xs opacity-80 whitespace-nowrap">{{ a.create_time|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="opacity-70">No archives queued yet. Select result files on a job and queue an archive.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% url 'ui3:archives' as list_url %}
+  {% include "ui3/partials/pager.html" with hx_target="#archive-table" item_label="archive" %}
+</div>

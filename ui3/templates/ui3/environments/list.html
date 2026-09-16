@@ -1,0 +1,63 @@
+{% extends "ui3/base.html" %}
+{% block title %}Virtual Environments – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">Virtual Environments</h1>
+    <p class="text-sm opacity-70 page-head-sub">Conda and venv activations used by protocol steps</p>
+  </div>
+</div>
+
+<form id="environment-filters" class="filter-bar flex flex-wrap gap-2 mb-4"
+      hx-get="{% url 'ui3:environments' %}"
+      hx-target="#environment-table"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="#page-size-select"
+      hx-trigger="submit, input delay:400ms from:input">
+  <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, type, value, or id">
+  <button class="btn btn-sm" type="submit">Search</button>
+</form>
+
+{% include "ui3/environments/_table.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Add virtual environment</h2>
+  <p class="text-sm opacity-70 mb-4">Conda or venv activations that protocol steps can select.</p>
+  <form method="post" action="{% url 'ui3:environment_create' %}"
+        hx-post="{% url 'ui3:environment_create' %}"
+        hx-target="#environment-table"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <label class="form-control">
+        <div class="label"><span class="label-text">Name</span></div>
+        <input class="ui-input w-full" name="name" maxlength="50" placeholder="py310" required autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Type</span></div>
+        <select class="ui-select w-full" name="ve_type" aria-label="Type">
+          {% for t in ve_types %}
+          <option value="{{ t }}" {% if t == "conda" %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="form-control lg:col-span-2">
+        <div class="label"><span class="label-text">Value</span></div>
+        <input class="ui-input w-full font-mono" name="value" placeholder="bioqueue or /path/to/venv" required autocomplete="off">
+      </label>
+    </div>
+    <label class="form-control mt-4">
+      <div class="label">
+        <span class="label-text">Activation command</span>
+        <span class="label-text-alt">optional</span>
+      </div>
+      <input class="ui-input w-full font-mono" name="activation_command" placeholder="conda activate bioqueue" autocomplete="off">
+    </label>
+    <div class="mt-4 flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Create environment</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% load ui3_tags %}
+{% with is_shell=software|is_shell_step %}
+<div class="step-fields space-y-3" data-ui3-step-fields>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Step type</span></div>
+    <select class="ui-select w-full" data-ui3-step-kind aria-label="Step type"
+            onchange="ui3.applyStepKind(this)">
+      <option value="command"{% if not is_shell %} selected{% endif %}>Command</option>
+      <option value="shell"{% if is_shell %} selected{% endif %}>Shell script</option>
+    </select>
+  </label>
+  <label class="form-control{% if is_shell %} hidden{% endif %}" data-ui3-software-wrap>
+    <div class="label"><span class="label-text">Software</span></div>
+    <input class="ui-input w-full" name="software" data-ui3-software
+           placeholder="e.g. bowtie2"
+           value="{{ software|default:'' }}"
+           {% if software_required %}required data-required="1"{% endif %}>
+  </label>
+  <label class="form-control">
+    <div class="label"><span class="label-text" data-ui3-parameter-label">{% if is_shell %}Script{% else %}Parameter{% endif %}</span></div>
+    <textarea class="ui-input w-full font-mono" name="parameter" data-ui3-parameter data-ui3-complete
+              rows="{% if is_shell %}8{% else %}2{% endif %}"
+              placeholder="{% if is_shell %}{% shell_script_placeholder %}{% else %}command / parameter string{% endif %}">{{ parameter|default:'' }}</textarea>
+    <p class="text-xs opacity-70 mt-1{% if not is_shell %} hidden{% endif %}" data-ui3-parameter-help>
+      Runs as bash in the job folder. Software is <code>{% shell_software %}</code>.
+      On a cluster, GPU / partition / array come from the job (GPU flag, array setting)
+      or special parameters <code>ClusterGpus</code>, <code>ClusterPartition</code>,
+      <code>ClusterTime</code>, <code>ClusterMem</code>, <code>ClusterExclude</code>,
+      <code>ClusterExtra</code>.
+    </p>
+  </label>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Environment</span></div>
+    {% include "ui3/protocols/_env_combo.html" %}
+  </label>
+</div>
+{% endwith %}

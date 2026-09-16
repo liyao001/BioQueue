@@ -1,0 +1,323 @@
+{% load ui3_tags %}
+<article id="job-card-{{ job.id }}"
+         class="job-card p-3 flex flex-col h-full {% if job.status == -3 %}is-failed{% endif %} {% if job.audit %}is-audit{% endif %} {% if job.locked %}is-locked{% endif %}">
+  <header class="flex items-start justify-between gap-2">
+    <div class="min-w-0">
+      <div class="job-card-actions flex items-center gap-2 text-sm flex-wrap">
+        {% if job.ui3_can_write %}
+        <label class="inline-flex items-center" title="Select job">
+          <input type="checkbox" class="job-select checkbox checkbox-sm" name="ids" value="{{ job.id }}"
+                 form="bulk-form" aria-label="Select job #{{ job.id }}">
+        </label>
+        {% endif %}
+        <span class="opacity-70">#{{ job.id }}</span>
+        {% if not job.ui3_can_write %}<span class="text-xs opacity-50">read-only</span>{% endif %}
+        <div class="icon-btn-group">
+          {% if job.ui3_can_write %}
+          {% if job.visibility != 0 %}
+          <button type="button" class="icon-btn" title="{% if job.locked %}Locked — unlock to hide{% else %}Hide{% endif %}"
+                  {% if job.locked %}disabled{% endif %}
+                  hx-post="{% url 'ui3:job_visibility' job.id %}" hx-vals='{"visibility": 0}'
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fas fa-ban"></i></button>
+          {% endif %}
+          {% if job.visibility != 2 %}
+          <button type="button" class="icon-btn" title="{% if job.locked %}Locked — unlock to change visibility{% else %}Visible in workspace{% endif %}"
+                  {% if job.locked %}disabled{% endif %}
+                  hx-post="{% url 'ui3:job_visibility' job.id %}" hx-vals='{"visibility": 2}'
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-eye-slash"></i></button>
+          {% endif %}
+          {% if job.visibility != 1 %}
+          <button type="button" class="icon-btn" title="{% if job.locked %}Locked — unlock to change visibility{% else %}Visible{% endif %}"
+                  {% if job.locked %}disabled{% endif %}
+                  hx-post="{% url 'ui3:job_visibility' job.id %}" hx-vals='{"visibility": 1}'
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-eye"></i></button>
+          {% endif %}
+          <button type="button" class="icon-btn" title="{% if job.locked %}Unlock{% else %}Lock{% endif %}"
+                  hx-post="{% url 'ui3:job_lock' job.id %}"
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML">
+            <i class="fa-solid {% if job.locked %}fa-lock-open{% else %}fa-lock{% endif %}"></i>
+          </button>
+          <button type="button" class="icon-btn" title="{% if job.locked %}Locked — unlock to change GPU{% elif job.is_gpu_job %}GPU job — click for CPU{% else %}CPU job — click for GPU{% endif %}"
+                  {% if job.locked or job.status == 1 %}disabled{% endif %}
+                  hx-post="{% url 'ui3:job_gpu' job.id %}"
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML">
+            <i class="fa-solid {% if job.is_gpu_job %}fa-bolt{% else %}fa-microchip{% endif %}"></i>
+          </button>
+          {% if job.status != 0 and job.status != 1 and job.status != -1 %}
+          <button type="button" class="icon-btn icon-btn-ok"
+                  title="{% if job.locked %}Locked — unlock to mark finished{% else %}Mark finished{% endif %}"
+                  {% if job.locked %}disabled{% endif %}
+                  hx-post="{% url 'ui3:job_mark_finished' job.id %}"
+                  hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-circle-check"></i></button>
+          {% endif %}
+          {% endif %}
+          <a class="icon-btn" href="{% url 'ui3:job_create' %}?clone={{ job.id }}" title="Clone this job">
+            <i class="fa-regular fa-clone"></i>
+          </a>
+          <button type="button" class="icon-btn" title="Compare parameters and inputs"
+                  hx-get="{% url 'ui3:job_compare' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+            <i class="fa-solid fa-code-compare"></i>
+          </button>
+          {% if job.is_executable == 0 %}
+          <a class="icon-btn" href="{% url 'ui3:job_array' job.id %}" title="View all jobs in this array">
+            <i class="fa-solid fa-layer-group"></i>
+          </a>
+          {% endif %}
+          {% if job.ui3_shortcuts %}
+          <div class="ui-combo" data-combo data-combo-nosubmit>
+            <button type="button" class="icon-btn" title="Shortcuts" onclick="ui3.comboToggle(this)">
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <div class="ui-combo-panel" style="min-width: 12rem;">
+              <div class="ui-combo-list">
+                {% for sc in job.ui3_shortcuts %}
+                <a class="block px-2 py-1 text-sm hover:bg-base-200 rounded" href="{{ sc.href }}" target="_blank" rel="noopener noreferrer">{{ sc.label }}</a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <h2 class="text-lg font-semibold mt-2 break-words">{{ job.job_name }}</h2>
+    </div>
+    <div class="relative w-8 h-8 shrink-0">
+      <div class="absolute inset-0 flex items-center justify-center">{% status_badge job %}</div>
+      {% if job.status == 1 and job.ui3_step_total %}
+      <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none opacity-80"
+           title="step {{ job.resume|default:0|add:1 }} of {{ job.ui3_step_total }}">
+        {{ job.resume|default:0|add:1 }}/{{ job.ui3_step_total }}
+      </div>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="mt-2 text-sm opacity-80 flex-1 min-h-0 overflow-auto" style="max-height: 290px;">
+    <div title="{{ job.protocol_id }} – {{ job.protocol_ver }}">
+      <span class="field-label">Protocol</span>
+      <a class="hover:underline" href="{% url 'ui3:protocols' %}?select={{ job.protocol_id }}" target="_blank" rel="noopener noreferrer">{{ job.protocol.name }}</a>
+      {% if job.protocol_id %}
+      <a class="icon-btn inline-flex align-middle" href="{% url 'ui3:job_protocol_diff' job.id %}" title="Compare to current protocol version">
+        <i class="fa-solid fa-file-code"></i>
+      </a>
+      {% endif %}
+    </div>
+    <div class="mt-1 flex items-center gap-2 flex-wrap">
+      <span class="field-label">Workspace</span>
+      {% if job.locked or not job.ui3_can_write %}
+        <span>{{ job.workspace.name|default:"(none)" }}</span>
+      {% else %}
+        <div class="ui-combo job-card-combo" data-combo data-combo-nosubmit
+             data-post-url="{% url 'ui3:job_workspace' job.id %}">
+          <input type="hidden" class="combo-value" value="{% if job.workspace_id %}{{ job.workspace_id }}{% endif %}">
+          <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)">
+            <span class="combo-label">{% if job.workspace %}{{ job.workspace.name }}{% else %}(none){% endif %}</span>
+          </button>
+          <div class="ui-combo-panel" hx-disinherit="*">
+            <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+                   hx-get="{% url 'ui3:workspace_options' %}"
+                   hx-trigger="input delay:200ms changed, focus"
+                   hx-target="next .combo-list"
+                   hx-swap="innerHTML"
+                   hx-params="combo_q,empty"
+                   hx-vals='{"empty": "(none)"}'
+                   hx-include="this"
+                   autocomplete="off"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+            <div class="combo-list ui-combo-list"></div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    <div class="mt-1 flex items-center gap-1">
+      <span class="field-label">Results</span>
+      <div class="icon-btn-group">
+        <button type="button" class="icon-btn icon-btn-label" title="Results folder"
+                hx-get="{% url 'ui3:job_files' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+          <i class="fa-regular fa-folder-open"></i>
+          <span class="ml-1 text-xs">{{ job.result|default:"" }}</span>
+        </button>
+        <button type="button" class="icon-btn" title="Stdout"
+                hx-get="{% url 'ui3:job_logs' job.id %}?kind=stdout" hx-target="#modal-root" hx-swap="innerHTML">
+          <i class="fa-solid fa-file-lines"></i>
+        </button>
+        <button type="button" class="icon-btn" title="Stderr"
+                hx-get="{% url 'ui3:job_logs' job.id %}?kind=stderr" hx-target="#modal-root" hx-swap="innerHTML">
+          <i class="fa-solid fa-file-circle-exclamation"></i>
+        </button>
+        <button type="button" class="icon-btn" title="History"
+                hx-get="{% url 'ui3:job_history' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mt-1">
+      <span class="field-label">Parameters</span>
+      {% if job.status == 1 or job.locked or not job.ui3_can_write %}
+        <pre class="font-mono text-xs whitespace-pre-wrap break-words opacity-60" {% if job.locked %}title="Locked — unlock to edit"{% endif %}>{{ job.parameter|default:"(empty)" }}</pre>
+      {% else %}
+        <button type="button" class="block w-full text-left font-mono text-xs whitespace-pre-wrap break-words hover:underline"
+                hx-get="{% url 'ui3:job_edit_field' job.id 'parameter' %}" hx-target="#modal-root" hx-swap="innerHTML">{{ job.parameter|default:"(empty)" }}</button>
+      {% endif %}
+    </div>
+    <div class="mt-1">
+      <span class="field-label">Input files</span>
+      {% if job.status == 1 or job.locked or not job.ui3_can_write %}
+        <pre class="font-mono text-xs whitespace-pre-wrap break-words opacity-60" {% if job.locked %}title="Locked — unlock to edit"{% endif %}>{{ job.input_file|default:"(empty)" }}</pre>
+      {% else %}
+        <button type="button" class="block w-full text-left font-mono text-xs whitespace-pre-wrap break-words hover:underline"
+                hx-get="{% url 'ui3:job_edit_field' job.id 'input_file' %}" hx-target="#modal-root" hx-swap="innerHTML">{{ job.input_file|default:"(empty)" }}</button>
+      {% endif %}
+    </div>
+    <div class="mt-1 flex items-center gap-2 flex-wrap">
+      <span class="field-label">Array setting</span>
+      {% if job.locked or not job.ui3_can_write %}
+        {% if job.array_setting %}
+        <span class="array-chip"><i class="fa-solid fa-layer-group"></i> {{ job.array_setting }}</span>
+        {% else %}
+        <span class="text-xs opacity-50">(not set)</span>
+        {% endif %}
+      {% elif job.array_setting %}
+        <button type="button" class="array-chip" title="Click to edit array setting"
+                hx-get="{% url 'ui3:job_edit_field' job.id 'array_setting' %}" hx-target="#modal-root" hx-swap="innerHTML">
+          <i class="fa-solid fa-layer-group"></i> {{ job.array_setting }}
+        </button>
+      {% else %}
+        <button type="button" class="text-xs opacity-50 hover:opacity-90 hover:underline" title="Set array setting"
+                hx-get="{% url 'ui3:job_edit_field' job.id 'array_setting' %}" hx-target="#modal-root" hx-swap="innerHTML">(not set)</button>
+      {% endif %}
+    </div>
+    <div class="mt-1 flex items-center gap-2 flex-wrap">
+      <span class="field-label">Runner</span>
+      {% if job.locked or not job.ui3_can_write %}
+        <span>{{ job.slave.name|default:"(none)" }}</span>
+      {% else %}
+        <div class="ui-combo job-card-combo" data-combo data-combo-nosubmit
+             data-post-url="{% url 'ui3:job_runner' job.id %}">
+          <input type="hidden" class="combo-value" value="{% if job.slave_id %}{{ job.slave_id }}{% endif %}">
+          <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)">
+            <span class="combo-label">{% if job.slave %}{{ job.slave.name }}{% else %}(none){% endif %}</span>
+          </button>
+          <div class="ui-combo-panel" hx-disinherit="*">
+            <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter runners"
+                   hx-get="{% url 'ui3:runner_options' %}"
+                   hx-trigger="input delay:200ms changed, focus"
+                   hx-target="next .combo-list"
+                   hx-swap="innerHTML"
+                   hx-params="combo_q,empty"
+                   hx-vals='{"empty": "(none)"}'
+                   hx-include="this"
+                   autocomplete="off"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+            <div class="combo-list ui-combo-list"></div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    <div class="mt-1"><span class="field-label">Created</span> <span class="text-xs opacity-80">{{ job.create_time|date:"Y-m-d H:i" }}</span></div>
+    <div class="mt-1"><span class="field-label">Updated</span> <span class="text-xs opacity-80">{{ job.update_time|date:"Y-m-d H:i" }}</span></div>
+  </div>
+
+  <footer class="mt-3 flex justify-center">
+    <div class="icon-btn-group">
+      {% if job.ui3_can_write %}
+      {% if job.status >= 0 %}
+      <button type="button" class="icon-btn icon-btn-danger"
+              title="Terminate"
+              hx-post="{% url 'ui3:job_terminate' job.id %}" hx-include="#job-filters"
+              hx-target="#job-results" hx-swap="outerHTML"
+              hx-confirm="Terminate job #{{ job.id }}?"><i class="fa-solid fa-stop"></i></button>
+      {% endif %}
+      {% if job.status < 1 %}
+      <button type="button" class="icon-btn"
+              title="{% if job.locked %}Locked — unlock to rerun{% else %}Rerun (clean){% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_rerun' job.id %}" hx-include="#job-filters"
+              hx-target="#job-results" hx-swap="outerHTML"
+              hx-confirm="Rerun job #{{ job.id }} (clean)?"><i class="fa-solid fa-rotate-right"></i></button>
+      <button type="button" class="icon-btn"
+              title="{% if job.locked %}Locked — unlock to rerun{% else %}Rerun in-situ{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_rerun' job.id %}" hx-vals='{"insitu": 1}'
+              hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"
+              hx-confirm="Rerun job #{{ job.id }} in situ?"><i class="fa-solid fa-arrows-rotate"></i></button>
+      {% endif %}
+      {% if job.status != 0 and job.status != 1 %}
+      <button type="button" class="icon-btn icon-btn-warn"
+              title="{% if job.locked %}Locked — unlock to mark failed{% else %}Mark failed{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_mark_wrong' job.id %}"
+              hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-triangle-exclamation"></i></button>
+      {% endif %}
+      {% if job.status == -1 or job.status == -3 or job.status == 2 %}
+      <button type="button" class="icon-btn icon-btn-ok"
+              title="{% if job.locked %}Locked — unlock to resume{% else %}Resume from step{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-get="{% url 'ui3:job_resume' job.id %}" hx-target="#modal-root" hx-swap="innerHTML"><i class="fa-solid fa-timeline"></i></button>
+      {% endif %}
+      <button type="button" class="icon-btn icon-btn-danger"
+              title="{% if job.locked %}Locked — unlock to delete{% else %}Delete{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_delete' job.id %}" hx-include="#job-filters"
+              hx-target="#job-results" hx-swap="outerHTML"
+              hx-confirm="Delete job #{{ job.id }}?"><i class="fa-solid fa-trash"></i></button>
+      <button type="button" class="icon-btn"
+              title="{% if job.locked %}Locked — unlock to edit comments{% else %}Comments / memo{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-get="{% url 'ui3:job_edit_field' job.id 'comments' %}" hx-target="#modal-root" hx-swap="innerHTML">
+        <i class="{% if job.comments %}fa-solid fa-comment-dots{% else %}fa-regular fa-comment{% endif %}"></i>
+      </button>
+      {% endif %}
+      <div class="ui-combo" data-combo data-combo-nosubmit>
+        <button type="button" class="icon-btn" title="More" onclick="ui3.comboToggle(this)">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <div class="ui-combo-panel" style="min-width: 18rem;">
+          <div class="ui-combo-list ui-combo-menu flex flex-col">
+            {% if job.ui3_can_write %}
+            <button type="button" class="ui-combo-item whitespace-nowrap"
+                    title="Archive result files"
+                    onclick="ui3.closeCombos()"
+                    hx-get="{% url 'ui3:job_archive' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+              <i class="fa-solid fa-box-archive"></i> Archive result files
+            </button>
+            {% endif %}
+            <button type="button" class="ui-combo-item whitespace-nowrap"
+                    title="Dependents (jobs that reference this job)"
+                    onclick="ui3.closeCombos()"
+                    hx-get="{% url 'ui3:job_dependents' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+              <i class="fa-solid fa-up-long"></i> Dependents
+            </button>
+            <button type="button" class="ui-combo-item whitespace-nowrap"
+                    title="Dependencies (jobs this job depends on)"
+                    onclick="ui3.closeCombos()"
+                    hx-get="{% url 'ui3:job_dependencies' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+              <i class="fa-solid fa-down-long"></i> Dependencies
+            </button>
+            <a class="ui-combo-item whitespace-nowrap" href="{% url 'ui3:dag' %}?seeds={{ job.id }}" title="Open in DAG explorer">
+              <i class="fa-solid fa-diagram-project"></i> Open in DAG explorer
+            </a>
+            {% if job.ui3_can_write %}
+            <button type="button" class="ui-combo-item whitespace-nowrap icon-btn-warn"
+                    title="{% if job.locked %}Locked — unlock to purge results{% else %}Purge result files (keep job){% endif %}"
+                    {% if job.locked %}disabled{% endif %}
+                    onclick="ui3.closeCombos()"
+                    hx-post="{% url 'ui3:job_purge' job.id %}" hx-include="#job-filters"
+                    hx-target="#job-results" hx-swap="outerHTML"
+                    hx-confirm="Purge result files for job #{{ job.id }}? The job record is kept.">
+              <i class="fa-solid fa-eraser"></i> Purge result files
+            </button>
+            <button type="button" class="ui-combo-item whitespace-nowrap"
+                    title="{% if job.locked %}Locked — unlock to rename{% else %}Rename{% endif %}"
+                    {% if job.locked %}disabled{% endif %}
+                    onclick="ui3.closeCombos()"
+                    hx-get="{% url 'ui3:job_rename' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
+              <i class="fa-solid fa-i-cursor"></i> Rename
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</article>

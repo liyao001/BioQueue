@@ -1,0 +1,8 @@
+<div class="draft-step border border-base-300 rounded-md p-3 space-y-3 bg-base-200/30">
+  <div class="flex justify-end gap-1">
+    <button type="button" class="icon-btn" title="Move up" onclick="ui3.moveDraftStep(this, -1)"><i class="fa-solid fa-arrow-up"></i></button>
+    <button type="button" class="icon-btn" title="Move down" onclick="ui3.moveDraftStep(this, 1)"><i class="fa-solid fa-arrow-down"></i></button>
+    <button type="button" class="icon-btn icon-btn-danger" title="Remove step" onclick="ui3.removeDraftStep(this)"><i class="fa-regular fa-trash-can"></i></button>
+  </div>
+  {% include "ui3/protocols/_step_fields.html" %}
+</div>

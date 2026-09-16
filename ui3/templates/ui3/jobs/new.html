@@ -1,0 +1,319 @@
+{% extends "ui3/base.html" %}
+{% block title %}New Job – BioQueue{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-1">New Job</h1>
+<p class="text-sm opacity-70 mb-4{% if not clone %} page-head-sub{% endif %}">
+  {% if clone %}Cloned from job #{{ clone.id }}{% else %}Create single, bulk, or array jobs{% endif %}
+</p>
+
+{% if error %}
+  <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+{% endif %}
+{% if warning %}
+  <div class="alert alert-warning mb-4"><span>{{ warning }}</span></div>
+{% endif %}
+
+{% if batch_result %}
+  <div class="alert {% if batch_result.created %}alert-success{% else %}alert-warning{% endif %} mb-4">
+    <div>
+      <div class="font-medium">Created {{ batch_result.created }} job(s).</div>
+      {% if batch_result.errors %}
+        <ul class="mt-1 text-sm list-disc list-inside">
+          {% for err in batch_result.errors %}
+            <li>Line {{ err.line }}: {{ err.error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% if array_result %}
+  <div class="alert alert-success mb-4">
+    <div>
+      <div class="font-medium">
+        Array parent #{{ array_result.parent.id }} with {{ array_result.created }} child job(s).
+      </div>
+      {% if array_result.errors %}
+        <ul class="mt-1 text-sm list-disc list-inside">
+          {% for err in array_result.errors %}
+            <li>Line {{ err.line }}: {{ err.error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<nav class="bq-tabs" aria-label="Create job mode">
+  <a class="{% if tab == 'single' or not tab %}is-active{% endif %}" href="?tab=single{% if clone %}&clone={{ clone.id }}{% endif %}">Single</a>
+  <a class="{% if tab == 'bulk' %}is-active{% endif %}" href="?tab=bulk">Bulk (TSV)</a>
+  <a class="{% if tab == 'bulkfile' %}is-active{% endif %}" href="?tab=bulkfile">Bulk file</a>
+  <a class="{% if tab == 'array' %}is-active{% endif %}" href="?tab=array">Array</a>
+</nav>
+
+{% if tab == 'single' or not tab %}
+<form method="post" action="{% url 'ui3:job_create' %}" class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
+  {% csrf_token %}
+  <label class="form-control">
+    <div class="label"><span class="label-text">Job name</span></div>
+    <input class="ui-input w-full" name="job_name" id="id_job_name" required value="{{ form.job_name }}">
+  </label>
+
+  <div class="form-control">
+    <div class="label"><span class="label-text">Protocol</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="protocol" id="id_protocol" required
+             value="{% if form.protocol %}{{ form.protocol }}{% endif %}"
+             hx-get="{% url 'ui3:parameter_scaffold' %}"
+             hx-trigger="change"
+             hx-include="this"
+             hx-vals="js:{protocol: event.target.value, force: 1}"
+             hx-target="#parameter-scaffold-swap"
+             hx-swap="innerHTML">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% else %}Select protocol{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter protocols"
+               hx-get="{% url 'ui3:protocol_options' %}?empty=Select+protocol{% if selected_protocol %}&pin={{ selected_protocol.id }}{% endif %}"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty,pin"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+    {% if selected_protocol.description %}
+    <p class="text-sm opacity-70 mt-2 whitespace-pre-wrap">{{ selected_protocol.description }}</p>
+    {% endif %}
+  </div>
+
+  <div class="form-control">
+    <div class="label"><span class="label-text">Workspace</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="workspace" id="id_workspace"
+             value="{% if form.workspace %}{{ form.workspace }}{% endif %}">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_workspace %}{{ selected_workspace.name }}{% else %}(none){% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+               hx-get="{% url 'ui3:workspace_options' %}?empty=(none)"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="parameter-scaffold-swap" class="hidden" aria-hidden="true"></div>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Parameters</span></div>
+    {{ token_list|json_script:"ui3-tokens" }}
+    <textarea class="ui-input w-full font-mono" name="parameter" id="id_parameter" rows="4"
+              data-ui3-complete
+              placeholder="key=value;key2=value2">{{ form.parameter }}</textarea>
+    <div class="label"><span class="label-text-alt opacity-70">semicolon-separated; keys are passed to the protocol. Cluster overrides: ClusterGpus, ClusterPartition, ClusterTime, ClusterMem, ClusterExclude, ClusterExtra, ClusterArray</span></div>
+  </label>
+
+  <label class="form-control">
+    <div class="label"><span class="label-text">Input files</span></div>
+    <textarea class="ui-input w-full font-mono" name="input_file" id="id_input_file" rows="3"
+              data-ui3-complete
+              placeholder="/path/to/file1;/path/to/file2 or {% verbatim %}{{History:123-output/file.txt}}{% endverbatim %}">{{ form.input_file }}</textarea>
+    <div class="label"><span class="label-text-alt opacity-70">use semicolons to separate multiple files; you can also insert results from other jobs</span></div>
+  </label>
+  <div class="flex flex-wrap gap-2">
+    <button type="button" class="ui-btn"
+            hx-get="{% url 'ui3:workspace_uploads' %}?target=id_input_file"
+            hx-target="#modal-root" hx-swap="innerHTML">
+      <i class="fa-regular fa-folder-open"></i> Insert from uploads
+    </button>
+    <button type="button" class="ui-btn"
+            hx-get="{% url 'ui3:job_results_picker' %}?target=id_input_file"
+            hx-target="#modal-root" hx-swap="innerHTML">
+      <i class="fa-regular fa-clone"></i> Insert from job results
+    </button>
+  </div>
+
+  <label class="form-control">
+    <div class="label"><span class="label-text">Comments</span></div>
+    <textarea class="ui-input w-full" name="comments" id="id_comments" rows="2"
+              placeholder="optional notes">{{ form.comments }}</textarea>
+  </label>
+
+  <label class="form-control">
+    <div class="label"><span class="label-text">Array setting</span></div>
+    <input class="ui-input w-full" name="array_setting" id="id_array_setting"
+           value="{{ form.array_setting }}" placeholder="e.g., 1-10,15,20-25">
+    <div class="label"><span class="label-text-alt opacity-70">optional ranges for array-style execution</span></div>
+  </label>
+
+  <label class="label cursor-pointer justify-start gap-2">
+    <input type="checkbox" class="checkbox" name="is_gpu_job" value="1" {% if form.is_gpu_job %}checked{% endif %}>
+    <span class="label-text">GPU job</span>
+  </label>
+
+  <div class="flex gap-2">
+    <button class="ui-btn ui-btn-primary" type="submit">Create job</button>
+    <a class="ui-btn" href="{% url 'ui3:jobs' %}">Cancel</a>
+  </div>
+</form>
+
+{% elif tab == 'bulk' %}
+<form method="post" action="{% url 'ui3:job_create_batch' %}" class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
+  {% csrf_token %}
+  <input type="hidden" name="tab" value="bulk">
+  <div class="form-control">
+    <div class="label"><span class="label-text">Workspace (optional)</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="workspace" value="{% if form.workspace %}{{ form.workspace }}{% endif %}">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_workspace %}{{ selected_workspace.name }}{% else %}(none){% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+               hx-get="{% url 'ui3:workspace_options' %}?empty=(none)"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+  </div>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Job table (TSV)</span></div>
+    <textarea class="ui-input w-full font-mono" name="tsv" id="id_bulk_tsv" rows="12"
+              placeholder="protocol_id	job_name	input_file	parameter[	array_setting][	is_gpu]"
+              onfocus="ui3.enableTabInTextarea(this)">{{ form.tsv }}</textarea>
+    <div class="label">
+      <span class="label-text-alt opacity-70">
+        Columns: protocol_id, job_name, input_file, parameter[, array_setting][, is_gpu]. Press Tab to insert a tab character.
+      </span>
+    </div>
+  </label>
+  <div class="flex gap-2">
+    <button class="ui-btn ui-btn-primary" type="submit">Create jobs</button>
+    <a class="ui-btn" href="{% url 'ui3:jobs' %}">Cancel</a>
+  </div>
+</form>
+
+{% elif tab == 'bulkfile' %}
+<form method="post" action="{% url 'ui3:job_create_batch' %}" enctype="multipart/form-data"
+      class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
+  {% csrf_token %}
+  <input type="hidden" name="tab" value="bulkfile">
+  <div class="form-control">
+    <div class="label"><span class="label-text">Workspace (optional)</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="workspace" value="{% if form.workspace %}{{ form.workspace }}{% endif %}">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_workspace %}{{ selected_workspace.name }}{% else %}(none){% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+               hx-get="{% url 'ui3:workspace_options' %}?empty=(none)"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+  </div>
+  <label class="form-control">
+    <div class="label"><span class="label-text">TSV file</span></div>
+    <input class="ui-input w-full" type="file" name="file" accept=".txt,.tsv,.csv" required>
+    <div class="label">
+      <span class="label-text-alt opacity-70">Same columns as Bulk (TSV): protocol_id, job_name, input_file, parameter, …</span>
+    </div>
+  </label>
+  <div class="flex gap-2">
+    <button class="ui-btn ui-btn-primary" type="submit">Upload &amp; create</button>
+    <a class="ui-btn" href="{% url 'ui3:jobs' %}">Cancel</a>
+  </div>
+</form>
+
+{% elif tab == 'array' %}
+<form method="post" action="{% url 'ui3:job_create_array' %}" class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
+  {% csrf_token %}
+  <label class="form-control">
+    <div class="label"><span class="label-text">Parent job name</span></div>
+    <input class="ui-input w-full" name="job_name" required value="{{ form.job_name }}">
+  </label>
+  <div class="form-control">
+    <div class="label"><span class="label-text">Protocol</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="protocol" required
+             value="{% if form.protocol %}{{ form.protocol }}{% endif %}">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% else %}Select protocol{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter protocols"
+               hx-get="{% url 'ui3:protocol_options' %}?empty=Select+protocol{% if selected_protocol %}&pin={{ selected_protocol.id }}{% endif %}"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty,pin"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+  </div>
+  <div class="form-control">
+    <div class="label"><span class="label-text">Workspace</span></div>
+    <div class="ui-combo" data-combo data-combo-nosubmit>
+      <input type="hidden" class="combo-value" name="workspace"
+             value="{% if form.workspace %}{{ form.workspace }}{% endif %}">
+      <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_workspace %}{{ selected_workspace.name }}{% else %}(none){% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+               hx-get="{% url 'ui3:workspace_options' %}?empty=(none)"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q,empty"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+  </div>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Child job list</span></div>
+    <textarea class="ui-input w-full font-mono" name="job_list" id="id_job_list" rows="10" required
+              placeholder="input_file	parameter[	is_gpu][	suffix]"
+              onfocus="ui3.enableTabInTextarea(this)">{{ form.job_list }}</textarea>
+    <div class="label">
+      <span class="label-text-alt opacity-70">
+        Each line: input_file, parameter[, is_gpu][, suffix]. Children are named parent_suffix.
+      </span>
+    </div>
+  </label>
+  <label class="label cursor-pointer justify-start gap-2">
+    <input type="checkbox" class="checkbox" name="is_gpu_job" value="1" {% if form.is_gpu_job %}checked{% endif %}>
+    <span class="label-text">GPU for parent</span>
+  </label>
+  <div class="flex gap-2">
+    <button class="ui-btn ui-btn-primary" type="submit">Create array</button>
+    <a class="ui-btn" href="{% url 'ui3:jobs' %}">Cancel</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

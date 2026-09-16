@@ -1,0 +1,32 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 class="font-bold text-lg pr-8">Edit {{ title }} for job #{{ job.id }}</h3>
+    <form class="mt-3" method="post" action="{% url 'ui3:job_edit_field' job.id field %}"
+          hx-post="{% url 'ui3:job_edit_field' job.id field %}"
+          hx-target="#job-results"
+          hx-swap="outerHTML"
+          hx-include="#job-filters">
+      {% csrf_token %}
+      {% if token_list %}{{ token_list|json_script:"ui3-tokens" }}{% endif %}
+      <textarea class="textarea textarea-bordered w-full font-mono" name="value" rows="8"
+                id="id_edit_{{ field }}"
+                {% if field == "array_setting" %}maxlength="100"{% endif %}
+                {% if token_list %}data-ui3-complete{% endif %}>{{ value }}</textarea>
+      {% if field == "input_file" %}
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button type="button" class="ui-btn"
+                hx-disinherit="*"
+                hx-get="{% url 'ui3:job_results_picker' %}?target=id_edit_input_file"
+                hx-target="#picker-root" hx-swap="innerHTML">
+          <i class="fa-regular fa-clone"></i> Insert from job results
+        </button>
+      </div>
+      {% endif %}
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
+        <button class="ui-btn ui-btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

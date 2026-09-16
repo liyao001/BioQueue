@@ -1,0 +1,37 @@
+{% load ui3_tags %}
+<div id="environment-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  <table class="table table-sm">
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Type</th><th>Value</th><th>Activation</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in environments %}
+      <tr>
+        <td>{{ e.id }}</td>
+        <td>{{ e.name }}</td>
+        <td>{{ e.ve_type }}</td>
+        <td class="font-mono text-xs max-w-md truncate" title="{{ e.value }}">{{ e.value }}</td>
+        <td class="font-mono text-xs max-w-xs truncate" title="{{ e.activation_command|default:'' }}">{{ e.activation_command|default:"" }}</td>
+        <td class="whitespace-nowrap">
+          {% if e|can_edit:request.user %}
+          <button class="btn btn-xs" hx-get="{% url 'ui3:environment_edit' e.id %}" hx-target="#modal-root" hx-swap="innerHTML">Edit</button>
+          <form class="inline" method="post" action="{% url 'ui3:environment_delete' e.id %}"
+                hx-post="{% url 'ui3:environment_delete' e.id %}"
+                hx-target="#environment-table"
+                hx-confirm="Delete virtual environment '{{ e.name }}'?">
+            {% csrf_token %}
+            <button class="btn btn-xs btn-error" type="submit"><i class="fa-regular fa-trash-can"></i></button>
+          </form>
+          {% else %}
+          <span class="text-xs opacity-50">public</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="opacity-70">No virtual environments</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% url 'ui3:environments' as list_url %}
+  {% include "ui3/partials/pager.html" with hx_target="#environment-table" hx_include="#environment-filters" item_label="virtual environment" %}
+</div>

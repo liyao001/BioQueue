@@ -1,0 +1,105 @@
+{% extends "ui3/base.html" %}
+{% load static %}
+{% block title %}DAG Explorer – BioQueue{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+{% endblock %}
+{% block content %}
+<div id="dag-app"
+     class="dag-app"
+     data-graph-url="{% url 'ui3:dag_graph' %}"
+     data-search-url="{% url 'ui3:dag_search' %}"
+     data-jobs-url="{% url 'ui3:dag_jobs' %}"
+     data-monitor-url="{% url 'ui3:jobs' %}">
+  <div class="page-head flex items-center justify-between mb-4">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-semibold">Job Dependency Analysis</h1>
+      <p class="text-sm opacity-70 page-head-sub">Visualize dependency graphs from seed jobs</p>
+    </div>
+  </div>
+
+  <div class="dag-panel mb-4">
+    <div class="dag-controls">
+      <div class="dag-field dag-field-grow">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <label class="text-sm font-medium" for="dag-search">Seed jobs</label>
+          <span class="inline-flex gap-1">
+            <button type="button" class="icon-btn" id="dag-save-seeds" title="Save seed list" disabled><i class="fa-solid fa-file-arrow-down"></i></button>
+            <button type="button" class="icon-btn" id="dag-load-seeds" title="Load seed list"><i class="fa-solid fa-file-arrow-up"></i></button>
+            <button type="button" class="icon-btn" id="dag-copy-link" title="Copy shareable link" disabled><i class="fa-solid fa-link"></i></button>
+          </span>
+        </div>
+        <input id="dag-search" class="ui-input w-full" type="search" placeholder="Search by name or job ID" autocomplete="off">
+        <div id="dag-search-results" class="dag-search-results hidden"></div>
+        <div id="dag-seeds" class="dag-seeds"></div>
+        <p id="dag-url-skip" class="hidden text-xs text-orange-700 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> Too many seeds to encode in the URL. Use Save seed list to share.</p>
+        <input id="dag-file" type="file" accept=".txt,.tsv,.csv" class="hidden">
+      </div>
+
+      <div class="dag-field">
+        <span class="text-sm font-medium">Direction</span>
+        <div class="inline-flex gap-1 mt-1">
+          <button type="button" class="ui-btn" id="dag-dir-down" data-dir="dependents">Dependents</button>
+          <button type="button" class="ui-btn is-on" id="dag-dir-up" data-dir="dependencies">Dependencies</button>
+        </div>
+        <p class="text-xs opacity-60 mt-1" id="dag-dir-hint">Jobs that seeds rely on</p>
+      </div>
+
+      <div class="dag-field">
+        <label class="text-sm font-medium" for="dag-depth">Depth</label>
+        <input id="dag-depth" class="ui-input w-full mt-1" type="number" min="1" max="10" value="2">
+        <p class="text-xs opacity-60 mt-1">Max 10</p>
+      </div>
+
+      <div class="dag-field">
+        <label class="text-sm font-medium" for="dag-max">Max nodes</label>
+        <input id="dag-max" class="ui-input w-full mt-1" type="number" min="10" max="10000" step="100" value="500">
+        <p class="text-xs opacity-60 mt-1">Safety cap</p>
+      </div>
+
+      <div class="dag-field">
+        <span class="text-sm font-medium">Node labels</span>
+        <label class="flex items-center gap-2 text-sm mt-1"><input type="checkbox" class="checkbox checkbox-xs" id="dag-show-name" checked> Job name</label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-xs" id="dag-show-id" checked> Job ID</label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-xs" id="dag-show-status" checked> Status label</label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="checkbox checkbox-xs" id="dag-show-protocol"> Protocol ID</label>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-2 mt-4">
+      <div class="inline-flex flex-wrap gap-2">
+        <button type="button" class="ui-btn hidden" id="dag-save-jobs" disabled>Save jobs (.txt)</button>
+        <button type="button" class="ui-btn hidden" id="dag-export-csv" disabled>Export CSV</button>
+        <button type="button" class="ui-btn hidden" id="dag-export-png" disabled>Export PNG</button>
+        <button type="button" class="ui-btn hidden" id="dag-export-svg" disabled>Export SVG</button>
+      </div>
+      <button type="button" class="ui-btn ui-btn-primary" id="dag-build">
+        <i class="fa-solid fa-diagram-project"></i> Build DAG
+      </button>
+    </div>
+  </div>
+
+  <div id="dag-truncated" class="hidden alert alert-warning mb-3 text-sm">
+    Graph was capped — some relationships are not shown. Increase Max nodes and rebuild.
+  </div>
+
+  <div class="dag-stage">
+    <div id="dag-cy" class="dag-canvas" aria-label="Dependency graph"></div>
+    <p id="dag-empty" class="dag-empty">Add seed jobs and click Build DAG to visualize dependencies</p>
+  </div>
+
+  <div id="dag-legend" class="dag-legend hidden">
+    <span class="font-medium">Status:</span>
+    <span><i class="fa-solid fa-circle-xmark" style="color:#E53E3E"></i> Wrong</span>
+    <span><i class="fa-solid fa-hourglass-half" style="color:#DD6B20"></i> ResourceLock</span>
+    <span><i class="fa-solid fa-circle-check" style="color:#38A169"></i> Finished</span>
+    <span><i class="fa-solid fa-clock" style="color:#718096"></i> Waiting</span>
+    <span><i class="fa-solid fa-circle-play" style="color:#3182CE"></i> Running</span>
+    <span><i class="fa-solid fa-circle-pause" style="color:#D69E2E"></i> Interrupted</span>
+    <span class="dag-legend-seed"></span> Seed job
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'ui3/dag.js' %}"></script>
+{% endblock %}

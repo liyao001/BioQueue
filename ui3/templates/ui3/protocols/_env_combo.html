@@ -1,0 +1,22 @@
+{# Searchable environment combo. Expects optional selected_env; name defaults to "env". #}
+{% with empty_label=empty_label|default:"No environment" field_name=name|default:"env" %}
+<div class="ui-combo" data-combo data-combo-nosubmit>
+  <input type="hidden" class="combo-value" name="{{ field_name }}"
+         value="{% if selected_env %}{{ selected_env.id }}{% endif %}">
+  <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
+    <span class="combo-label">{% if selected_env %}{{ selected_env.name }} ({{ selected_env.ve_type }}){% else %}{{ empty_label }}{% endif %}</span>
+  </button>
+  <div class="ui-combo-panel" hx-disinherit="*">
+    <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter environments"
+           hx-get="{% url 'ui3:environment_options' %}"
+           hx-trigger="input delay:200ms, focus"
+           hx-target="next .combo-list"
+           hx-params="combo_q,empty,pin"
+           hx-vals='{"empty": "{{ empty_label|escapejs }}"{% if selected_env %}, "pin": "{{ selected_env.id }}"{% endif %}}'
+           hx-include="this"
+           autocomplete="off"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+    <div class="combo-list ui-combo-list"></div>
+  </div>
+</div>
+{% endwith %}

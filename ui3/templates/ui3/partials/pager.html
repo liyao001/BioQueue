@@ -1,0 +1,51 @@
+{% load ui3_tags %}
+{% firstof item_label "job" as item_noun %}
+<div class="job-pager" aria-label="Pagination">
+  {% if paginator.count %}
+    <span class="text-sm opacity-70 pager-meta">{{ paginator.count }} {{ item_noun }}{{ paginator.count|pluralize }}</span>
+  {% endif %}
+  {% if page_obj.has_previous %}
+    <a class="ui-btn" href="{% qs_url page=1 %}"
+       hx-get="{{ list_url }}{% qs_url page=1 %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       aria-label="First page">&laquo;</a>
+    <a class="ui-btn" href="{% qs_url page=page_obj.previous_page_number %}"
+       hx-get="{{ list_url }}{% qs_url page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       aria-label="Previous page">&lsaquo;</a>
+  {% else %}
+    <span class="ui-btn opacity-40" aria-disabled="true">&laquo;</span>
+    <span class="ui-btn opacity-40" aria-disabled="true">&lsaquo;</span>
+  {% endif %}
+  <form class="inline-flex items-center gap-2 flex-wrap"
+        hx-get="{{ list_url }}"
+        hx-target="{{ hx_target }}"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}>
+    <span class="text-sm pager-meta">Page</span>
+    <input class="ui-input pager-page" style="width:4.25rem;text-align:center;" type="number" name="page"
+           min="1" max="{{ paginator.num_pages|default:1 }}" value="{{ page_obj.number }}"
+           aria-label="Page number"
+           onkeydown="if(event.key==='Enter'){event.preventDefault(); this.form.requestSubmit();}">
+    <span class="text-sm">of {{ paginator.num_pages|default:1 }}</span>
+    <label class="inline-flex items-center gap-2 text-sm ml-2 pager-size">
+      <span>page size</span>
+      <select class="ui-select" id="page-size-select" name="page_size" aria-label="Page size"
+              onchange="this.form.requestSubmit()">
+        {% for n in page_size_choices %}
+          <option value="{{ n }}" {% if page_size == n %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+  {% if page_obj.has_next %}
+    <a class="ui-btn" href="{% qs_url page=page_obj.next_page_number %}"
+       hx-get="{{ list_url }}{% qs_url page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       aria-label="Next page">&rsaquo;</a>
+    <a class="ui-btn" href="{% qs_url page=paginator.num_pages %}"
+       hx-get="{{ list_url }}{% qs_url page=paginator.num_pages %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       aria-label="Last page">&raquo;</a>
+  {% else %}
+    <span class="ui-btn opacity-40" aria-disabled="true">&rsaquo;</span>
+    <span class="ui-btn opacity-40" aria-disabled="true">&raquo;</span>
+  {% endif %}
+</div>

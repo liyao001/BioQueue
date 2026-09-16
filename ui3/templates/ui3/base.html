@@ -1,0 +1,924 @@
+{% load static %}
+{% load ui3_tags %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}BioQueue{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'ui3/app.css' %}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-base-200{% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-boost="false">
+  <header class="bq-header text-white sticky top-0 z-40 shadow">
+    <div class="bq-bar">
+      <a href="{% url 'ui3:jobs' %}" class="bq-logo">
+        <img src="{% static 'ui3/logo.png' %}" alt="" width="65" height="40">
+        BioQueue
+      </a>
+      {% if user.is_authenticated %}
+      <button type="button" class="bq-nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="bq-nav"
+              onclick="ui3.toggleNav(this)">
+        <i class="fas fa-bars" data-open></i>
+        <i class="fas fa-xmark" data-close></i>
+      </button>
+      <nav class="bq-nav" id="bq-nav">
+        <div class="bq-nav-item">
+          <a href="{% url 'ui3:jobs' %}" class="{% if request.resolver_match.url_name == 'jobs' %}is-active{% endif %}">
+            <i class="fas fa-home"></i> Dashboard
+          </a>
+          <span id="running-badge" class="bq-running-badge-slot"
+                data-ui3-quiet
+                hx-get="{% url 'ui3:running_count' %}"
+                hx-trigger="load delay:1s, every 30s"
+                hx-swap="innerHTML">{% running_badge %}</span>
+        </div>
+        <a href="{% url 'ui3:job_create' %}" class="{% if request.resolver_match.url_name == 'job_create' %}is-active{% endif %}">
+          <i class="fas fa-plus"></i> New Job
+        </a>
+        <details>
+          <summary class="{% if request.resolver_match.url_name|slice:':8' == 'protocol' %}is-active{% endif %}">
+            <i class="fas fa-book"></i> Protocol <i class="fas fa-caret-down text-xs opacity-80"></i>
+          </summary>
+          <ul>
+            <li><a href="{% url 'ui3:protocols' %}">Manage Protocols</a></li>
+            <li><a href="{% url 'ui3:protocol_create' %}">New Protocol</a></li>
+          </ul>
+        </details>
+        <a href="{% url 'ui3:references' %}" class="{% if request.resolver_match.url_name|slice:':9' == 'reference' %}is-active{% endif %}">
+          <i class="fas fa-database"></i> References
+        </a>
+        <a href="{% url 'ui3:workspaces' %}" class="{% if request.resolver_match.url_name|slice:':9' == 'workspace' %}is-active{% endif %}">
+          <i class="fas fa-folder-tree"></i> Workspaces
+        </a>
+        <a href="{% url 'ui3:environments' %}" class="{% if request.resolver_match.url_name|slice:':11' == 'environment' %}is-active{% endif %}">
+          <i class="fas fa-cubes"></i> Virtual Envs
+        </a>
+        <a href="{% url 'ui3:dag' %}" class="{% if request.resolver_match.url_name|slice:':3' == 'dag' %}is-active{% endif %}">
+          <i class="fas fa-diagram-project"></i> DAG
+        </a>
+      </nav>
+      <details class="bq-user">
+        <summary><i class="fas fa-user"></i> <span class="bq-user-name">{{ user.username }}</span></summary>
+        <ul>
+          <li><a href="{% url 'ui3:account' %}">Account</a></li>
+          <li><a href="{% url 'ui3:archives' %}">Archives</a></li>
+          <li>
+            <form method="post" action="{% url 'ui3:logout' %}">
+              {% csrf_token %}
+              <button type="submit">Logout</button>
+            </form>
+          </li>
+        </ul>
+      </details>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="px-3 py-4 md:px-6 md:py-6 mx-auto">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %} mb-4">
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <div id="ui3-progress" aria-hidden="true"></div>
+  <div id="toast-root" class="toast toast-end z-50 bq-toast"></div>
+  <div id="modal-root"></div>
+  <div id="picker-root"></div>
+
+  <footer class="px-4 py-2 text-center text-xs text-base-content/50 border-t border-base-300">
+    © 2016–{% now "Y" %} Li Yao · Apache License 2.0
+  </footer>
+  <script>
+    window.ui3 = {
+      SHELL_SOFTWARE: "__SHELL__",
+      ensureModalRoot: function () {
+        var root = document.getElementById("modal-root");
+        if (root) return root;
+        root = document.createElement("div");
+        root.id = "modal-root";
+        var toast = document.getElementById("toast-root");
+        if (toast && toast.parentNode) {
+          toast.parentNode.insertBefore(root, toast.nextSibling);
+        } else {
+          document.body.appendChild(root);
+        }
+        return root;
+      },
+      closePicker: function () {
+        var root = document.getElementById("picker-root");
+        if (root) root.innerHTML = "";
+      },
+      ignoreClickIfSelected: function (event) {
+        var el = event.target && event.target.closest && event.target.closest("[data-ui3-select-name]");
+        if (!el) return false;
+        var sel = window.getSelection && window.getSelection();
+        if (!sel || !String(sel).length) return false;
+        var inside = (sel.anchorNode && el.contains(sel.anchorNode)) || (sel.focusNode && el.contains(sel.focusNode));
+        if (!inside) return false;
+        event.preventDefault();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        return true;
+      },
+      closeModal: function () {
+        window.ui3.closePicker();
+        var root = window.ui3.ensureModalRoot();
+        root.innerHTML = "";
+        // Clean up overlays left behind if a prior outerHTML swap replaced #modal-root.
+        document.querySelectorAll("body > .ui-overlay").forEach(function (el) { el.remove(); });
+      },
+      scheduleToastDismiss: function (root) {
+        root = root || document.getElementById("toast-root");
+        if (!root) return;
+        root.querySelectorAll(".alert").forEach(function (alert) {
+          if (alert._ui3ToastTimer) clearTimeout(alert._ui3ToastTimer);
+          var ms = alert.classList.contains("alert-error") ? 8000 : 5000;
+          alert._ui3ToastTimer = setTimeout(function () {
+            if (alert.parentNode) alert.parentNode.removeChild(alert);
+          }, ms);
+        });
+      },
+      showToast: function (message, level) {
+        var root = document.getElementById("toast-root");
+        if (!root) return;
+        var kind = level === "error" ? "alert-error" : (level === "warning" ? "alert-warning" : "alert-success");
+        var alert = document.createElement("div");
+        alert.className = "alert " + kind + " shadow";
+        var span = document.createElement("span");
+        span.textContent = message || "Request failed";
+        alert.appendChild(span);
+        root.innerHTML = "";
+        root.appendChild(alert);
+        window.ui3.scheduleToastDismiss(root);
+      },
+      promotePageMessages: function () {
+        var root = document.getElementById("toast-root");
+        if (!root) return;
+        document.querySelectorAll("main > .alert").forEach(function (el) {
+          var level = el.classList.contains("alert-error") ? "error" : "success";
+          var msg = (el.textContent || "").trim();
+          el.remove();
+          if (msg) window.ui3.showToast(msg, level);
+        });
+      },
+      syncStatusCsv: function (hiddenId, labelId, prefix, emptyText) {
+        var hidden = document.getElementById(hiddenId);
+        var panel = hidden && hidden.closest("[data-status-multi]");
+        if (!hidden || !panel) return;
+        var vals = [];
+        panel.querySelectorAll("input.status-opt:checked").forEach(function (cb) {
+          vals.push(cb.value);
+        });
+        hidden.value = vals.join(",");
+        var label = document.getElementById(labelId);
+        if (label) {
+          label.textContent = vals.length
+            ? (prefix || "Status") + ": " + vals.length + " selected"
+            : (prefix || "Status") + ": " + (emptyText || "any");
+        }
+      },
+      toggleSelectAll: function (checked) {
+        document.querySelectorAll(".job-select").forEach(function (cb) {
+          cb.checked = !!checked;
+        });
+        window.ui3.updateBulkBar();
+      },
+      clearSelection: function () {
+        document.querySelectorAll(".job-select").forEach(function (cb) { cb.checked = false; });
+        var all = document.getElementById("select-all-page");
+        if (all) all.checked = false;
+        window.ui3.updateBulkBar();
+      },
+      updateBulkBar: function () {
+        var selected = document.querySelectorAll(".job-select:checked");
+        var bar = document.getElementById("bulk-bar");
+        var count = document.getElementById("bulk-count");
+        if (!bar) return;
+        if (selected.length) {
+          bar.classList.remove("hidden");
+          if (count) count.textContent = selected.length + " selected";
+        } else {
+          bar.classList.add("hidden");
+        }
+      },
+      toggleNav: function (btn) {
+        var header = document.querySelector(".bq-header");
+        if (!header) return;
+        var open = !header.classList.contains("is-nav-open");
+        header.classList.toggle("is-nav-open", open);
+        var toggle = btn || document.querySelector(".bq-nav-toggle");
+        if (toggle) {
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+          toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        }
+        if (open) {
+          window.ui3.closeCombos();
+          window.ui3.closeFilters();
+        }
+      },
+      toggleFilters: function (btn) {
+        var panel = document.getElementById("job-filters");
+        if (!panel) return;
+        var open = !panel.classList.contains("is-open");
+        if (open) {
+          panel.classList.add("is-open");
+          window.ui3.closeNav();
+        } else {
+          window.ui3.closeFilters();
+          return;
+        }
+        var toggle = btn || panel.querySelector(".filter-toggle");
+        if (toggle) toggle.setAttribute("aria-expanded", "true");
+      },
+      closeFilters: function () {
+        var panel = document.getElementById("job-filters");
+        if (!panel || !panel.classList.contains("is-open")) return;
+        panel.classList.remove("is-open");
+        var toggle = panel.querySelector(".filter-toggle");
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
+        window.ui3.closeCombos();
+      },
+      closeNav: function () {
+        var header = document.querySelector(".bq-header");
+        if (!header || !header.classList.contains("is-nav-open")) return;
+        header.classList.remove("is-nav-open");
+        var toggle = document.querySelector(".bq-nav-toggle");
+        if (toggle) {
+          toggle.setAttribute("aria-expanded", "false");
+          toggle.setAttribute("aria-label", "Open menu");
+        }
+      },
+      shouldPauseAutoRefresh: function () {
+        var modal = document.getElementById("modal-root");
+        if (modal && modal.innerHTML.trim()) return true;
+        if (document.querySelector(".ui-overlay")) return true;
+        var picker = document.getElementById("picker-root");
+        if (picker && picker.innerHTML.trim()) return true;
+        if (document.querySelector(".ui-combo.is-open")) return true;
+        if (document.querySelector(".bq-header.is-nav-open")) return true;
+        if (document.querySelector(".filter-panel.is-open") && window.innerWidth < 768) return true;
+        if (document.querySelector("dialog[open]")) return true;
+        var el = document.activeElement;
+        if (!el) return false;
+        var tag = (el.tagName || "").toUpperCase();
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+        if (el.isContentEditable) return true;
+        return !!(el.closest && el.closest("[data-ui3-pause-refresh]"));
+      },
+      jobFilterValues: function () {
+        var form = document.getElementById("job-filters");
+        var out = {};
+        if (!form) return out;
+        var fd = new FormData(form);
+        fd.forEach(function (value, key) {
+          if (out[key] === undefined) out[key] = value;
+          else if (Array.isArray(out[key])) out[key].push(value);
+          else out[key] = [out[key], value];
+        });
+        return out;
+      },
+      isCardCombo: function (combo) {
+        return !!(combo && (combo.classList.contains("job-card-combo") || combo.closest(".job-card")));
+      },
+      shouldPortCombo: function (combo) {
+        return window.ui3.isCardCombo(combo) || window.innerWidth < 768;
+      },
+      comboPanel: function (combo) {
+        return (combo && combo._ui3Panel) || (combo && combo.querySelector(".ui-combo-panel"));
+      },
+      comboFromNode: function (node) {
+        if (!node || !node.closest) return null;
+        var combo = node.closest(".ui-combo");
+        if (combo) return combo;
+        var panel = node.closest(".ui-combo-panel");
+        return panel && panel._ui3Combo ? panel._ui3Combo : null;
+      },
+      safeComboBox: function () {
+        var top = 8;
+        var bottom = 8;
+        var header = document.querySelector(".bq-header");
+        if (header) {
+          var hr = header.getBoundingClientRect();
+          if (hr.bottom > 0) top = Math.max(top, Math.round(hr.bottom) + 6);
+        }
+        var pager = document.querySelector(".job-pager");
+        if (pager) {
+          var pr = pager.getBoundingClientRect();
+          if (pr.top < window.innerHeight && pr.bottom > 0) {
+            bottom = Math.max(bottom, Math.round(window.innerHeight - pr.top) + 6);
+          }
+        }
+        return { top: top, bottom: bottom };
+      },
+      portComboPanel: function (combo) {
+        var panel = window.ui3.comboPanel(combo);
+        if (!panel || panel.parentNode === document.body) return panel;
+        combo._ui3PanelHome = { parent: panel.parentNode, next: panel.nextSibling };
+        combo._ui3Panel = panel;
+        panel._ui3Combo = combo;
+        panel.classList.add("is-ported");
+        document.body.appendChild(panel);
+        return panel;
+      },
+      resetComboPanel: function (combo) {
+        combo.classList.remove("is-dropup");
+        var panel = window.ui3.comboPanel(combo);
+        if (!panel) return;
+        panel.style.top = "";
+        panel.style.bottom = "";
+        panel.style.left = "";
+        panel.style.width = "";
+        panel.style.maxHeight = "";
+        panel.style.minWidth = "";
+        if (combo._ui3PanelHome) {
+          var home = combo._ui3PanelHome;
+          if (home.next && home.next.parentNode === home.parent) {
+            home.parent.insertBefore(panel, home.next);
+          } else if (home.parent) {
+            home.parent.appendChild(panel);
+          }
+          combo._ui3PanelHome = null;
+        }
+        panel.classList.remove("is-ported");
+        combo._ui3Panel = null;
+        panel._ui3Combo = null;
+      },
+      closeCombos: function () {
+        document.querySelectorAll(".ui-combo.is-open").forEach(function (el) {
+          el.classList.remove("is-open");
+          window.ui3.resetComboPanel(el);
+        });
+      },
+      bindComboWheelTrap: function (combo) {
+        if (!window.ui3.shouldPortCombo(combo)) return;
+        var panel = window.ui3.comboPanel(combo);
+        if (!panel || panel.getAttribute("data-ui3-wheel")) return;
+        panel.setAttribute("data-ui3-wheel", "1");
+        panel.addEventListener("wheel", function (ev) {
+          ev.stopPropagation();
+          var list = panel.querySelector(".ui-combo-list");
+          var scroller = (panel.scrollHeight > panel.clientHeight + 1) ? panel
+            : (list && list.scrollHeight > list.clientHeight + 1 ? list : panel);
+          ev.preventDefault();
+          scroller.scrollTop += ev.deltaY;
+        }, { passive: false });
+      },
+      placeComboPanel: function (combo) {
+        if (!window.ui3.shouldPortCombo(combo)) return;
+        var toggle = combo.querySelector(".ui-combo-toggle") || combo.querySelector("button");
+        var panel = window.ui3.portComboPanel(combo);
+        if (!panel || !toggle) return;
+        window.ui3.bindComboWheelTrap(combo);
+        var toggleRect = toggle.getBoundingClientRect();
+        var box = window.ui3.safeComboBox();
+        var gap = 4;
+        var mobile = window.innerWidth < 768;
+        panel.style.position = "fixed";
+        panel.style.zIndex = "90";
+        panel.style.display = "block";
+        var computedMin = parseFloat(window.getComputedStyle(panel).minWidth) || 0;
+        var width = mobile
+          ? Math.max(16, window.innerWidth - 16)
+          : Math.max(toggleRect.width, computedMin, 256);
+        var left = mobile
+          ? 8
+          : Math.max(8, Math.min(toggleRect.left, window.innerWidth - width - 8));
+        panel.style.left = left + "px";
+        panel.style.width = width + "px";
+        panel.style.minWidth = width + "px";
+        panel.style.right = "auto";
+        panel.style.overflowY = "auto";
+        var spaceBelow = window.innerHeight - Math.max(toggleRect.bottom, box.top) - box.bottom - gap;
+        var spaceAbove = Math.min(toggleRect.top, window.innerHeight - box.bottom) - box.top - gap;
+        var dropup = toggleRect.top > (box.top + (window.innerHeight - box.top - box.bottom) * 0.55)
+          || (spaceBelow < 140 && spaceAbove > spaceBelow);
+        var avail = dropup ? spaceAbove : spaceBelow;
+        var maxH = Math.min(mobile ? 360 : 280, Math.max(140, avail));
+        if (dropup) {
+          combo.classList.add("is-dropup");
+          panel.style.top = "auto";
+          panel.style.bottom = Math.max(box.bottom, window.innerHeight - toggleRect.top + gap) + "px";
+          panel.style.maxHeight = maxH + "px";
+        } else {
+          combo.classList.remove("is-dropup");
+          panel.style.bottom = "auto";
+          panel.style.top = Math.max(box.top, toggleRect.bottom + gap) + "px";
+          panel.style.maxHeight = Math.min(maxH, window.innerHeight - parseFloat(panel.style.top) - box.bottom) + "px";
+        }
+      },
+      comboToggle: function (btn) {
+        var combo = btn.closest(".ui-combo");
+        var open = !combo.classList.contains("is-open");
+        window.ui3.closeCombos();
+        window.ui3.closeNav();
+        if (open) {
+          combo.classList.add("is-open");
+          window.ui3.bindComboWheelTrap(combo);
+          window.ui3.placeComboPanel(combo);
+          var panel = window.ui3.comboPanel(combo);
+          var filter = (panel || combo).querySelector(".combo-filter");
+          if (filter) {
+            filter.focus();
+            if (window.htmx) htmx.trigger(filter, "input");
+          }
+        }
+      },
+      comboSelect: function (btn) {
+        var combo = window.ui3.comboFromNode(btn);
+        if (!combo) return;
+        var hidden = combo.querySelector(".combo-value");
+        var next = btn.getAttribute("data-value") || "";
+        var changed = hidden && hidden.value !== next;
+        if (hidden) hidden.value = next;
+        var labelEl = combo.querySelector(".combo-label");
+        if (labelEl) labelEl.textContent = btn.getAttribute("data-label") || "";
+        combo.classList.remove("is-open");
+        window.ui3.resetComboPanel(combo);
+        if (hidden && changed) {
+          try { hidden.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+        }
+        var postUrl = combo.getAttribute("data-post-url");
+        if (postUrl && changed && window.htmx) {
+          var values = window.ui3.jobFilterValues();
+          values.value = next;
+          htmx.ajax("POST", postUrl, {
+            values: values,
+            target: combo.getAttribute("data-post-target") || "#job-results",
+            swap: "outerHTML",
+            source: combo,
+          });
+          return;
+        }
+        if (combo.hasAttribute("data-combo-nosubmit")) return;
+        var form = combo.closest("form");
+        if (form) form.requestSubmit();
+      },
+      appendTokens: function (textareaId, tokens, sep) {
+        sep = sep == null ? ";" : sep;
+        var el = document.getElementById(textareaId);
+        if (!el || !tokens || !tokens.length) return;
+        var add = tokens.join(sep);
+        var cur = el.value || "";
+        el.value = cur ? (cur + sep + add) : add;
+        try { el.dispatchEvent(new Event("input", { bubbles: true })); } catch (e) {}
+      },
+      insertUploads: function (textareaId) {
+        var root = document.getElementById("modal-root");
+        if (!root) return;
+        var tokens = [];
+        var wrap = function (kind, body) { return "{" + "{" + kind + ":" + body + "}" + "}"; };
+        root.querySelectorAll("input.upload-opt:checked").forEach(function (cb) {
+          var rel = cb.getAttribute("data-rel") || cb.value || "";
+          if (rel) tokens.push(wrap("Uploaded", rel));
+        });
+        window.ui3.appendTokens(textareaId, tokens, ";");
+        window.ui3.closeModal();
+      },
+      insertJobResults: function (textareaId) {
+        var stacked = document.getElementById("picker-root");
+        var useStack = stacked && stacked.innerHTML.trim();
+        var root = useStack ? stacked : document.getElementById("modal-root");
+        if (!root) return;
+        var meta = root.querySelector("[data-picker-job]");
+        var jobId = meta && meta.getAttribute("data-picker-job");
+        var shared = meta && meta.getAttribute("data-picker-shared") === "1";
+        var owner = meta && meta.getAttribute("data-picker-owner");
+        if (!jobId) {
+          window.ui3.showToast("Select a job first.", "warning");
+          return;
+        }
+        var tokens = [];
+        var wrap = function (kind, body) { return "{" + "{" + kind + ":" + body + "}" + "}"; };
+        root.querySelectorAll("input.result-opt:checked").forEach(function (cb) {
+          var name = cb.getAttribute("data-name") || cb.value || "";
+          if (!name) return;
+          if (shared) {
+            tokens.push(wrap("CrossAccess", (owner || "User") + "-" + jobId + "-" + name));
+          } else {
+            tokens.push(wrap("History", jobId + "-" + name));
+          }
+        });
+        if (!tokens.length) {
+          window.ui3.showToast("Select at least one result file.", "warning");
+          return;
+        }
+        var el = document.getElementById(textareaId);
+        if (!el) {
+          window.ui3.showToast("Could not find the input field to insert into.", "error");
+          return;
+        }
+        window.ui3.appendTokens(textareaId, tokens, ";");
+        if (useStack) window.ui3.closePicker();
+        else window.ui3.closeModal();
+      },
+      enableTabInTextarea: function (el) {
+        if (!el || el._ui3TabBound) return;
+        el._ui3TabBound = true;
+        el.addEventListener("keydown", function (e) {
+          if (e.key !== "Tab") return;
+          e.preventDefault();
+          var start = el.selectionStart;
+          var end = el.selectionEnd;
+          var val = el.value || "";
+          el.value = val.substring(0, start) + "\t" + val.substring(end);
+          el.selectionStart = el.selectionEnd = start + 1;
+        });
+      },
+      _busyTokens: null,
+      _busyTokenMap: null,
+      isQuietRequest: function (elt) {
+        if (!elt || !elt.getAttribute) return false;
+        if (elt.hasAttribute("data-ui3-quiet")) return true;
+        var trigger = elt.getAttribute("hx-trigger") || "";
+        return /\bevery\b/.test(trigger);
+      },
+      showModalLoading: function (label) {
+        var root = window.ui3.ensureModalRoot();
+        root.innerHTML =
+          '<div class="ui-overlay" data-ui3-loading="1">' +
+          '<div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true" aria-busy="true" aria-label="' +
+          (label || "Loading") + '">' +
+          '<div class="ui-busy-modal">' +
+          '<div class="ui-busy-spinner" aria-hidden="true"></div>' +
+          '<p class="text-sm opacity-80">' + (label || "Loading…") + "</p>" +
+          "</div></div></div>";
+      },
+      syncBusyClasses: function () {
+        var tokens = window.ui3._busyTokens;
+        var n = tokens ? tokens.size : 0;
+        var blocking = 0;
+        if (tokens) {
+          tokens.forEach(function (t) { if (t.block) blocking += 1; });
+        }
+        document.body.classList.toggle("ui3-busy", n > 0);
+        document.body.classList.toggle("ui3-busy-block", blocking > 0);
+        if (n === 0) {
+          document.querySelectorAll("[aria-busy='true']").forEach(function (el) {
+            el.removeAttribute("aria-busy");
+          });
+        }
+      },
+      beginBusy: function (opts) {
+        opts = opts || {};
+        if (opts.quiet) return null;
+        if (!window.ui3._busyTokens) window.ui3._busyTokens = new Set();
+        var token = {
+          block: !!opts.block,
+          modal: !!opts.modal,
+          elt: opts.elt || null,
+          id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+        };
+        window.ui3._busyTokens.add(token);
+        if (opts.modal) {
+          window.ui3.showModalLoading(opts.label || "Loading…");
+        }
+        if (opts.elt && opts.elt.setAttribute) {
+          opts.elt.setAttribute("aria-busy", "true");
+        }
+        window.ui3.syncBusyClasses();
+        return token;
+      },
+      endBusy: function (token) {
+        if (!token || !window.ui3._busyTokens) {
+          window.ui3.syncBusyClasses();
+          return;
+        }
+        window.ui3._busyTokens.delete(token);
+        if (token.elt && token.elt.removeAttribute) {
+          token.elt.removeAttribute("aria-busy");
+        }
+        window.ui3.syncBusyClasses();
+      },
+      resetBusy: function () {
+        if (window.ui3._busyTokens) window.ui3._busyTokens.clear();
+        if (window.ui3._busyTokenMap) window.ui3._busyTokenMap.clear();
+        document.body.classList.remove("ui3-busy", "ui3-busy-block");
+        document.querySelectorAll("[aria-busy='true']").forEach(function (el) {
+          el.removeAttribute("aria-busy");
+        });
+      },
+      busyLabelFor: function (elt) {
+        if (!elt) return "Loading…";
+        var title = elt.getAttribute("title") || elt.getAttribute("aria-label") || "";
+        if (title) return title.replace(/\s+/g, " ").trim() + "…";
+        return "Loading…";
+      },
+      tokenList: function () {
+        var el = document.getElementById("ui3-tokens");
+        if (!el) return [];
+        try { return JSON.parse(el.textContent || "[]"); } catch (e) { return []; }
+      },
+      hideTokenMenu: function () {
+        var menu = document.getElementById("ui3-ac");
+        if (menu) menu.remove();
+      },
+      bindTokenComplete: function (el) {
+        if (!el || el._ui3AcBound) return;
+        el._ui3AcBound = true;
+        var tokens = window.ui3.tokenList();
+        if (!tokens.length) return;
+        var active = 0;
+        var items = [];
+        function insert(token) {
+          var caret = el.selectionStart || 0;
+          var head = (el.value || "").slice(0, caret);
+          var tail = (el.value || "").slice(caret);
+          var m = head.match(/\{\{([A-Za-z0-9_]*)$/);
+          if (!m) return;
+          var start = caret - (m[1] ? m[1].length : 0) - 2;
+          el.value = head.slice(0, start) + "{{" + token + "}}" + tail;
+          var next = start + token.length + 4;
+          el.selectionStart = el.selectionEnd = next;
+          window.ui3.hideTokenMenu();
+          try { el.dispatchEvent(new Event("input", { bubbles: true })); } catch (e) {}
+        }
+        function render(list, x, y) {
+          window.ui3.hideTokenMenu();
+          if (!list.length) return;
+          var menu = document.createElement("div");
+          menu.id = "ui3-ac";
+          menu.className = "ui3-ac";
+          menu.style.left = x + "px";
+          menu.style.top = y + "px";
+          list.forEach(function (tok, i) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = tok;
+            if (i === active) btn.className = "is-active";
+            btn.addEventListener("mousedown", function (ev) { ev.preventDefault(); insert(tok); });
+            menu.appendChild(btn);
+          });
+          document.body.appendChild(menu);
+        }
+        function suggest() {
+          var caret = el.selectionStart || 0;
+          var head = (el.value || "").slice(0, caret);
+          var m = head.match(/\{\{([A-Za-z0-9_]*)$/);
+          if (!m) { window.ui3.hideTokenMenu(); return; }
+          var q = (m[1] || "").toLowerCase();
+          items = tokens.filter(function (t) { return String(t).toLowerCase().indexOf(q) === 0; }).slice(0, 30);
+          active = 0;
+          var rect = el.getBoundingClientRect();
+          render(items, rect.left, rect.bottom + 4);
+        }
+        el.addEventListener("input", suggest);
+        el.addEventListener("keydown", function (e) {
+          var menu = document.getElementById("ui3-ac");
+          if (!menu || !items.length) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; render(items, menu.offsetLeft, menu.offsetTop); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + items.length) % items.length; render(items, menu.offsetLeft, menu.offsetTop); }
+          else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insert(items[active]); }
+          else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); window.ui3.hideTokenMenu(); }
+        });
+        el.addEventListener("blur", function () { setTimeout(window.ui3.hideTokenMenu, 150); });
+      },
+      bindAllTokenFields: function () {
+        document.querySelectorAll("[data-ui3-complete]").forEach(window.ui3.bindTokenComplete);
+      },
+      moveDraftStep: function (btn, dir) {
+        var row = btn && btn.closest(".draft-step");
+        var wrap = document.getElementById("draft-steps");
+        if (!row || !wrap) return;
+        if (dir < 0 && row.previousElementSibling) wrap.insertBefore(row, row.previousElementSibling);
+        if (dir > 0 && row.nextElementSibling) wrap.insertBefore(row.nextElementSibling, row);
+      },
+      removeDraftStep: function (btn) {
+        var row = btn && btn.closest(".draft-step");
+        var wrap = document.getElementById("draft-steps");
+        if (!row || !wrap) return;
+        if (wrap.querySelectorAll(".draft-step").length <= 1) {
+          row.querySelectorAll("input, textarea").forEach(function (el) { el.value = ""; });
+          var kind = row.querySelector("[data-ui3-step-kind]");
+          if (kind) kind.value = "command";
+          window.ui3.applyStepKind(row);
+          return;
+        }
+        row.remove();
+      },
+      applyStepKind: function (el) {
+        if (!el) return;
+        var root = (el.matches && el.matches("[data-ui3-step-fields]"))
+          ? el
+          : (el.closest ? el.closest("[data-ui3-step-fields]") : null);
+        if (!root && el.querySelector) root = el.querySelector("[data-ui3-step-fields]");
+        if (!root) return;
+        var kindSel = root.querySelector("[data-ui3-step-kind]");
+        var softwareWrap = root.querySelector("[data-ui3-software-wrap]");
+        var software = root.querySelector("[data-ui3-software]");
+        var paramLabel = root.querySelector("[data-ui3-parameter-label]");
+        var paramHelp = root.querySelector("[data-ui3-parameter-help]");
+        var param = root.querySelector("[data-ui3-parameter]");
+        var isShell = kindSel && kindSel.value === "shell";
+        var tag = window.ui3.SHELL_SOFTWARE;
+        if (softwareWrap) softwareWrap.classList.toggle("hidden", isShell);
+        if (paramHelp) paramHelp.classList.toggle("hidden", !isShell);
+        if (paramLabel) paramLabel.textContent = isShell ? "Script" : "Parameter";
+        if (param) {
+          param.rows = isShell ? 8 : 2;
+          param.placeholder = isShell
+            ? ('echo "job {' + '{Job}}"\nls "{' + '{Workspace}}"')
+            : "command / parameter string";
+        }
+        if (software) {
+          var wantRequired = software.getAttribute("data-required") === "1";
+          if (isShell) {
+            software.value = tag;
+            software.required = false;
+          } else {
+            if ((software.value || "").trim() === tag) software.value = "";
+            software.required = wantRequired;
+          }
+        }
+      },
+      applyAllStepKinds: function () {
+        document.querySelectorAll("[data-ui3-step-fields]").forEach(function (root) {
+          window.ui3.applyStepKind(root);
+        });
+      }
+    };
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        if (document.querySelector("[data-ui3-loading]")) return;
+        var picker = document.getElementById("picker-root");
+        if (picker && picker.innerHTML.trim()) {
+          window.ui3.closePicker();
+          return;
+        }
+        window.ui3.closeModal();
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target.closest("[data-ui3-close]")) {
+        e.preventDefault();
+        if (e.target.closest("#picker-root")) window.ui3.closePicker();
+        else window.ui3.closeModal();
+        return;
+      }
+      if (e.target.classList && e.target.classList.contains("ui-overlay")) {
+        if (e.target.getAttribute("data-ui3-loading")) return;
+        if (e.target.closest("#picker-root")) {
+          window.ui3.closePicker();
+          return;
+        }
+        window.ui3.closeModal();
+        return;
+      }
+      if (!e.target.closest(".ui-combo") && !e.target.closest(".ui-combo-panel")) {
+        window.ui3.closeCombos();
+      }
+      if (!e.target.closest(".bq-header")) {
+        window.ui3.closeNav();
+      }
+    });
+    document.addEventListener("change", function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains("job-select")) {
+        window.ui3.updateBulkBar();
+      }
+    });
+    document.body.addEventListener("htmx:beforeRequest", function (event) {
+      var src = event.detail.elt;
+      if (src && src.id === "job-results" && window.ui3.shouldPauseAutoRefresh()) {
+        event.preventDefault();
+        return;
+      }
+      window.ui3.ensureModalRoot();
+      var elt = event.detail.elt;
+      var target = event.detail.target;
+      var quiet = window.ui3.isQuietRequest(elt);
+      var toModal = !!(target && target.id === "modal-root");
+      // Never wipe an open modal with the loading placeholder when the request
+      // comes from inside that modal (e.g. job-results filter typing).
+      var fromOpenModal = !!(elt && elt.closest && elt.closest("#modal-root .ui-modal"));
+      var token = window.ui3.beginBusy({
+        quiet: quiet,
+        block: toModal && !fromOpenModal,
+        modal: toModal && !fromOpenModal,
+        elt: elt,
+        label: window.ui3.busyLabelFor(elt),
+      });
+      if (!token) return;
+      if (!window.ui3._busyTokenMap) window.ui3._busyTokenMap = new Map();
+      if (event.detail.xhr) {
+        window.ui3._busyTokenMap.set(event.detail.xhr, token);
+        event.detail.xhr.addEventListener("loadend", function () {
+          var t = window.ui3._busyTokenMap && window.ui3._busyTokenMap.get(event.detail.xhr);
+          if (t) {
+            window.ui3._busyTokenMap.delete(event.detail.xhr);
+            window.ui3.endBusy(t);
+          }
+        });
+      } else if (elt) {
+        elt._ui3BusyToken = token;
+      }
+    });
+    function ui3EndBusyFromEvent(event) {
+      var xhr = event.detail && event.detail.xhr;
+      var elt = event.detail && event.detail.elt;
+      var token = null;
+      if (xhr && window.ui3._busyTokenMap && window.ui3._busyTokenMap.has(xhr)) {
+        token = window.ui3._busyTokenMap.get(xhr);
+        window.ui3._busyTokenMap.delete(xhr);
+      } else if (elt && elt._ui3BusyToken) {
+        token = elt._ui3BusyToken;
+        delete elt._ui3BusyToken;
+      }
+      if (token) window.ui3.endBusy(token);
+    }
+    document.body.addEventListener("htmx:afterRequest", ui3EndBusyFromEvent);
+    document.body.addEventListener("htmx:sendError", ui3EndBusyFromEvent);
+    document.body.addEventListener("htmx:responseError", ui3EndBusyFromEvent);
+    document.body.addEventListener("htmx:abort", ui3EndBusyFromEvent);
+    document.body.addEventListener("htmx:afterSettle", function () {
+      // Force-clear only when busy UI is stuck (tokens left, but HTMX has no in-flight elts).
+      var inflight = document.querySelector(".htmx-request");
+      var tokens = window.ui3._busyTokens;
+      if (!inflight && tokens && tokens.size > 0) {
+        window.ui3.resetBusy();
+      } else {
+        window.ui3.syncBusyClasses();
+      }
+      window.ui3.bindAllTokenFields();
+      window.ui3.applyAllStepKinds();
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+      window.ui3.promotePageMessages();
+      window.ui3.bindAllTokenFields();
+      window.ui3.applyAllStepKinds();
+      var proto = document.getElementById("id_protocol");
+      var par = document.getElementById("id_parameter");
+      if (proto && par && proto.value && !(par.value || "").trim() && window.htmx) {
+        htmx.trigger(proto, "change");
+      }
+    });
+    document.body.addEventListener("htmx:beforeSwap", function (event) {
+      var status = event.detail.xhr && event.detail.xhr.status;
+      if (status >= 400) {
+        var target = event.detail.target;
+        if (target && (target.id === "job-results" || (target.closest && target.closest("#job-results")))) {
+          event.detail.shouldSwap = false;
+        }
+        // Drop loading placeholder if a modal request failed.
+        if (target && target.id === "modal-root" && target.querySelector("[data-ui3-loading]")) {
+          window.ui3.closeModal();
+        }
+      }
+    });
+    function ui3HtmxErrorToast(event) {
+      var xhr = event.detail.xhr;
+      var status = xhr ? xhr.status : 0;
+      var text = "";
+      if (xhr && xhr.responseText) {
+        text = String(xhr.responseText).replace(/<[^>]+>/g, " ").trim().slice(0, 200);
+      }
+      if (!text) {
+        text = event.type === "htmx:sendError"
+          ? "Network error — request could not be sent."
+          : ("Request failed" + (status ? " (" + status + ")" : ""));
+      } else if (status) {
+        text = status + ": " + text;
+      }
+      window.ui3.showToast(text, "error");
+    }
+    document.body.addEventListener("htmx:responseError", ui3HtmxErrorToast);
+    document.body.addEventListener("htmx:sendError", ui3HtmxErrorToast);
+    function ui3ArmToast(event) {
+      var target = event.detail && event.detail.target;
+      if (target && target.id === "toast-root") window.ui3.scheduleToastDismiss(target);
+    }
+    document.body.addEventListener("htmx:afterSwap", ui3ArmToast);
+    document.body.addEventListener("htmx:oobAfterSwap", ui3ArmToast);
+    document.body.addEventListener("htmx:afterSwap", function (e) {
+      window.ui3.updateBulkBar();
+      var combo = e.target && e.target.closest && e.target.closest(".job-card-combo.is-open");
+      if (!combo && e.target && e.target.closest) {
+        var panel = e.target.closest(".ui-combo-panel");
+        combo = panel && panel._ui3Combo;
+      }
+      if (combo && combo.classList.contains("is-open")) window.ui3.placeComboPanel(combo);
+    });
+    document.addEventListener("click", function (event) {
+      window.ui3.ignoreClickIfSelected(event);
+    }, true);
+    document.addEventListener("scroll", function (e) {
+      var open = document.querySelector(".ui-combo.is-open");
+      if (!open) return;
+      var panel = window.ui3.comboPanel(open);
+      if (e.target && (open.contains(e.target) || (panel && panel.contains(e.target)))) return;
+      window.ui3.closeCombos();
+    }, true);
+    window.addEventListener("resize", function () {
+      if (window.innerWidth >= 768) window.ui3.closeNav();
+      var open = document.querySelector(".ui-combo.is-open");
+      if (open) window.ui3.placeComboPanel(open);
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,47 @@
+{% for f in items %}
+<tr>
+  {% if job.ui3_can_write %}
+  <td class="job-files-check">
+    <input type="checkbox" class="checkbox checkbox-xs job-file-select" name="traces" value="{{ f.trace }}"
+           form="job-archive-form-{{ job.id }}" aria-label="Select {{ f.name }}">
+  </td>
+  {% endif %}
+  <td class="break-all">
+    {% if f.is_link %}<i class="fa-solid fa-link opacity-70 mr-1" title="link"></i>{% endif %}
+    <span class="job-files-name" data-ui3-select-name title="Preview"
+            hx-get="{% url 'ui3:job_file_preview' job.id %}?trace={{ f.trace|urlencode }}&name={{ f.name|urlencode }}&q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}"
+            hx-target="#modal-root" hx-swap="innerHTML">{{ f.name }}</span>
+  </td>
+  <td>{{ f.size_label }}</td>
+  <td class="whitespace-nowrap">{{ f.file_create }}</td>
+  <td>
+    <div class="icon-btn-group">
+      <a class="icon-btn" title="Download" href="{% url 'ui3:job_file_download' job.id %}?trace={{ f.trace|urlencode }}" target="_blank" rel="noopener">
+        <i class="fa-solid fa-download"></i>
+      </a>
+      <button type="button" class="icon-btn" title="Preview"
+              hx-get="{% url 'ui3:job_file_preview' job.id %}?trace={{ f.trace|urlencode }}&name={{ f.name|urlencode }}&q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}"
+              hx-target="#modal-root" hx-swap="innerHTML">
+        <i class="fa-regular fa-eye"></i>
+      </button>
+      <button type="button" class="icon-btn"
+              title="{% if job.locked %}Locked — unlock to rename files{% else %}Rename{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-get="{% url 'ui3:job_file_rename' job.id %}?trace={{ f.trace|urlencode }}&q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}"
+              hx-target="#modal-root" hx-swap="innerHTML">
+        <i class="fa-solid fa-i-cursor"></i>
+      </button>
+      <button type="button" class="icon-btn icon-btn-danger"
+              title="{% if job.locked %}Locked — unlock to delete files{% else %}Delete{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_file_delete' job.id %}?trace={{ f.trace|urlencode }}&q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}&partial=1"
+              hx-confirm="Delete this file?"
+              hx-target="#job-files-results-{{ job.id }}"
+              hx-select="#job-files-results-{{ job.id }}"
+              hx-swap="outerHTML">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  </td>
+</tr>
+{% endfor %}

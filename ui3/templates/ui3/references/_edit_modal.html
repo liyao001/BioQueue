@@ -1,0 +1,24 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 class="font-bold text-lg pr-8">Edit reference #{{ ref.id }}</h3>
+    <form class="mt-3 space-y-2" method="post" action="{% url 'ui3:reference_edit' ref.id %}"
+          hx-post="{% url 'ui3:reference_edit' ref.id %}"
+          hx-target="#reference-table"
+          hx-swap="outerHTML">
+      {% csrf_token %}
+      <input class="ui-input w-full" name="name" value="{{ ref.name }}" maxlength="255" required>
+      <input class="ui-input w-full font-mono" name="path" value="{{ ref.path }}" maxlength="500" required>
+      <textarea class="textarea textarea-bordered w-full" name="description" rows="4">{{ ref.description }}</textarea>
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
+        <button class="ui-btn" type="button"
+                hx-post="{% url 'ui3:reference_delete' ref.id %}"
+                hx-confirm="Delete this reference?"
+                hx-target="#reference-table"
+                hx-swap="outerHTML">Delete</button>
+        <button class="ui-btn ui-btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

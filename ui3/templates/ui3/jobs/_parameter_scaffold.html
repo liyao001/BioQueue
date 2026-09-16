@@ -1,0 +1,12 @@
+<script>
+(function () {
+  var el = document.getElementById("id_parameter");
+  if (!el) return;
+  var next = "{{ value|escapejs }}";
+  var cur = (el.value || "").trim();
+  // Match ui2: fill empty fields; overwrite only when the user just picked a protocol.
+  var force = {{ force|yesno:"true,false" }};
+  if (!force && cur) return;
+  el.value = next;
+})();
+</script>

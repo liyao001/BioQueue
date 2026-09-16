@@ -1,0 +1,94 @@
+{% load ui3_tags %}
+<div id="job-files-{{ job.id }}">
+  {# Filter stays outside the swap target so typing keeps focus. #}
+  <div class="ui-toolbar mt-3">
+    <input class="ui-input flex-1" type="search" name="q" value="{{ q }}"
+           id="job-files-filter-{{ job.id }}"
+           placeholder="filter files"
+           hx-get="{% url 'ui3:job_files' job.id %}?partial=1"
+           hx-trigger="input changed delay:400ms, search"
+           hx-target="#job-files-results-{{ job.id }}"
+           hx-select="#job-files-results-{{ job.id }}"
+           hx-swap="outerHTML"
+           hx-include="this, #job-files-sort-{{ job.id }}, #job-files-order-{{ job.id }}"
+           hx-sync="this:replace"
+           autocomplete="off">
+  </div>
+
+  <div id="job-files-results-{{ job.id }}">
+    <input type="hidden" id="job-files-sort-{{ job.id }}" name="sort" value="{{ sort }}">
+    <input type="hidden" id="job-files-order-{{ job.id }}" name="order" value="{{ order }}">
+    <div class="ui-toolbar mb-1 justify-between">
+      <label class="inline-flex items-center gap-1 text-sm opacity-80 whitespace-nowrap">
+        <span>Sort by</span>
+        <select class="ui-select"
+                aria-label="Sort files by"
+                name="sort_key"
+                hx-get="{% url 'ui3:job_files' job.id %}?partial=1&q={{ q|urlencode }}"
+                hx-trigger="change"
+                hx-target="#job-files-results-{{ job.id }}"
+                hx-select="#job-files-results-{{ job.id }}"
+                hx-swap="outerHTML"
+                hx-include="this">
+          <option value="name:asc" {% if sort == 'name' and order == 'asc' %}selected{% endif %}>Name ↑</option>
+          <option value="name:desc" {% if sort == 'name' and order == 'desc' %}selected{% endif %}>Name ↓</option>
+          <option value="size:asc" {% if sort == 'size' and order == 'asc' %}selected{% endif %}>Size ↑</option>
+          <option value="size:desc" {% if sort == 'size' and order == 'desc' %}selected{% endif %}>Size ↓</option>
+          <option value="created:asc" {% if sort == 'created' and order == 'asc' %}selected{% endif %}>Created ↑</option>
+          <option value="created:desc" {% if sort == 'created' and order == 'desc' %}selected{% endif %}>Created ↓</option>
+        </select>
+      </label>
+      <span class="text-sm opacity-70">{{ total }} file{{ total|pluralize }}</span>
+    </div>
+    <div id="job-files-scroll-{{ job.id }}" class="overflow-auto" style="max-height: 26rem;">
+      <table class="table table-sm w-full job-files-table">
+        <thead class="sticky top-0 bg-base-100 z-10">
+          <tr>
+            {% if job.ui3_can_write %}<th class="job-files-check"></th>{% endif %}
+            <th>
+              <button type="button" class="ui-sort-btn {% if sort == 'name' %}is-active{% endif %}"
+                      title="Sort by name"
+                      hx-get="{% url 'ui3:job_files' job.id %}?partial=1&q={{ q|urlencode }}&sort=name&order={% if sort == 'name' and order == 'asc' %}desc{% else %}asc{% endif %}"
+                      hx-target="#job-files-results-{{ job.id }}"
+                      hx-select="#job-files-results-{{ job.id }}"
+                      hx-swap="outerHTML">
+                Name
+                <span class="ui-sort-ind" aria-hidden="true">{% if sort == 'name' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span>
+              </button>
+            </th>
+            <th>
+              <button type="button" class="ui-sort-btn {% if sort == 'size' %}is-active{% endif %}"
+                      title="Sort by size"
+                      hx-get="{% url 'ui3:job_files' job.id %}?partial=1&q={{ q|urlencode }}&sort=size&order={% if sort == 'size' and order == 'asc' %}desc{% else %}asc{% endif %}"
+                      hx-target="#job-files-results-{{ job.id }}"
+                      hx-select="#job-files-results-{{ job.id }}"
+                      hx-swap="outerHTML">
+                Size
+                <span class="ui-sort-ind" aria-hidden="true">{% if sort == 'size' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span>
+              </button>
+            </th>
+            <th>
+              <button type="button" class="ui-sort-btn {% if sort == 'created' %}is-active{% endif %}"
+                      title="Sort by created time"
+                      hx-get="{% url 'ui3:job_files' job.id %}?partial=1&q={{ q|urlencode }}&sort=created&order={% if sort == 'created' and order == 'asc' %}desc{% else %}asc{% endif %}"
+                      hx-target="#job-files-results-{{ job.id }}"
+                      hx-select="#job-files-results-{{ job.id }}"
+                      hx-swap="outerHTML">
+                Created
+                <span class="ui-sort-ind" aria-hidden="true">{% if sort == 'created' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span>
+              </button>
+            </th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="job-files-tbody-{{ job.id }}">
+          {% include "ui3/jobs/_files_rows.html" %}
+          {% if not items %}
+          <tr><td colspan="{% if job.ui3_can_write %}5{% else %}4{% endif %}" class="opacity-70">No files found.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+      {% include "ui3/jobs/_files_sentinel.html" %}
+    </div>
+  </div>
+</div>

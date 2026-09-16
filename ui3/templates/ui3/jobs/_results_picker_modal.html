@@ -1,0 +1,123 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-lg" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 id="picker-title" class="font-bold text-lg pr-8">Select results from a job</h3>
+
+    {# Keep filter outside the swap target so typing is not destroyed on each request. #}
+    <div class="mt-2 mb-3 flex flex-wrap gap-2 items-center">
+      <input type="hidden" id="picker-hidden-target" name="target" value="{{ target_id }}">
+      <input class="ui-input flex-1 min-w-[200px]" type="search" name="q" value="{{ q }}"
+             id="picker-job-filter"
+             placeholder="Filter jobs by name or id"
+             hx-get="{% url 'ui3:job_results_picker' %}"
+             hx-trigger="input changed delay:300ms, search, keyup[key=='Enter']"
+             hx-target="#picker-body"
+             hx-select="#picker-body"
+             hx-swap="innerHTML"
+             hx-include="this, #picker-hidden-target"
+             autocomplete="off">
+    </div>
+
+    <div id="picker-body"
+         {% if selected_job %}
+         data-picker-job="{{ selected_job.id }}"
+         data-picker-shared="{% if is_shared %}1{% else %}0{% endif %}"
+         data-picker-owner="{{ selected_job.user_id }}"
+         {% endif %}>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <div class="text-sm font-medium mb-1">Jobs</div>
+          <div class="border border-base-300 rounded max-h-64 overflow-y-auto">
+            {% for job in own_jobs %}
+            <button type="button"
+                    class="w-full text-left px-2 py-1.5 text-sm hover:bg-base-200 {% if selected_job and selected_job.id == job.id %}bg-base-200{% endif %}"
+                    hx-get="{% url 'ui3:job_results_picker' %}"
+                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ job.id }}", "target": "{{ target_id }}"}'
+                    hx-target="#picker-body"
+                    hx-select="#picker-body"
+                    hx-swap="innerHTML">
+              #{{ job.id }} {{ job.job_name }}
+            </button>
+            {% endfor %}
+            {% for job in shared_jobs %}
+            <button type="button"
+                    class="w-full text-left px-2 py-1.5 text-sm hover:bg-base-200 {% if selected_job and selected_job.id == job.id %}bg-base-200{% endif %}"
+                    hx-get="{% url 'ui3:job_results_picker' %}"
+                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ job.id }}", "target": "{{ target_id }}"}'
+                    hx-target="#picker-body"
+                    hx-select="#picker-body"
+                    hx-swap="innerHTML">
+              #{{ job.id }} {{ job.job_name }} <span class="opacity-50">(shared)</span>
+            </button>
+            {% empty %}
+            {% endfor %}
+            {% if not own_jobs and not shared_jobs %}
+            <div class="px-2 py-3 text-sm opacity-60 text-center">
+              {% if q %}No matching jobs{% else %}No jobs available{% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm font-medium mb-1">
+            Files{% if selected_job %} – job #{{ selected_job.id }}{% endif %}
+          </div>
+          {% if selected_job and files_page %}
+          <input class="ui-input w-full mb-2" type="search" name="fq" value="{{ fq }}"
+                 placeholder="filter files"
+                 hx-get="{% url 'ui3:job_results_picker' %}"
+                 hx-trigger="input changed delay:250ms, search"
+                 hx-target="#picker-files"
+                 hx-select="#picker-files"
+                 hx-swap="innerHTML"
+                 hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ selected_job.id }}", "target": "{{ target_id }}"}'
+                 hx-include="this"
+                 autocomplete="off">
+          <div id="picker-files">
+            <div class="border border-base-300 rounded max-h-64 overflow-y-auto">
+              <table class="table table-sm w-full">
+                <thead><tr><th class="w-12"></th><th>Name</th><th class="w-20">Size</th></tr></thead>
+                <tbody>
+                  {% for item in files_page.items %}
+                  <tr>
+                    <td>
+                      <input type="checkbox" class="checkbox checkbox-sm result-opt"
+                             data-name="{{ item.name }}" value="{{ item.name }}">
+                    </td>
+                    <td class="font-mono text-xs break-all">{{ item.name }}</td>
+                    <td class="text-xs">{{ item.size_label }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="3" class="text-center text-sm opacity-60 py-3">No files</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% if files_page.has_more %}
+            <button type="button" class="ui-btn w-full mt-2"
+                    hx-get="{% url 'ui3:job_results_picker' %}"
+                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ selected_job.id }}", "target": "{{ target_id }}", "fq": "{{ fq|escapejs }}", "limit": "{{ files_page.next_offset|add:files_page.limit }}", "offset": "0"}'
+                    hx-target="#picker-files"
+                    hx-select="#picker-files"
+                    hx-swap="innerHTML">
+              Load more ({{ files_page.total }} total)
+            </button>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="border border-base-300 rounded px-2 py-6 text-sm opacity-60 text-center">
+            Select a job to list result files
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3 flex justify-end gap-2">
+      <button type="button" class="ui-btn" data-ui3-close>Cancel</button>
+      <button type="button" class="ui-btn ui-btn-primary" id="picker-insert"
+              onclick="ui3.insertJobResults('{{ target_id }}')">Insert</button>
+    </div>
+  </div>
+</div>

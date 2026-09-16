@@ -1,0 +1,74 @@
+{% load ui3_tags %}
+<div id="protocol-workspace" class="grid grid-cols-1 lg:grid-cols-2 gap-4"
+     hx-disinherit="hx-swap hx-target hx-push-url">
+  <div class="card bg-base-100 shadow-sm p-4">
+    <form id="protocol-filters" class="ui-toolbar mb-3"
+          hx-get="{% url 'ui3:protocols' %}"
+          hx-target="#protocol-workspace"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          hx-include="#page-size-select"
+          hx-trigger="submit, input delay:400ms from:input[name=q]">
+      {% if selected %}<input type="hidden" name="select" value="{{ selected.id }}">{% endif %}
+      <input class="ui-input flex-1 min-w-[160px]" type="text" name="q" value="{{ q }}"
+             placeholder="Search name or id" aria-label="Search protocols">
+      <select class="ui-select" name="ordering"
+              hx-get="{% url 'ui3:protocols' %}"
+              hx-include="closest form"
+              hx-target="#protocol-workspace"
+              hx-swap="outerHTML"
+              hx-push-url="true">
+        <option value="-id" {% if ordering == '-id' %}selected{% endif %}>Newest</option>
+        <option value="id" {% if ordering == 'id' %}selected{% endif %}>Oldest</option>
+        <option value="name" {% if ordering == 'name' %}selected{% endif %}>Name</option>
+      </select>
+    </form>
+    <div class="overflow-x-auto border border-base-300 rounded-md">
+      <table class="table table-sm w-full">
+        <thead>
+          <tr class="bg-base-200/60">
+            <th class="w-16">ID</th>
+            <th>Name</th>
+            <th class="w-14"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in protocols %}
+          <tr class="{% if selected and selected.id == p.id %}bg-base-200{% endif %}">
+            <td class="opacity-70">{{ p.id }}</td>
+            <td>
+              <a class="link link-hover font-medium"
+                 href="{% url 'ui3:protocols' %}?select={{ p.id }}"
+                 hx-get="{% url 'ui3:protocol_detail' p.id %}?select={{ p.id }}"
+                 hx-target="#protocol-workspace"
+                 hx-swap="outerHTML"
+                 hx-push-url="true">{{ p.name }}</a>
+            </td>
+            <td class="text-right">
+              {% if p|can_edit:request.user %}
+              <form method="post" action="{% url 'ui3:protocol_delete' p.id %}"
+                    hx-post="{% url 'ui3:protocol_delete' p.id %}"
+                    hx-target="#protocol-workspace"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete protocol '{{ p.name }}' and all of its steps?">
+                {% csrf_token %}
+                <button class="icon-btn icon-btn-danger" type="submit" title="Delete">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="text-center text-sm opacity-60 py-6">No protocols</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% url 'ui3:protocols' as list_url %}
+    {% include "ui3/partials/pager.html" with hx_target="#protocol-workspace" hx_include="#protocol-filters" item_label="protocol" %}
+  </div>
+  <div id="protocol-detail">
+    {% include "ui3/protocols/_detail.html" %}
+  </div>
+</div>

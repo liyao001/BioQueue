@@ -1,0 +1,12 @@
+{% extends "ui3/base.html" %}
+{% block title %}Protocols – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">Protocols</h1>
+    <p class="text-sm opacity-70 page-head-sub">Manage protocols and their steps</p>
+  </div>
+  <a class="ui-btn ui-btn-primary shrink-0" href="{% url 'ui3:protocol_create' %}"><i class="fas fa-plus"></i> New Protocol</a>
+</div>
+{% include "ui3/protocols/_workspace.html" %}
+{% endblock %}

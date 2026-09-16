@@ -1,0 +1,218 @@
+{% extends "ui3/base.html" %}
+{% load ui3_tags %}
+{% block title %}{% if array_page %}Array #{{ array_parent.id }} – BioQueue{% else %}Job Status – BioQueue{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    {% if array_page and array_parent %}
+    <h1 class="text-2xl font-semibold">Array #{{ array_parent.id }}</h1>
+    <p class="text-sm opacity-70 page-head-sub">Child jobs of {{ array_parent.job_name }}</p>
+    {% else %}
+    <h1 class="text-2xl font-semibold">Job Status</h1>
+    <p class="text-sm opacity-70 page-head-sub">Search, inspect, and control jobs</p>
+    {% endif %}
+  </div>
+  <a class="ui-btn ui-btn-primary shrink-0" href="{% url 'ui3:job_create' %}"><i class="fas fa-plus"></i> New Job</a>
+</div>
+
+<form id="job-filters"
+      class="filter-panel mb-4"
+      hx-get="{{ job_list_url }}"
+      hx-target="#job-results"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="#page-size-select"
+      hx-trigger="submit, change from:select.auto-submit"
+      hx-on::after-request="if(window.innerWidth<768) ui3.closeFilters()">
+  <div class="ui-toolbar">
+    <input class="ui-input flex-1 min-w-[180px]" type="text" name="q" value="{{ filters.q }}"
+           placeholder="job name or IDs (comma/space)" aria-label="Job name or IDs">
+
+    <div id="filter-more" class="ui-combo filter-extra" data-combo>
+      <input type="hidden" class="combo-value" name="protocol" value="{{ filters.protocol }}">
+      <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% else %}Protocol: all{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter protocols"
+               hx-get="{% url 'ui3:protocol_options' %}"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+
+    <div class="ui-combo filter-extra" data-combo>
+      <input type="hidden" class="combo-value" name="workspace" value="{{ filters.workspace }}">
+      <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)">
+        <span class="combo-label">{% if selected_workspace %}{{ selected_workspace.name }}{% else %}Workspace: all{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" hx-disinherit="*">
+        <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter workspaces"
+               hx-get="{% url 'ui3:workspace_options' %}"
+               hx-trigger="input delay:200ms, focus"
+               hx-target="next .combo-list"
+               hx-params="combo_q"
+               hx-include="this"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+        <div class="combo-list ui-combo-list"></div>
+      </div>
+    </div>
+
+    <div class="ui-combo filter-extra" data-combo data-status-multi>
+      <input type="hidden" name="status" id="filter-status" value="{% for v in selected_status %}{{ v }}{% if not forloop.last %},{% endif %}{% endfor %}">
+      <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)" aria-label="Status">
+        <span class="combo-label" id="filter-status-label">{% if selected_status %}Status: {{ selected_status|length }} selected{% else %}Status: any{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" style="min-width: 200px;">
+        <div class="ui-combo-list space-y-1">
+          {% for value, label in status_choices %}
+          <label class="flex items-center gap-2 px-1 py-0.5 text-sm cursor-pointer hover:bg-base-200 rounded">
+            <input type="checkbox" value="{{ value }}" class="checkbox checkbox-xs status-opt"
+                   {% if value in selected_status %}checked{% endif %}
+                   onchange="ui3.syncStatusCsv('filter-status', 'filter-status-label', 'Status')">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        <button type="button" class="ui-btn w-full mt-2" onclick="this.closest('form').requestSubmit()">Apply</button>
+      </div>
+    </div>
+
+    <div class="ui-combo filter-extra" data-combo data-status-multi>
+      <input type="hidden" name="visibility" id="filter-visibility" value="{% for v in selected_visibility %}{{ v }}{% if not forloop.last %},{% endif %}{% endfor %}">
+      <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)" aria-label="Visibility">
+        <span class="combo-label" id="filter-visibility-label">{% if selected_visibility %}Visibility: {{ selected_visibility|length }} selected{% else %}Visibility: default{% endif %}</span>
+      </button>
+      <div class="ui-combo-panel" style="min-width: 200px;">
+        <div class="ui-combo-list space-y-1">
+          {% for value, label in visibility_choices %}
+          <label class="flex items-center gap-2 px-1 py-0.5 text-sm cursor-pointer hover:bg-base-200 rounded">
+            <input type="checkbox" value="{{ value }}" class="checkbox checkbox-xs status-opt"
+                   {% if value in selected_visibility %}checked{% endif %}
+                   onchange="ui3.syncStatusCsv('filter-visibility', 'filter-visibility-label', 'Visibility', 'default')">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        <button type="button" class="ui-btn w-full mt-2" onclick="this.closest('form').requestSubmit()">Apply</button>
+      </div>
+    </div>
+
+    <select class="ui-select min-w-[110px] auto-submit filter-extra" name="scope" aria-label="Scope">
+      <option value="own" {% if scope == 'own' %}selected{% endif %}>Own</option>
+      <option value="shared" {% if scope == 'shared' %}selected{% endif %}>Shared</option>
+      <option value="all" {% if scope == 'all' %}selected{% endif %}>All</option>
+    </select>
+
+    <button class="ui-btn filter-extra" type="button"
+            onclick="var p=document.getElementById('adv-filters'); p.classList.toggle('hidden'); this.textContent=p.classList.contains('hidden') ? 'Show Advanced' : 'Hide Advanced'">
+      {% if show_advanced %}Hide Advanced{% else %}Show Advanced{% endif %}
+    </button>
+    <button class="ui-btn filter-toggle{% if selected_protocol or selected_workspace or selected_status or selected_visibility or scope != 'own' or show_advanced %} has-filters{% endif %}"
+            type="button" aria-expanded="false" aria-controls="filter-more"
+            onclick="ui3.toggleFilters(this)">
+      <i class="fa-solid fa-sliders"></i> Filters
+    </button>
+    <button class="ui-btn filter-keep" type="submit" title="Search" aria-label="Search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </button>
+    <input type="hidden" name="auto" id="auto-refresh-flag" value="{% if auto_refresh %}1{% else %}0{% endif %}">
+    <button class="ui-btn filter-keep {% if auto_refresh %}is-on{% endif %}" type="button"
+            title="{% if auto_refresh %}Auto refresh: ON{% else %}Auto refresh: OFF{% endif %}"
+            aria-label="Auto refresh"
+            onclick="var el=document.getElementById('auto-refresh-flag'); el.value = el.value==='1' ? '0' : '1'; this.closest('form').requestSubmit();">
+      <i class="fa-solid fa-stopwatch-20"></i>
+    </button>
+    <button class="ui-btn filter-keep" type="submit" title="Refresh now" aria-label="Refresh now">
+      <i class="fa-solid fa-arrows-rotate"></i>
+    </button>
+    <span class="htmx-indicator loading loading-spinner loading-sm filter-keep"></span>
+  </div>
+
+  <div id="adv-filters" class="{% if not show_advanced %}hidden{% endif %} mt-2 space-y-2">
+    <div class="ui-toolbar">
+      <input class="ui-input flex-1 min-w-[140px]" type="text" name="job_name_not" value="{{ filters.job_name_not }}" placeholder="exclude job names">
+      <input class="ui-input flex-1 min-w-[120px]" type="text" name="protocol_name" value="{{ filters.protocol_name }}" placeholder="protocol name search">
+      <input class="ui-input flex-1 min-w-[120px]" type="text" name="protocol_name_not" value="{{ filters.protocol_name_not }}" placeholder="exclude protocols">
+      <input class="ui-input flex-1 min-w-[120px]" type="text" name="workspace_name" value="{{ filters.workspace_name }}" placeholder="workspace name search">
+      <input class="ui-input flex-1 min-w-[120px]" type="text" name="workspace_name_not" value="{{ filters.workspace_name_not }}" placeholder="exclude workspaces">
+    </div>
+    <div class="ui-toolbar">
+      <input class="ui-input flex-1 min-w-[130px]" type="text" name="parameter" value="{{ filters.parameter }}" placeholder="search parameters">
+      <input class="ui-input flex-1 min-w-[130px]" type="text" name="parameter_not" value="{{ filters.parameter_not }}" placeholder="exclude parameters">
+      <input class="ui-input flex-1 min-w-[130px]" type="text" name="input_file" value="{{ filters.input_file }}" placeholder="search input files">
+      <input class="ui-input flex-1 min-w-[130px]" type="text" name="input_file_not" value="{{ filters.input_file_not }}" placeholder="exclude input files">
+    </div>
+    <div class="ui-toolbar">
+      <div class="ui-combo" data-combo data-status-multi>
+        <input type="hidden" name="status_not" id="filter-status-not" value="{% for v in selected_status_not %}{{ v }}{% if not forloop.last %},{% endif %}{% endfor %}">
+        <button type="button" class="ui-combo-toggle" onclick="ui3.comboToggle(this)" aria-label="Exclude status">
+          <span class="combo-label" id="filter-status-not-label">{% if selected_status_not %}Status ≠: {{ selected_status_not|length }} selected{% else %}Status ≠: any{% endif %}</span>
+        </button>
+        <div class="ui-combo-panel" style="min-width: 200px;">
+          <div class="ui-combo-list space-y-1">
+            {% for value, label in status_choices %}
+            <label class="flex items-center gap-2 px-1 py-0.5 text-sm cursor-pointer hover:bg-base-200 rounded">
+              <input type="checkbox" value="{{ value }}" class="checkbox checkbox-xs status-opt"
+                     {% if value in selected_status_not %}checked{% endif %}
+                     onchange="ui3.syncStatusCsv('filter-status-not', 'filter-status-not-label', 'Status ≠')">
+              {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+          <button type="button" class="ui-btn w-full mt-2" onclick="this.closest('form').requestSubmit()">Apply</button>
+        </div>
+      </div>
+      <input class="ui-input min-w-[140px] flex-1" type="text" name="id_not" value="{{ filters.id_not }}" placeholder="exclude Job IDs">
+      <span class="text-sm">Mode:</span>
+      <button class="ui-btn {% if mode != 'any' %}is-on{% endif %}" type="submit" name="mode" value="all" title="AND">AND</button>
+      <button class="ui-btn {% if mode == 'any' %}is-on{% endif %}" type="submit" name="mode" value="any" title="OR">OR</button>
+    </div>
+  </div>
+
+  <div class="ui-toolbar mt-2 text-sm">
+    {% if array_parent_id %}
+      <input type="hidden" name="parent_job" value="{{ array_parent_id }}">
+      <span>Viewing children of array job #{{ array_parent_id }}{% if array_parent %} ({{ array_parent.job_name }}){% endif %}
+        {% if array_page %}
+        <a class="underline" href="{% url 'ui3:jobs' %}">back to dashboard</a>
+        {% else %}
+        <a class="underline" href="{% url 'ui3:jobs' %}">back to top-level</a>
+        {% endif %}
+      </span>
+    {% endif %}
+  </div>
+</form>
+
+<form id="bulk-form"
+      hx-post="{% url 'ui3:job_bulk' %}"
+      hx-target="#job-results"
+      hx-swap="outerHTML"
+      hx-include="#job-filters"
+      hx-disabled-elt="button">
+  {% csrf_token %}
+  <div id="bulk-bar" class="bulk-bar hidden">
+    <span id="bulk-count" class="text-sm font-medium">0 selected</span>
+    <button type="submit" name="action" value="terminate" class="ui-btn"
+            hx-confirm="Terminate selected jobs?">Terminate</button>
+    <button type="submit" name="action" value="rerun_clean" class="ui-btn"
+            hx-confirm="Rerun selected jobs (clean)?">Rerun clean</button>
+    <button type="submit" name="action" value="rerun_insitu" class="ui-btn"
+            hx-confirm="Rerun selected jobs in situ?">Rerun in-situ</button>
+    <button type="submit" name="action" value="compare" class="ui-btn">Compare two</button>
+    <button type="submit" name="action" value="purge" class="ui-btn"
+            hx-confirm="Purge result folders for selected jobs? Jobs themselves are kept.">Purge results</button>
+    <button type="submit" name="action" value="delete" class="ui-btn icon-btn-danger"
+            hx-confirm="Delete selected jobs? This cannot be undone.">Delete</button>
+    <button type="button" class="ui-btn" onclick="ui3.clearSelection()">Clear</button>
+  </div>
+</form>
+
+{% include "ui3/jobs/_results.html" %}
+{% endblock %}

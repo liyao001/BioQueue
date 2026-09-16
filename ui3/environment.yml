@@ -1,0 +1,6 @@
+name: bioqueue-ui3
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - django=4.2
