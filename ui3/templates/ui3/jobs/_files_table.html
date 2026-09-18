@@ -1,7 +1,7 @@
 {% load ui3_tags %}
-<div id="job-files-{{ job.id }}">
+<div id="job-files-{{ job.id }}" class="job-files">
   {# Filter stays outside the swap target so typing keeps focus. #}
-  <div class="ui-toolbar mt-3">
+  <div class="ui-toolbar job-files-filter">
     <input class="ui-input flex-1" type="search" name="q" value="{{ q }}"
            id="job-files-filter-{{ job.id }}"
            placeholder="filter files"
@@ -15,10 +15,10 @@
            autocomplete="off">
   </div>
 
-  <div id="job-files-results-{{ job.id }}">
+  <div id="job-files-results-{{ job.id }}" data-job-files-root>
     <input type="hidden" id="job-files-sort-{{ job.id }}" name="sort" value="{{ sort }}">
     <input type="hidden" id="job-files-order-{{ job.id }}" name="order" value="{{ order }}">
-    <div class="ui-toolbar mb-1 justify-between">
+    <div class="ui-toolbar job-files-controls justify-between">
       <label class="inline-flex items-center gap-1 text-sm opacity-80 whitespace-nowrap">
         <span>Sort by</span>
         <select class="ui-select"
@@ -38,13 +38,37 @@
           <option value="created:desc" {% if sort == 'created' and order == 'desc' %}selected{% endif %}>Created ↓</option>
         </select>
       </label>
-      <span class="text-sm opacity-70">{{ total }} file{{ total|pluralize }}</span>
+      <div class="inline-flex items-center gap-2">
+        {% if job.ui3_can_write %}
+        <span class="job-files-selected-count text-sm font-medium"></span>
+        <button type="button" class="ui-btn icon-btn-danger job-files-delete-selected"
+                data-locked="{% if job.locked %}1{% else %}0{% endif %}"
+                title="{% if job.locked %}Locked — unlock to delete files{% else %}Delete selected files{% endif %}"
+                disabled
+                hx-post="{% url 'ui3:job_file_delete' job.id %}?q={{ q|urlencode }}&sort={{ sort }}&order={{ order }}&partial=1"
+                hx-include="#job-files-tbody-{{ job.id }}"
+                hx-confirm="Delete selected files?"
+                hx-target="#job-files-results-{{ job.id }}"
+                hx-select="#job-files-results-{{ job.id }}"
+                hx-swap="outerHTML">
+          <i class="fa-solid fa-trash"></i> Delete selected
+        </button>
+        {% endif %}
+        <span class="text-sm opacity-70">{{ total }} file{{ total|pluralize }}</span>
+      </div>
     </div>
     <div id="job-files-scroll-{{ job.id }}" class="overflow-auto" style="max-height: 26rem;">
       <table class="table table-sm w-full job-files-table">
         <thead class="sticky top-0 bg-base-100 z-10">
           <tr>
-            {% if job.ui3_can_write %}<th class="job-files-check"></th>{% endif %}
+            {% if job.ui3_can_write %}
+            <th class="job-files-check">
+              <input type="checkbox" class="job-file-select-all checkbox checkbox-sm"
+                     aria-label="Select all loaded files"
+                     {% if job.locked %}disabled{% endif %}
+                     onclick="ui3.toggleFileSelectAll(this)">
+            </th>
+            {% endif %}
             <th>
               <button type="button" class="ui-sort-btn {% if sort == 'name' %}is-active{% endif %}"
                       title="Sort by name"

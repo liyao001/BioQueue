@@ -196,6 +196,57 @@
         if (all) all.checked = false;
         window.ui3.updateBulkBar();
       },
+      fileSelectRoot: function (node) {
+        if (!node) return document.querySelector("[data-job-files-root]");
+        if (node.getAttribute && node.getAttribute("data-job-files-root") != null) return node;
+        return node.closest ? node.closest("[data-job-files-root]") : null;
+      },
+      toggleFileSelectAll: function (cb) {
+        var root = window.ui3.fileSelectRoot(cb);
+        if (!root) return;
+        root.querySelectorAll(".job-file-select:not(:disabled)").forEach(function (box) {
+          box.checked = !!cb.checked;
+        });
+        window.ui3._fileSelectAnchor = null;
+        window.ui3.updateFileSelectBar(root);
+      },
+      onFileSelectChange: function (cb, event) {
+        var root = window.ui3.fileSelectRoot(cb);
+        if (!root) return;
+        var boxes = Array.prototype.slice.call(root.querySelectorAll(".job-file-select:not(:disabled)"));
+        if (event && event.shiftKey && window.ui3._fileSelectAnchor) {
+          var a = boxes.indexOf(window.ui3._fileSelectAnchor);
+          var b = boxes.indexOf(cb);
+          if (a >= 0 && b >= 0) {
+            var lo = Math.min(a, b);
+            var hi = Math.max(a, b);
+            var check = cb.checked;
+            for (var i = lo; i <= hi; i++) boxes[i].checked = check;
+          }
+        }
+        window.ui3._fileSelectAnchor = cb;
+        window.ui3.updateFileSelectBar(root);
+      },
+      updateFileSelectBar: function (root) {
+        root = window.ui3.fileSelectRoot(root);
+        if (!root) return;
+        var boxes = root.querySelectorAll(".job-file-select:not(:disabled)");
+        var selected = root.querySelectorAll(".job-file-select:checked");
+        var btn = root.querySelector(".job-files-delete-selected");
+        var count = root.querySelector(".job-files-selected-count");
+        var all = root.querySelector(".job-file-select-all");
+        if (count) count.textContent = selected.length ? (selected.length + " selected") : "";
+        if (btn) {
+          var locked = btn.getAttribute("data-locked") === "1";
+          btn.disabled = locked || selected.length === 0;
+          var msg = selected.length === 1 ? "Delete this file?" : ("Delete " + selected.length + " selected files?");
+          btn.setAttribute("hx-confirm", msg);
+        }
+        if (all && !all.disabled) {
+          all.checked = boxes.length > 0 && selected.length === boxes.length;
+          all.indeterminate = selected.length > 0 && selected.length < boxes.length;
+        }
+      },
       updateBulkBar: function () {
         var selected = document.querySelectorAll(".job-select:checked");
         var bar = document.getElementById("bulk-bar");
@@ -781,6 +832,9 @@
       if (e.target && e.target.classList && e.target.classList.contains("job-select")) {
         window.ui3.updateBulkBar();
       }
+      if (e.target && e.target.classList && e.target.classList.contains("job-file-select")) {
+        window.ui3.onFileSelectChange(e.target, e);
+      }
     });
     document.body.addEventListener("htmx:beforeRequest", function (event) {
       var src = event.detail.elt;
@@ -896,6 +950,23 @@
     document.body.addEventListener("htmx:oobAfterSwap", ui3ArmToast);
     document.body.addEventListener("htmx:afterSwap", function (e) {
       window.ui3.updateBulkBar();
+      var filesRoot = e.target && e.target.closest ? e.target.closest("[data-job-files-root]") : null;
+      if (!filesRoot && e.target && e.target.getAttribute && e.target.getAttribute("data-job-files-root") != null) {
+        filesRoot = e.target;
+      }
+      if (!filesRoot && e.target && e.target.querySelector) {
+        filesRoot = e.target.querySelector("[data-job-files-root]");
+      }
+      if (filesRoot) {
+        var tbody = filesRoot.querySelector("[id^='job-files-tbody-']");
+        var all = filesRoot.querySelector(".job-file-select-all");
+        if (all && all.checked && tbody && e.target === tbody) {
+          tbody.querySelectorAll(".job-file-select:not(:disabled)").forEach(function (cb) {
+            cb.checked = true;
+          });
+        }
+        window.ui3.updateFileSelectBar(filesRoot);
+      }
       var combo = e.target && e.target.closest && e.target.closest(".job-card-combo.is-open");
       if (!combo && e.target && e.target.closest) {
         var panel = e.target.closest(".ui-combo-panel");

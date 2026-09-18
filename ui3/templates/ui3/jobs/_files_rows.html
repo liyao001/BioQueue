@@ -3,7 +3,8 @@
   {% if job.ui3_can_write %}
   <td class="job-files-check">
     <input type="checkbox" class="checkbox checkbox-xs job-file-select" name="traces" value="{{ f.trace }}"
-           form="job-archive-form-{{ job.id }}" aria-label="Select {{ f.name }}">
+           form="job-archive-form-{{ job.id }}" aria-label="Select {{ f.name }}"
+           {% if job.locked %}disabled{% endif %}>
   </td>
   {% endif %}
   <td class="break-all">

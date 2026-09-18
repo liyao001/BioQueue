@@ -12,8 +12,8 @@ from QueueDB.models import JobStatus
 from ..decorators import ui3_login_required
 from ..files import (
     MAX_FILE_NAME,
-    delete_job_file,
     delete_job_file_tree,
+    delete_job_files,
     download_response,
     history_tokens_to_archive_paths,
     listed_display_name,
@@ -1154,15 +1154,26 @@ def job_file_delete(request, pk):
         return err
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
-    trace = request.POST.get("trace") or request.GET.get("trace")
-    if not trace:
-        return _bad(request, "trace is required")
-    ok = delete_job_file(job, trace)
-    if not ok:
-        return _bad(request, "Unable to delete file")
+    traces = [t for t in request.POST.getlist("trace") if (t or "").strip()]
+    traces.extend(t for t in request.POST.getlist("traces") if (t or "").strip())
+    if not traces:
+        one = (request.GET.get("trace") or "").strip()
+        if one:
+            traces = [one]
+    if not traces:
+        return _bad(request, "Select at least one file.")
+    result = delete_job_files(job, traces)
+    if result["requested"] == 0 or result["deleted"] == 0:
+        return _bad(request, "Unable to delete file" if result["requested"] <= 1 else "Unable to delete selected files")
     ctx = _files_context(request, job)
     response = render(request, "ui3/jobs/_files_table.html", ctx)
-    return with_toast(response, "File deleted.")
+    if result["deleted"] == 1 and result["failed"] == 0:
+        msg = "File deleted."
+    else:
+        msg = "Deleted {} file{}.".format(result["deleted"], "" if result["deleted"] == 1 else "s")
+        if result["failed"]:
+            msg += " {} could not be deleted.".format(result["failed"])
+    return with_toast(response, msg)
 
 
 @ui3_login_required

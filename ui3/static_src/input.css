@@ -174,8 +174,29 @@
       line-height: 1;
     }
     .ui-sort-btn.is-active .ui-sort-ind { opacity: 1; }
+    .job-files {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .job-files [data-job-files-root] {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .job-files .job-files-table { margin: 0; }
+    .job-files-table .job-files-check {
+      width: 1.75rem;
+      text-align: center;
+      vertical-align: middle;
+    }
     .job-files-table tbody tr:hover,
     .job-files-table tbody tr:hover > * { background: #f3f4f6; }
+    .job-files-table tbody tr:has(.job-file-select:checked),
+    .job-files-table tbody tr:has(.job-file-select:checked) > * { background: #ecfdf5; }
+    .job-files-table tbody tr:has(.job-file-select:checked):hover,
+    .job-files-table tbody tr:has(.job-file-select:checked):hover > * { background: #dcfce7; }
     .job-files-name {
       display: inline;
       margin: 0;

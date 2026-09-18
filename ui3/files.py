@@ -327,6 +327,30 @@ def delete_job_file(job, trace):
         return False
 
 
+def delete_job_files(job, traces, max_files=1000):
+    """
+    Delete listed result files by trace.
+
+    Returns {"deleted": int, "failed": int, "requested": int}.
+    """
+    seen = []
+    for raw in traces or []:
+        trace = (raw or "").strip()
+        if not trace or trace in seen:
+            continue
+        seen.append(trace)
+        if len(seen) >= max_files:
+            break
+    deleted = 0
+    failed = 0
+    for trace in seen:
+        if delete_job_file(job, trace):
+            deleted += 1
+        else:
+            failed += 1
+    return {"deleted": deleted, "failed": failed, "requested": len(seen)}
+
+
 PROTECTED_WORKSPACE_FOLDERS = frozenset({"refs", "bin", "uploads", "archives", "OVERRIDE_UPLOAD"})
 
 

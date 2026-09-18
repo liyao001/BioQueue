@@ -346,10 +346,16 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, reverse("ui3:job_file_rename", args=[job.id]))
         self.assertContains(response, "fa-i-cursor")
         self.assertContains(response, "job-files-table")
+        self.assertContains(response, 'class="job-files"')
+        self.assertContains(response, "job-files-filter")
+        self.assertContains(response, "job-files-controls")
         self.assertContains(response, "job-files-name")
         self.assertContains(response, "data-ui3-select-name")
         self.assertContains(response, 'id="job-files-results-{}'.format(job.id))
         self.assertContains(response, 'id="job-files-filter-{}'.format(job.id))
+        self.assertContains(response, "job-file-select-all")
+        self.assertContains(response, "job-files-delete-selected")
+        self.assertContains(response, 'name="traces"')
         filtered = self.client.get(reverse("ui3:job_files", args=[job.id]), {"q": "nope", "partial": "1"})
         self.assertContains(filtered, "No files found")
         self.assertContains(filtered, 'id="job-files-results-{}'.format(job.id))
@@ -521,6 +527,87 @@ class JobTests(Ui3TestCase):
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(forbidden.status_code, 403)
+
+    def test_job_file_delete_multi(self):
+        import os
+        import tempfile
+
+        tmp = tempfile.mkdtemp()
+        job = self.make_job(job_name="delete-files", result="out", run_dir=tmp)
+        folder = os.path.join(tmp, str(self.user.id), "out")
+        os.makedirs(folder)
+        keep = os.path.join(folder, "keep.txt")
+        a = os.path.join(folder, "a.txt")
+        b = os.path.join(folder, "b.txt")
+        for path, body in ((keep, "k"), (a, "a"), (b, "b")):
+            with open(path, "w") as fh:
+                fh.write(body)
+        self.login()
+        from ui3.files import list_job_files
+
+        by_name = {f["name"]: f for f in list_job_files(job)}
+        page = self.client.get(reverse("ui3:job_files", args=[job.id]))
+        self.assertContains(page, "job-files-delete-selected")
+        self.assertContains(page, "job-file-select-all")
+        self.assertContains(page, 'name="traces"')
+
+        single = self.client.post(
+            reverse("ui3:job_file_delete", args=[job.id]) + "?trace={}".format(by_name["a.txt"]["trace"]),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(single.status_code, 200)
+        self.assertContains(single, "File deleted.")
+        self.assertNotContains(single, "<html")
+        self.assertFalse(os.path.exists(a))
+        self.assertTrue(os.path.exists(b))
+
+        multi = self.client.post(
+            reverse("ui3:job_file_delete", args=[job.id]),
+            {"traces": [by_name["b.txt"]["trace"], by_name["keep.txt"]["trace"]]},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(multi.status_code, 200)
+        self.assertContains(multi, "Deleted 2 files.")
+        self.assertFalse(os.path.exists(b))
+        self.assertFalse(os.path.exists(keep))
+
+        empty = self.client.post(
+            reverse("ui3:job_file_delete", args=[job.id]),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(empty.status_code, 400)
+
+        with open(os.path.join(folder, "again.txt"), "w") as fh:
+            fh.write("x")
+        locked = self.make_job(job_name="locked-delete", result="out", run_dir=tmp, locked=1)
+        locked_files = {f["name"]: f for f in list_job_files(locked)}
+        locked_post = self.client.post(
+            reverse("ui3:job_file_delete", args=[locked.id]),
+            {"traces": [locked_files["again.txt"]["trace"]]},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(locked_post.status_code, 400)
+        self.assertTrue(os.path.exists(os.path.join(folder, "again.txt")))
+
+        other = self.make_job(
+            user=self.other,
+            protocol=self.other_protocol,
+            job_name="other-delete",
+            result="out",
+            run_dir=tmp,
+        )
+        other_folder = os.path.join(tmp, str(self.other.id), "out")
+        os.makedirs(other_folder)
+        with open(os.path.join(other_folder, "secret.txt"), "w") as fh:
+            fh.write("no")
+        other_files = {f["name"]: f for f in list_job_files(other)}
+        forbidden = self.client.post(
+            reverse("ui3:job_file_delete", args=[other.id]),
+            {"traces": [other_files["secret.txt"]["trace"]]},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(forbidden.status_code, 403)
+        self.assertTrue(os.path.exists(os.path.join(other_folder, "secret.txt")))
 
     def test_pager_has_jump_controls(self):
         self.login()
