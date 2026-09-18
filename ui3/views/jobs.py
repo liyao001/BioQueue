@@ -1,7 +1,7 @@
 import os
 
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -142,6 +142,86 @@ def running_count(request):
     if count <= 0:
         return HttpResponse("")
     return render(request, "ui3/partials/running_badge.html", {"count": count, "label": label})
+
+
+@ui3_login_required
+@require_http_methods(["GET", "POST"])
+def job_migrate(request):
+    if not getattr(request.user, "is_staff", False):
+        if is_htmx(request):
+            return htmx_error("Staff access required.", status=403)
+        return HttpResponseForbidden("Staff access required.")
+    form = {
+        "source": (request.POST.get("source") or request.GET.get("source") or "").strip(),
+        "dest": (request.POST.get("dest") or request.GET.get("dest") or "").strip(),
+        "ids": request.POST.get("ids") or request.GET.get("ids") or "",
+        "move_files": True,
+    }
+    if request.method == "POST":
+        form["move_files"] = request.POST.get("move_files") == "1"
+    ctx = {"form": form, "result": None, "error": None}
+    if request.method == "GET":
+        return render(request, "ui3/jobs/migrate.html", ctx)
+    dry_run = request.POST.get("dry_run") != "0"
+    try:
+        from_user = services.find_user(form["source"])
+        to_user = services.find_user(form["dest"])
+        if from_user is None:
+            raise services.JobMigrateError("Source account not found.")
+        if to_user is None:
+            raise services.JobMigrateError("Destination account not found.")
+        if not dry_run and request.POST.get("confirm") != "1":
+            raise services.JobMigrateError("Confirm the migrate before running it.")
+        result = services.migrate_jobs(
+            from_user,
+            to_user,
+            services.parse_migrate_job_ids(form["ids"]),
+            move_files=form["move_files"],
+            dry_run=dry_run,
+        )
+    except services.JobMigrateError as exc:
+        ctx["error"] = str(exc)
+        if is_htmx(request):
+            return htmx_error(ctx["error"])
+        return render(request, "ui3/jobs/migrate.html", ctx, status=400)
+    ctx["result"] = result
+    if not dry_run:
+        if result["errors"]:
+            messages.error(
+                request,
+                "Migrate finished with {} error(s); {} job(s) moved.".format(
+                    result["errors"], result["moved"]
+                ),
+            )
+        elif result["moved"] == 0:
+            messages.warning(request, "No jobs were migrated.")
+        else:
+            messages.success(
+                request,
+                "Migrated {} job(s) from {} to {}.".format(
+                    result["moved"], from_user.username, to_user.username
+                ),
+            )
+    return render(request, "ui3/jobs/migrate.html", ctx)
+
+
+@ui3_login_required
+@require_http_methods(["GET"])
+def job_migrate_search(request):
+    if not getattr(request.user, "is_staff", False):
+        return JsonResponse({"detail": "Staff access required."}, status=403)
+    source = (request.GET.get("source") or "").strip()
+    from_user = None
+    if source:
+        try:
+            from_user = services.find_user(source)
+        except services.JobMigrateError:
+            from_user = None
+        if from_user is None:
+            return JsonResponse({"results": []})
+    return JsonResponse(
+        {"results": services.search_migrate_jobs(from_user, request.GET.get("q") or "")}
+    )
 
 
 def _require_readable_job(request, pk):
@@ -932,7 +1012,13 @@ def job_bulk(request):
 @ui3_login_required
 @require_http_methods(["GET"])
 def protocol_options(request):
-    items = list(services.filter_named_choices(services.visible_protocols(request.user), combo_query(request)))
+    items = list(
+        services.filter_named_choices(
+            services.visible_protocols(request.user),
+            combo_query(request),
+            extra_fields=("description",),
+        )
+    )
     empty_label = (request.GET.get("empty") or "").strip() or "Protocol: all"
     # Optionally pin a selected protocol id that must appear (e.g. clone / staff).
     pin_id = int_or_none(request.GET.get("pin"))

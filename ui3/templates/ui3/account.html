@@ -78,4 +78,14 @@
     <button class="ui-btn icon-btn-danger" type="submit">Clean unlinked folders</button>
   </form>
 </div>
+
+{% if user.is_staff %}
+<div class="card bg-base-100 shadow-sm p-5 mt-4">
+  <h2 class="text-lg font-semibold">Migrate jobs</h2>
+  <p class="text-sm opacity-70 mt-1">Staff only. Reassign jobs from one account to another and move their result folders.</p>
+  <div class="mt-3 flex justify-end">
+    <a class="ui-btn" href="{% url 'ui3:job_migrate' %}">Open migrate jobs</a>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

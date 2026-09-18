@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from .views import archives
 from .views import auth
@@ -26,6 +26,8 @@ urlpatterns = [
     path("jobs/new/workspace-uploads/", jobs.workspace_uploads, name="workspace_uploads"),
     path("jobs/new/results-picker/", jobs.job_results_picker, name="job_results_picker"),
     path("jobs/bulk/", jobs.job_bulk, name="job_bulk"),
+    path("jobs/migrate/", jobs.job_migrate, name="job_migrate"),
+    path("jobs/migrate/search/", jobs.job_migrate_search, name="job_migrate_search"),
     path("jobs/running-count/", jobs.running_count, name="running_count"),
     path("jobs/options/protocols/", jobs.protocol_options, name="protocol_options"),
     path("jobs/options/workspaces/", jobs.workspace_options, name="workspace_options"),
@@ -62,8 +64,10 @@ urlpatterns = [
     path("protocols/options/environments/", protocols.environment_options, name="environment_options"),
     path("protocols/", protocols.protocol_list, name="protocols"),
     path("protocols/new/", protocols.protocol_create, name="protocol_create"),
+    path("protocols/import/", protocols.protocol_import, name="protocol_import"),
     path("protocols/step-row/", protocols.protocol_step_row, name="protocol_step_row"),
     path("protocols/<int:pk>/", protocols.protocol_detail, name="protocol_detail"),
+    path("protocols/<int:pk>/export/", protocols.protocol_export, name="protocol_export"),
     path("protocols/<int:pk>/update/", protocols.protocol_update, name="protocol_update"),
     path("protocols/<int:pk>/delete/", protocols.protocol_delete, name="protocol_delete"),
     path("protocols/<int:pk>/clone/", protocols.protocol_clone, name="protocol_clone"),
@@ -91,4 +95,5 @@ urlpatterns = [
     path("dag/graph/", dag.dag_graph, name="dag_graph"),
     path("dag/search/", dag.dag_search, name="dag_search"),
     path("dag/jobs/", dag.dag_jobs, name="dag_jobs"),
+    path("ext/", include("ui3.plugins.urls")),
 ]

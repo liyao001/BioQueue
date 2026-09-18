@@ -1,0 +1,193 @@
+{% extends "ui3/base.html" %}
+{% block title %}Migrate jobs – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Migrate jobs</h1>
+  <p class="text-sm opacity-70 page-head-sub">Staff only. Reassign jobs from one account to another. Result folders move from <code class="text-xs">{run_dir}/{from_id}/{result}</code> to <code class="text-xs">{run_dir}/{to_id}/{result}</code>. Running, resource-locked, and locked jobs are skipped. Listing a parent also includes source-owned descendants. Same-owner History links must move together. Workspaces the destination does not own are cleared. Protocols stay attached.</p>
+</div>
+
+<div class="card bg-base-100 shadow-sm p-5 max-w-3xl">
+  {% if error %}
+    <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+  {% endif %}
+  <form method="post" class="space-y-3">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">From account</span></div>
+      <input class="ui-input w-full" name="source" value="{{ form.source }}" required
+             placeholder="username or id:123" autocomplete="off">
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">To account</span></div>
+      <input class="ui-input w-full" name="dest" value="{{ form.dest }}" required
+             placeholder="username or id:123" autocomplete="off">
+    </label>
+    <div>
+      <div class="label">
+        <span class="label-text">Job IDs</span>
+        <span class="label-text-alt">integers only; leave blank for all jobs owned by the source. Parent IDs include source-owned descendants.</span>
+      </div>
+      <div class="dag-field-grow">
+        <input id="migrate-job-search" class="ui-input w-full" type="search"
+               placeholder="Search by name or job ID, then click to add"
+               autocomplete="off"
+               data-search-url="{% url 'ui3:job_migrate_search' %}">
+        <div id="migrate-job-search-results" class="dag-search-results hidden"></div>
+      </div>
+      <textarea id="migrate-ids" class="ui-input w-full mt-2" name="ids" rows="3"
+                placeholder="12, 15 18">{{ form.ids }}</textarea>
+    </div>
+    <label class="label cursor-pointer justify-start gap-2 px-0">
+      <input type="checkbox" class="checkbox checkbox-sm" name="move_files" value="1"
+             {% if form.move_files %}checked{% endif %}>
+      <span class="label-text">Move result folders</span>
+    </label>
+    <label class="label cursor-pointer justify-start gap-2 px-0">
+      <input type="checkbox" class="checkbox checkbox-sm" name="confirm" value="1">
+      <span class="label-text">I confirm I want to migrate these jobs</span>
+    </label>
+    <div class="flex gap-2 justify-end pt-1">
+      <button class="ui-btn" type="submit" name="dry_run" value="1">Preview</button>
+      <button class="ui-btn ui-btn-primary" type="submit" name="dry_run" value="0"
+              onclick="return confirm('Migrate these jobs to the destination account? This cannot be easily undone.');">
+        Migrate
+      </button>
+    </div>
+  </form>
+</div>
+
+{% if result %}
+<div class="card bg-base-100 shadow-sm p-5 mt-4">
+  <h2 class="text-lg font-semibold">
+    {% if result.dry_run %}Preview{% else %}Result{% endif %}
+    <span class="opacity-60 font-normal text-base">
+      {{ result.from_user.username }} → {{ result.to_user.username }}
+    </span>
+  </h2>
+  <p class="text-sm opacity-70 mt-1">
+    {% if result.dry_run %}
+      {{ result.previews }} would move, {{ result.skipped }} skipped.
+    {% else %}
+      {{ result.moved }} moved, {{ result.skipped }} skipped, {{ result.errors }} failed.
+    {% endif %}
+  </p>
+  <div class="overflow-x-auto border border-base-300 rounded-md mt-3">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="bg-base-200/60">
+          <th class="w-16">ID</th>
+          <th>Name</th>
+          <th>Action</th>
+          <th>Files</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in result.rows %}
+        <tr>
+          <td class="opacity-70">{{ row.job_id }}</td>
+          <td>{{ row.job_name|default:"—" }}</td>
+          <td>{{ row.action }}</td>
+          <td class="text-sm opacity-80">{{ row.files|default:"" }}</td>
+          <td class="text-sm">{{ row.detail }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-sm opacity-60 py-6">No jobs found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  var search = document.getElementById("migrate-job-search");
+  var results = document.getElementById("migrate-job-search-results");
+  var ids = document.getElementById("migrate-ids");
+  var source = document.querySelector("input[name=source]");
+  if (!search || !results || !ids) return;
+  var url = search.getAttribute("data-search-url");
+  var timer = null;
+  var STATUS = {
+    "-3": { label: "Wrong", color: "#E53E3E" },
+    "-2": { label: "ResourceLock", color: "#DD6B20" },
+    "-1": { label: "Finished", color: "#38A169" },
+    "0": { label: "Waiting", color: "#718096" },
+    "1": { label: "Running", color: "#3182CE" },
+    "2": { label: "Interrupted", color: "#D69E2E" }
+  };
+  function statusMeta(n) {
+    return STATUS[String(n)] || { label: String(n), color: "#718096" };
+  }
+  function currentIds() {
+    return ids.value.replace(/,/g, " ").split(/\s+/).filter(Boolean);
+  }
+  function addId(id) {
+    var parts = currentIds();
+    var token = String(id);
+    if (parts.indexOf(token) >= 0) return;
+    parts.push(token);
+    ids.value = parts.join(", ");
+    search.value = "";
+    hideResults();
+  }
+  function hideResults() {
+    results.classList.add("hidden");
+    results.innerHTML = "";
+  }
+  function render(rows) {
+    results.innerHTML = "";
+    if (!rows.length) {
+      hideResults();
+      return;
+    }
+    rows.forEach(function (j) {
+      var meta = statusMeta(j.status);
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "dag-search-item";
+      btn.innerHTML = '<i class="fa-solid fa-circle" style="color:' + meta.color +
+        '"></i><span><strong></strong><small></small></span>';
+      btn.querySelector("strong").textContent = j.job_name || "(unnamed)";
+      btn.querySelector("small").textContent = "#" + j.id + " · " + (j.username || "") + " · " + meta.label;
+      btn.addEventListener("click", function () { addId(j.id); });
+      results.appendChild(btn);
+    });
+    results.classList.remove("hidden");
+  }
+  function runSearch(q) {
+    if (!q) {
+      hideResults();
+      return;
+    }
+    var params = new URLSearchParams({ q: q });
+    if (source && source.value.trim()) params.set("source", source.value.trim());
+    fetch(url + "?" + params.toString(), { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { render(data.results || []); })
+      .catch(function () { hideResults(); });
+  }
+  search.addEventListener("input", function () {
+    clearTimeout(timer);
+    var q = search.value.trim();
+    timer = setTimeout(function () { runSearch(q); }, 180);
+  });
+  search.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      hideResults();
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      var first = results.querySelector(".dag-search-item");
+      if (first) first.click();
+    }
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".dag-field-grow")) hideResults();
+  });
+})();
+</script>
+{% endblock %}

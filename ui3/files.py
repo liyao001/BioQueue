@@ -377,6 +377,111 @@ def delete_job_file_tree(job):
     return False
 
 
+def job_result_relpath(job):
+    folder = (job.result or "").replace("\\", "/").strip("/")
+    if not folder or folder in (".", ".."):
+        return None
+    parts = [p for p in folder.split("/") if p]
+    if not parts or any(p in (".", "..") for p in parts):
+        return None
+    return os.path.join(*parts)
+
+
+def _lexical_join(root, rel):
+    candidate = os.path.normpath(os.path.join(root, rel))
+    parent = os.path.realpath(os.path.dirname(candidate))
+    return os.path.join(parent, os.path.basename(candidate))
+
+
+def _dest_prefix_conflict(dest, dest_root):
+    dest = os.path.normpath(dest)
+    dest_root = os.path.normpath(dest_root)
+    rel = os.path.relpath(dest, dest_root)
+    if rel.startswith("..") or os.path.isabs(rel):
+        return True
+    acc = dest_root
+    for part in [p for p in rel.split(os.sep) if p and p != "."]:
+        acc = os.path.join(acc, part)
+        if os.path.lexists(acc):
+            return True
+    return False
+
+
+def job_result_move_paths(job, to_user):
+    """
+    Return (src, dest, reason) for moving a job result folder to another user.
+
+    reason is None when both paths are valid; otherwise a short skip code:
+    none, missing, collision, invalid.
+    """
+    raw_result = (job.result or "").replace("\\", "/").strip()
+    if not raw_result.strip("/"):
+        return None, None, "none"
+    folder = job_result_relpath(job)
+    if not folder:
+        return None, None, "invalid"
+    raw_run = (job.run_dir or "").strip()
+    if not raw_run or not os.path.isabs(raw_run):
+        return None, None, "invalid"
+    run_dir = os.path.realpath(raw_run)
+    if not run_dir or not os.path.isdir(run_dir):
+        return None, None, "invalid"
+    src_root = os.path.realpath(os.path.join(run_dir, str(job.user_id)))
+    dest_root = os.path.normpath(os.path.join(run_dir, str(getattr(to_user, "id", ""))))
+    if not _is_under_root(src_root, run_dir) or not _is_under_root(dest_root, run_dir):
+        return None, None, "invalid"
+    src = _lexical_join(src_root, folder)
+    dest = os.path.normpath(os.path.join(dest_root, folder))
+    if not _is_under_root(src, src_root) or not _is_under_root(dest, dest_root):
+        return None, None, "invalid"
+    if src == dest:
+        return src, dest, "none"
+    if os.path.islink(src):
+        return src, dest, "invalid"
+    if not os.path.isdir(src):
+        return src, dest, "missing"
+    if os.path.lexists(dest) or _dest_prefix_conflict(dest, dest_root):
+        return src, dest, "collision"
+    return src, dest, None
+
+
+def move_job_result_folder(job, to_user):
+    """
+    Move job.result from the current owner's folder to to_user's folder.
+
+    Returns 'moved', 'missing', 'none', 'collision', or 'invalid'.
+    Does not follow a final symlink. Uses rename when possible so dest
+    cannot swallow src as a nested directory.
+    """
+    import errno
+    import shutil
+
+    src, dest, reason = job_result_move_paths(job, to_user)
+    if reason:
+        return reason
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    if os.path.lexists(dest):
+        return "collision"
+    if os.path.islink(src):
+        return "invalid"
+    if not os.path.isdir(src):
+        return "missing"
+    try:
+        os.rename(src, dest)
+    except OSError as exc:
+        if os.path.lexists(dest):
+            return "collision"
+        if getattr(exc, "errno", None) != errno.EXDEV:
+            raise
+        try:
+            shutil.move(src, dest)
+        except Exception:
+            if os.path.lexists(src) and os.path.lexists(dest):
+                shutil.rmtree(dest, ignore_errors=True)
+            raise
+    return "moved"
+
+
 def traces_to_archive_paths(job, traces):
     """Resolve files-modal traces to (absolute paths, History tokens)."""
     paths = []

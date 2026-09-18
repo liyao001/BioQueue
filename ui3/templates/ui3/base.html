@@ -59,12 +59,16 @@
         <a href="{% url 'ui3:dag' %}" class="{% if request.resolver_match.url_name|slice:':3' == 'dag' %}is-active{% endif %}">
           <i class="fas fa-diagram-project"></i> DAG
         </a>
+        {% plugin_nav %}
       </nav>
       <details class="bq-user">
         <summary><i class="fas fa-user"></i> <span class="bq-user-name">{{ user.username }}</span></summary>
         <ul>
           <li><a href="{% url 'ui3:account' %}">Account</a></li>
           <li><a href="{% url 'ui3:archives' %}">Archives</a></li>
+          {% if user.is_staff %}
+          <li><a href="{% url 'ui3:job_migrate' %}">Migrate jobs</a></li>
+          {% endif %}
           <li>
             <form method="post" action="{% url 'ui3:logout' %}">
               {% csrf_token %}

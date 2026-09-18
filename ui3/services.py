@@ -11,6 +11,7 @@ import re
 from functools import reduce
 
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 
 from QueueDB.models import (
@@ -68,11 +69,13 @@ def visible_protocols(user):
     return ProtocolList.objects.filter(Q(user=delegate) | Q(user=None)).order_by("-id")
 
 
-def filter_named_choices(queryset, q, limit=40):
+def filter_named_choices(queryset, q, limit=40, extra_fields=()):
     q = (q or "").strip()
     if not q:
         return queryset[:limit]
     filters = Q(name__icontains=q)
+    for field in extra_fields:
+        filters |= Q(**{"{}__icontains".format(field): q})
     if q.isdigit():
         filters = filters | Q(id=int(q))
     return queryset.filter(filters)[:limit]
@@ -613,18 +616,18 @@ def search_protocols(user, q, ordering="-id"):
     q = (q or "").strip()
     if q:
         tokens = split_tokens(q)
-        name_q = None
+        text_q = None
         for token in tokens:
-            cond = Q(name__icontains=token)
-            name_q = cond if name_q is None else (name_q & cond)
+            cond = Q(name__icontains=token) | Q(description__icontains=token)
+            text_q = cond if text_q is None else (text_q & cond)
         try:
             id_q = Q(id=int(q))
         except ValueError:
             id_q = None
-        if name_q is not None and id_q is not None:
-            qs = qs.filter(name_q | id_q)
-        elif name_q is not None:
-            qs = qs.filter(name_q)
+        if text_q is not None and id_q is not None:
+            qs = qs.filter(text_q | id_q)
+        elif text_q is not None:
+            qs = qs.filter(text_q)
         elif id_q is not None:
             qs = qs.filter(id_q)
     allowed = {"name", "-name", "id", "-id"}
@@ -755,12 +758,32 @@ def shortcuts_for_jobs(user, jobs):
     return jobs
 
 
+def shortcut_presets():
+    """Plugin-advertised shortcut templates for the protocol picker."""
+    from django.utils.safestring import mark_safe
+
+    from ui3 import plugins
+
+    out = []
+    for item in plugins.shortcut_presets():
+        payload = {
+            "label": item["label"],
+            "href_template": item["href_template"],
+            "params_template": item.get("params_template") or "",
+            "active": "1",
+        }
+        row = dict(item)
+        row["hx_vals"] = mark_safe(json.dumps(payload))
+        out.append(row)
+    return out
+
+
 def compute_step_hash(software, parameter):
     payload = "{} {}".format(software or "", (parameter or "").strip())
     return hashlib.md5(payload.encode()).hexdigest()
 
 
-def create_step(protocol, software, parameter, step_order, env=None, user=None):
+def create_step(protocol, software, parameter, step_order, env=None, user=None, version_check=""):
     return Step.objects.create(
         parent=protocol,
         software=software,
@@ -769,6 +792,7 @@ def create_step(protocol, software, parameter, step_order, env=None, user=None):
         env=env,
         hash=compute_step_hash(software, parameter),
         user=user,
+        version_check=version_check or "",
     )
 
 
@@ -807,6 +831,140 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
     return dest
 
 
+PROTOCOL_WILDCARD_RE = re.compile(r"\{\{(.*?)\}\}", re.IGNORECASE | re.DOTALL)
+MAX_PROTOCOL_JSON_BYTES = 1_000_000
+
+
+class ProtocolImportError(ValueError):
+    """User-facing protocol JSON import failure."""
+
+
+def protocol_json_filename(name):
+    raw = (name or "protocol").strip() or "protocol"
+    safe = re.sub(r'[\x00-\x1f\\/:*?"<>|]+', "_", raw).strip(" .") or "protocol"
+    if len(safe) > 180:
+        safe = safe[:180].rstrip(" .") or "protocol"
+    return safe + ".json"
+
+
+def protocol_json_payload(protocol, user=None):
+    """Legacy-compatible protocol JSON (name, description, ver, step, reference)."""
+    steps_out = []
+    for step in protocol_steps(protocol):
+        steps_out.append(
+            {
+                "software": step.software,
+                "parameter": step.parameter,
+                "hash": step.hash or compute_step_hash(step.software, step.parameter),
+                "step_order": step.step_order,
+                "version_check": step.version_check or "",
+            }
+        )
+    refs = {}
+    if user is not None:
+        known = {r.name: (r.description or "") for r in visible_references(user)}
+        for step in steps_out:
+            for token in PROTOCOL_WILDCARD_RE.findall(step.get("parameter") or ""):
+                ref_name = (token or "").split(":")[0].strip()
+                if ref_name and ref_name in known and ref_name not in refs:
+                    refs[ref_name] = known[ref_name]
+    return {
+        "name": protocol.name,
+        "description": protocol.description,
+        "ver": protocol.ver,
+        "step": steps_out,
+        "reference": refs,
+    }
+
+
+def protocol_json_text(protocol, user=None):
+    return json.dumps(protocol_json_payload(protocol, user), indent=4, sort_keys=True)
+
+
+def _reference_entries(raw_refs):
+    entries = []
+    if isinstance(raw_refs, dict):
+        for name, description in raw_refs.items():
+            name = str(name or "").strip()
+            if name:
+                entries.append((name, "" if description is None else str(description)))
+    elif isinstance(raw_refs, list):
+        for item in raw_refs:
+            if isinstance(item, dict):
+                name = str(item.get("name") or "").strip()
+                if name:
+                    entries.append((name, str(item.get("description") or "")))
+            elif isinstance(item, str) and item.strip():
+                entries.append((item.strip(), ""))
+    return entries
+
+
+def import_protocol_from_json(user, payload):
+    """
+    Create an owned protocol from legacy export JSON.
+
+    Returns (protocol, missing_reference_names).
+    """
+    if not isinstance(payload, dict):
+        raise ProtocolImportError("Invalid protocol JSON.")
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise ProtocolImportError("Protocol name is required.")
+    if len(name) > 500:
+        raise ProtocolImportError("Protocol name is too long.")
+    owner = delegate_for(user)
+    if ProtocolList.objects.filter(name=name, user=owner).exists():
+        raise ProtocolImportError("A protocol named '{}' already exists.".format(name))
+    steps = payload.get("step") or []
+    if not isinstance(steps, list):
+        raise ProtocolImportError("Protocol steps must be a list.")
+    description = payload.get("description")
+    if description is not None:
+        description = str(description).strip() or None
+    with transaction.atomic():
+        proto = ProtocolList.objects.create(name=name, description=description, user=owner)
+        for index, raw in enumerate(steps, start=1):
+            if not isinstance(raw, dict):
+                continue
+            software = (raw.get("software") or "").strip()
+            if not software:
+                continue
+            parameter = raw.get("parameter") or ""
+            try:
+                order = int(raw.get("step_order") or index)
+            except (TypeError, ValueError):
+                order = index
+            create_step(
+                proto,
+                software,
+                parameter,
+                order,
+                user=owner,
+                version_check=raw.get("version_check") or "",
+            )
+    known = set(visible_references(user).values_list("name", flat=True))
+    missing = [name for name, _desc in _reference_entries(payload.get("reference")) if name not in known]
+    return proto, missing
+
+
+def import_protocol_from_upload(user, upload):
+    if upload is None:
+        raise ProtocolImportError("Choose a protocol JSON file.")
+    size = getattr(upload, "size", None) or 0
+    if size > MAX_PROTOCOL_JSON_BYTES:
+        raise ProtocolImportError("File is too large (max 1 MB).")
+    raw = upload.read()
+    if len(raw) > MAX_PROTOCOL_JSON_BYTES:
+        raise ProtocolImportError("File is too large (max 1 MB).")
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise ProtocolImportError("File is not valid UTF-8.")
+    except json.JSONDecodeError:
+        raise ProtocolImportError("Invalid protocol JSON.")
+    return import_protocol_from_json(user, payload)
+
+
 def running_job_count(user):
     return owned_jobs(user).filter(status=JobStatus.RUNNING).count()
 
@@ -824,6 +982,405 @@ def maybe_delete_job_files(job):
         delete_job_file_tree(job)
     except Exception:
         pass
+
+
+class JobMigrateError(ValueError):
+    """User-facing job account migration failure."""
+
+
+def find_user(raw):
+    from django.contrib.auth.models import User
+
+    text = (raw or "").strip()
+    if not text:
+        return None
+    if text.lower().startswith("id:"):
+        pk = text[3:].strip()
+        if not pk.isascii() or not pk.isdigit():
+            return None
+        return User.objects.filter(pk=int(pk)).first()
+    exact = list(User.objects.filter(username=text)[:2])
+    if len(exact) == 1:
+        return exact[0]
+    iexact = list(User.objects.filter(username__iexact=text)[:3])
+    if len(iexact) == 1:
+        return iexact[0]
+    if len(iexact) > 1:
+        raise JobMigrateError("Username matches more than one account.")
+    if text.isascii() and text.isdigit():
+        return User.objects.filter(pk=int(text)).first()
+    return None
+
+
+def parse_migrate_job_ids(raw):
+    """
+    Parse the migrate Job IDs field.
+
+    Blank means all source jobs (None). Any non-integer token is an error.
+    """
+    text = (raw or "").strip()
+    if not text:
+        return None
+    ids = []
+    for token in text.replace(",", " ").split():
+        try:
+            ids.append(int(token))
+        except (TypeError, ValueError):
+            raise JobMigrateError("Job IDs must be integers.")
+    if not ids:
+        raise JobMigrateError("Job IDs must be integers.")
+    return ids
+
+
+def search_migrate_jobs(from_user, q, limit=10):
+    """Staff job picker: name tokens and/or integer ids, optionally scoped to one owner."""
+    text = (q or "").strip()
+    if not text:
+        return []
+    try:
+        limit = max(1, min(int(limit or 10), 25))
+    except (TypeError, ValueError):
+        limit = 10
+    qs = Job.objects.select_related("user").order_by("-pk")
+    if from_user is not None:
+        qs = qs.filter(user=from_user)
+    q_ids = []
+    q_names = []
+    for token in split_tokens(text):
+        if token.isdigit():
+            q_ids.append(int(token))
+        else:
+            q_names.append(token)
+    clauses = []
+    if q_ids:
+        clauses.append(Q(pk__in=q_ids))
+    if q_names:
+        clauses.append(reduce(operator.and_, [Q(job_name__icontains=t) for t in q_names]))
+    if not clauses:
+        return []
+    qs = qs.filter(reduce(operator.or_, clauses) if len(clauses) > 1 else clauses[0])
+    rows = []
+    for job in qs[:limit]:
+        rows.append(
+            {
+                "id": job.id,
+                "job_name": job.job_name or "",
+                "status": job.status,
+                "username": getattr(job.user, "username", "") or "",
+            }
+        )
+    return rows
+
+
+def _migrate_result_key(job):
+    from .files import job_result_relpath
+
+    rel = job_result_relpath(job)
+    if not rel:
+        return ""
+    return rel.replace("\\", "/")
+
+
+def _result_nested_under(job, other):
+    child = _migrate_result_key(job)
+    parent = _migrate_result_key(other)
+    if not child or not parent:
+        return False
+    if (job.run_dir or "").strip() != (other.run_dir or "").strip():
+        return False
+    return child != parent and child.startswith(parent + "/")
+
+
+def _jobs_for_migrate(from_user, job_ids):
+    qs = Job.objects.filter(user=from_user)
+    if not job_ids:
+        return list(qs.select_related("workspace", "protocol", "parent_job").order_by("id")), []
+    wanted = [int(i) for i in job_ids]
+    found = set(qs.filter(pk__in=wanted).values_list("id", flat=True))
+    visited = set(found)
+    frontier = list(found)
+    while frontier:
+        kids = list(
+            Job.objects.filter(parent_job_id__in=frontier)
+            .exclude(pk__in=visited)
+            .values_list("id", "user_id")
+        )
+        if not kids:
+            break
+        frontier = []
+        for kid_id, uid in kids:
+            visited.add(kid_id)
+            frontier.append(kid_id)
+            if uid == from_user.id:
+                found.add(kid_id)
+    missing = [i for i in wanted if i not in found]
+    jobs = list(
+        Job.objects.filter(pk__in=found)
+        .select_related("workspace", "protocol", "parent_job")
+        .order_by("id")
+    )
+    return jobs, missing
+
+
+def _file_plan_for_job(job, to_user, move_files):
+    if not move_files:
+        return "left", "left in place"
+    from .files import job_result_move_paths
+
+    _src, _dest, reason = job_result_move_paths(job, to_user)
+    if reason == "none":
+        return "none", "no result folder"
+    if reason == "missing":
+        return "skip", "Source folder missing."
+    if reason == "collision":
+        return "skip", "Destination folder already exists."
+    if reason == "invalid":
+        return "skip", "Result path is not safe to move."
+    if reason:
+        return "skip", reason
+    return "move", "would move"
+
+
+def _migrate_gate_reason(job):
+    if job.locked:
+        return "Job is locked."
+    if job.status == JobStatus.RUNNING:
+        return "Job is running."
+    if job.status == JobStatus.RESOURCELOCK:
+        return "Job is waiting for resources."
+    return None
+
+
+def _migrate_history_peers(job, from_user, moving_ids):
+    peers = []
+    seen = set()
+    for hid in parent_job_ids(job):
+        if hid == job.id or hid in moving_ids or hid in seen:
+            continue
+        if Job.objects.filter(pk=hid, user=from_user).exists():
+            seen.add(hid)
+            peers.append(hid)
+    needle_h = "{{{{History:{}-".format(job.id)
+    needle_ca = "{{{{CrossAccess:{}-{}-".format(from_user.id, job.id)
+    inbound = (
+        Job.objects.filter(user=from_user)
+        .exclude(pk__in=list(moving_ids) + [job.id])
+        .filter(
+            Q(parameter__icontains=needle_h)
+            | Q(input_file__icontains=needle_h)
+            | Q(parameter__icontains=needle_ca)
+            | Q(input_file__icontains=needle_ca)
+        )
+        .values_list("id", flat=True)[:8]
+    )
+    for hid in inbound:
+        if hid not in seen:
+            seen.add(hid)
+            peers.append(hid)
+    return peers
+
+
+def _mark_migrate_skip(rec, skipped_ids, moving_ids, detail):
+    rec["skip"] = detail
+    skipped_ids.add(rec["job"].id)
+    moving_ids.discard(rec["job"].id)
+
+
+def migrate_jobs(from_user, to_user, job_ids=None, *, move_files=True, dry_run=False):
+    """
+    Reassign jobs from one account to another.
+
+    Moves result folders from {run_dir}/{from_id}/{result} to
+    {run_dir}/{to_id}/{result}. Nested array folders are moved with the
+    shallowest parent in the batch. Running, resource-locked, and locked
+    jobs are skipped. Missing source folders skip the DB update when
+    move_files is on. Same-owner History links outside the moving set
+    skip. Workspaces the destination does not own are cleared. Protocols
+    stay attached. Historical Audition rows keep their original user.
+    """
+    if from_user is None or to_user is None:
+        raise JobMigrateError("Choose a source and destination account.")
+    if from_user.id == to_user.id:
+        raise JobMigrateError("Source and destination must be different accounts.")
+    if not getattr(to_user, "is_active", True):
+        raise JobMigrateError("Destination account is inactive.")
+    jobs, missing = _jobs_for_migrate(from_user, job_ids)
+    rows = []
+    for pk in missing:
+        rows.append({"job_id": pk, "job_name": "", "action": "skip", "detail": "Not owned by the source account."})
+    from .files import move_job_result_folder
+
+    batch_ids = {job.id for job in jobs}
+    jobs.sort(key=lambda j: (_migrate_result_key(j).count("/"), j.id))
+    covering = {}
+    for job in jobs:
+        covers = [other.id for other in jobs if other.id != job.id and _result_nested_under(job, other)]
+        parent = job.parent_job
+        if parent is not None and parent.id not in batch_ids and _result_nested_under(job, parent):
+            covers.append(parent.id)
+        covering[job.id] = covers
+
+    skipped_ids = set()
+    classified = []
+    for job in jobs:
+        rec = {"job": job, "skip": None, "files": "", "notes": [], "plan": None}
+        gate = _migrate_gate_reason(job)
+        if gate:
+            rec["skip"] = gate
+            skipped_ids.add(job.id)
+            classified.append(rec)
+            continue
+        nested_covers = covering.get(job.id) or []
+        external_cover = next((cid for cid in nested_covers if cid not in batch_ids), None)
+        blocked_cover = next((cid for cid in nested_covers if cid in skipped_ids), None)
+        if external_cover is not None:
+            rec["skip"] = "Nested under job #{} which is not in this migrate.".format(external_cover)
+            skipped_ids.add(job.id)
+            classified.append(rec)
+            continue
+        if blocked_cover is not None:
+            rec["skip"] = "Nested under job #{} which is not moving.".format(blocked_cover)
+            skipped_ids.add(job.id)
+            classified.append(rec)
+            continue
+        covered_by = next((cid for cid in nested_covers if cid in batch_ids), None)
+        workspace = job.workspace
+        if workspace is not None and workspace.user_id != to_user.id:
+            rec["notes"].append("workspace cleared")
+        if covered_by is not None and move_files:
+            rec["files"] = "covered by job #{}".format(covered_by)
+            rec["plan"] = "covered"
+        else:
+            plan, file_detail = _file_plan_for_job(job, to_user, move_files)
+            if plan == "skip":
+                rec["skip"] = file_detail
+                skipped_ids.add(job.id)
+                classified.append(rec)
+                continue
+            rec["files"] = file_detail
+            rec["plan"] = plan
+        classified.append(rec)
+
+    moving_ids = {rec["job"].id for rec in classified if not rec["skip"]}
+    for rec in classified:
+        if rec["skip"]:
+            continue
+        peers = _migrate_history_peers(rec["job"], from_user, moving_ids)
+        if peers:
+            shown = ", #".join(str(p) for p in peers[:6])
+            _mark_migrate_skip(rec, skipped_ids, moving_ids, "History links job #{} which are not moving.".format(shown))
+    for rec in classified:
+        if rec["skip"]:
+            continue
+        blocked = next((cid for cid in (covering.get(rec["job"].id) or []) if cid in skipped_ids), None)
+        if blocked is not None:
+            _mark_migrate_skip(
+                rec,
+                skipped_ids,
+                moving_ids,
+                "Nested under job #{} which is not moving.".format(blocked),
+            )
+
+    migrated_ids = []
+    for rec in classified:
+        job = rec["job"]
+        row = {
+            "job_id": job.id,
+            "job_name": job.job_name or "",
+            "action": "skip" if rec["skip"] else "move",
+            "detail": rec["skip"] or "",
+            "files": rec["files"],
+        }
+        if rec["skip"]:
+            rows.append(row)
+            continue
+        notes = rec["notes"]
+        if dry_run:
+            row["action"] = "preview"
+            row["detail"] = "; ".join(notes) if notes else "Would reassign owner."
+            rows.append(row)
+            continue
+        try:
+            with transaction.atomic():
+                fresh = (
+                    Job.objects.select_for_update()
+                    .select_related("workspace", "protocol")
+                    .get(pk=job.id)
+                )
+                gate = _migrate_gate_reason(fresh)
+                if gate:
+                    row["action"] = "skip"
+                    row["detail"] = gate
+                    rows.append(row)
+                    skipped_ids.add(job.id)
+                    continue
+                if fresh.user_id != from_user.id:
+                    row["action"] = "skip"
+                    row["detail"] = "Owner changed before migrate finished."
+                    rows.append(row)
+                    skipped_ids.add(job.id)
+                    continue
+                if rec["plan"] == "move" and move_files:
+                    try:
+                        moved = move_job_result_folder(fresh, to_user)
+                    except Exception:
+                        row["action"] = "error"
+                        row["detail"] = "Could not move result folder."
+                        rows.append(row)
+                        skipped_ids.add(job.id)
+                        continue
+                    if moved in ("collision", "invalid", "missing"):
+                        row["action"] = "skip"
+                        if moved == "collision":
+                            row["detail"] = "Destination folder already exists."
+                        elif moved == "missing":
+                            row["detail"] = "Source folder missing."
+                        else:
+                            row["detail"] = "Result path is not safe to move."
+                        rows.append(row)
+                        skipped_ids.add(job.id)
+                        continue
+                    row["files"] = "moved" if moved == "moved" else ("no result folder" if moved == "none" else moved)
+                workspace = fresh.workspace
+                fresh.user = to_user
+                if workspace is not None and workspace.user_id != to_user.id:
+                    fresh.workspace = None
+                fresh.save(update_fields=["user", "workspace"])
+                FileArchive.objects.filter(job=fresh).update(user=to_user)
+                Audition.objects.create(
+                    operation="Migrated",
+                    related_job=fresh,
+                    job_name=fresh.job_name or "",
+                    job_ver=fresh.version,
+                    prev_par=fresh.parameter or "",
+                    new_par=fresh.parameter or "",
+                    prev_input=fresh.input_file or "",
+                    current_input=fresh.input_file or "",
+                    protocol=(fresh.protocol.name if fresh.protocol_id else ""),
+                    protocol_ver=fresh.protocol_ver or "",
+                    resume_point=fresh.resume,
+                    user=to_user,
+                    comments="from {} to {}".format(from_user.username, to_user.username),
+                )
+        except Job.DoesNotExist:
+            row["action"] = "skip"
+            row["detail"] = "Not owned by the source account."
+            rows.append(row)
+            continue
+        migrated_ids.append(job.id)
+        row["action"] = "moved"
+        row["detail"] = "; ".join(notes) if notes else "Owner updated."
+        rows.append(row)
+    return {
+        "from_user": from_user,
+        "to_user": to_user,
+        "dry_run": dry_run,
+        "rows": rows,
+        "moved": len(migrated_ids),
+        "skipped": sum(1 for r in rows if r["action"] == "skip"),
+        "errors": sum(1 for r in rows if r["action"] == "error"),
+        "previews": sum(1 for r in rows if r["action"] == "preview"),
+    }
 
 
 AUTOCOMPLETE_TOKENS = (
