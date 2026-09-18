@@ -8,7 +8,7 @@ class ArchiveTests(Ui3TestCase):
     def test_archives_requires_login(self):
         response = self.client.get(reverse("ui3:archives"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui3/login/", response["Location"])
+        self.assertIn("/ui/login/", response["Location"])
 
     def test_archives_list(self):
         job = self.make_job()

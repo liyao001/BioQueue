@@ -14,6 +14,9 @@
       <p class="text-sm opacity-70 mt-0.5">{{ selected.description|default:"No description" }}</p>
     </div>
     <div class="flex gap-2">
+      <a class="ui-btn" href="{% url 'ui3:protocol_export' selected.id %}">
+        <i class="fa-solid fa-file-export"></i> Export JSON
+      </a>
       <button type="button" class="ui-btn"
               onclick="document.getElementById('clone-form').classList.toggle('hidden')">
         <i class="fa-regular fa-copy"></i> Clone

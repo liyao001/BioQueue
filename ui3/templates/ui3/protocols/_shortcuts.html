@@ -64,6 +64,18 @@
         hx-post="{% url 'ui3:shortcut_create' selected.id %}" hx-target="#protocol-detail">
     {% csrf_token %}
     <div class="font-medium text-sm">Add shortcut</div>
+    {% if shortcut_presets %}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs opacity-60">From plugins</span>
+      {% for preset in shortcut_presets %}
+      <button type="button" class="ui-btn"
+              title="{{ preset.href_template }}"
+              hx-post="{% url 'ui3:shortcut_create' selected.id %}"
+              hx-vals='{{ preset.hx_vals }}'
+              hx-target="#protocol-detail">{{ preset.label }}{% if preset.plugin %} <span class="opacity-50">({{ preset.plugin }})</span>{% endif %}</button>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <label class="form-control">
         <div class="label"><span class="label-text">Label</span></div>

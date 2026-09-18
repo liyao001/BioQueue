@@ -20,8 +20,10 @@ STATUS_ICONS = {
 
 @register.simple_tag(takes_context=True)
 def qs_url(context, **updates):
+    from ui3.http import list_params
+
     request = context["request"]
-    q = request.GET.copy()
+    q = list_params(request).copy()
     for key, value in updates.items():
         if value is None or value == "":
             q.pop(key, None)
@@ -90,3 +92,15 @@ def running_badge(context):
         count = services.running_job_count(user)
     label = "99+" if count > 99 else str(count)
     return {"count": count, "label": label}
+
+
+@register.inclusion_tag("ui3/partials/plugin_nav.html", takes_context=True)
+def plugin_nav(context):
+    """Header links contributed by site plugins."""
+    request = context.get("request")
+    items = []
+    if request is not None:
+        from ui3 import plugins
+
+        items = plugins.nav_items(request)
+    return {"items": items}

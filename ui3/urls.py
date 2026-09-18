@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import path
 
 from .views import archives
 from .views import auth
@@ -7,6 +7,7 @@ from .views import environments
 from .views import jobs
 from .views import protocols
 from .views import references
+from .views import users
 from .views import workspaces
 
 app_name = "ui3"
@@ -17,6 +18,10 @@ urlpatterns = [
     path("register/", auth.register_view, name="register"),
     path("account/", auth.account_view, name="account"),
     path("account/clean-folders/", auth.clean_folders_view, name="clean_folders"),
+    path("users/", users.user_list, name="users"),
+    path("users/new/", users.user_create, name="user_create"),
+    path("users/<int:pk>/activate/", users.user_activate, name="user_activate"),
+    path("users/<int:pk>/staff/", users.user_staff, name="user_staff"),
     path("", jobs.job_list, name="home"),
     path("jobs/", jobs.job_list, name="jobs"),
     path("jobs/new/", jobs.job_create, name="job_create"),
@@ -95,5 +100,9 @@ urlpatterns = [
     path("dag/graph/", dag.dag_graph, name="dag_graph"),
     path("dag/search/", dag.dag_search, name="dag_search"),
     path("dag/jobs/", dag.dag_jobs, name="dag_jobs"),
-    path("ext/", include("ui3.plugins.urls")),
 ]
+
+# Lab plugins share /ui/ so existing shortcuts (/ui/dec-eval-runs/{id}, …) keep working.
+from . import plugins as ui3_plugins  # noqa: E402
+
+urlpatterns += ui3_plugins.urlpatterns()

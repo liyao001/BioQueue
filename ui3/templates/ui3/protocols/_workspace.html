@@ -11,7 +11,7 @@
           hx-trigger="submit, input delay:400ms from:input[name=q]">
       {% if selected %}<input type="hidden" name="select" value="{{ selected.id }}">{% endif %}
       <input class="ui-input flex-1 min-w-[160px]" type="text" name="q" value="{{ q }}"
-             placeholder="Search name or id" aria-label="Search protocols">
+             placeholder="Search by name, description, or id" aria-label="Search protocols">
       <select class="ui-select" name="ordering"
               hx-get="{% url 'ui3:protocols' %}"
               hx-include="closest form"

@@ -1,8 +1,7 @@
 # ui3 – HTMX + Tailwind (DaisyUI) frontend
 
 Server-rendered UI for core BioQueue flows: **Jobs**, **Protocols**, **References**, **Workspaces**, and **Virtual Environments**.
-This is a parallel app next to `ui/` (Bootstrap/jQuery) and `ui2-frontend` (React/Chakra).
-It reuses QueueDB models and the same ownership/search rules as `ui2`.
+It is the default frontend (`/` redirects to `/ui/`). The Python package is still `ui3`. See [`CHANGELOG.md`](CHANGELOG.md).
 
 **Agents and new contributors:** start with [`AGENTS.md`](AGENTS.md) (layout, HTMX contract, how to add a page). Product leftovers are in [`TODO.md`](TODO.md).
 
@@ -16,9 +15,9 @@ ui3 uses **HTMX** for interactions and **DaisyUI on Tailwind** for buttons, tabl
 1. Add `'ui3'` to `INSTALLED_APPS` (already done in `settings-example.py`).
 2. Include URLs (already in `BioQueue/urls.py`):
 
-   `path('ui3/', include('ui3.urls'))`
+   `path('ui/', include('ui3.urls'))`
 
-3. Start Django and open `/ui3/login/`.
+3. Start Django and open `/` (redirects to `/ui/`) or `/ui/login/`.
 
 Compiled CSS lives in `static/ui3/app.css` (checked in so tests and production do not need Node).
 Rebuild after template or `static_src/input.css` changes:
@@ -56,8 +55,10 @@ Included now:
 - Workspace and virtual environment CRUD
 - Job-card inline workspace / runner / array-setting edits
 - Compiled Tailwind + DaisyUI stylesheet
-- DAG explorer (Cytoscape JS island; graph data from `/ui3/dag/graph/`)
+- DAG explorer (Cytoscape JS island; graph data from `/ui/dag/graph/`)
+- Site plugin hooks (mounted on `/ui/…`; protocol shortcut presets). Lab Dec/WandB still live in `ui/views/plugins/` and are remounted by `ui3.plugins.legacy`. New plugins: gitignored `ui3/plugins/local/` or `UI3_PLUGINS`.
 
-Deferred (see `TODO.md`):
+Deferred (see `TODO.md` and [`CHANGELOG.md`](CHANGELOG.md)):
 
 - Optional table view and keyboard shortcuts
+- Samples, learning/predictions UI, and share-with-peer (still on `/ui/` only)

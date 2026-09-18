@@ -5,15 +5,25 @@ from ui3.tests import Ui3TestCase
 
 
 class AuthTests(Ui3TestCase):
+    def test_root_redirects_to_ui(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/ui/")
+
+    def test_old_ui3_prefix_redirects(self):
+        response = self.client.get("/ui3/login/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/ui/login/")
+
     def test_jobs_requires_login(self):
         response = self.client.get(reverse("ui3:jobs"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui3/login/", response["Location"])
+        self.assertIn("/ui/login/", response["Location"])
 
     def test_htmx_unauthenticated_redirects_via_header(self):
         response = self.client.get(reverse("ui3:jobs"), HTTP_HX_REQUEST="true")
         self.assertEqual(response.status_code, 401)
-        self.assertTrue(response["HX-Redirect"].startswith("/ui3/login/"))
+        self.assertTrue(response["HX-Redirect"].startswith("/ui/login/"))
         self.assertIn("next=", response["HX-Redirect"])
 
     def test_login_page_matches_app_chrome(self):
@@ -37,7 +47,7 @@ class AuthTests(Ui3TestCase):
             {"username": "alice", "password": "secret"},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/ui3/jobs/")
+        self.assertEqual(response["Location"], "/ui/jobs/")
 
     def test_login_failure(self):
         response = self.client.post(
@@ -55,7 +65,12 @@ class AuthTests(Ui3TestCase):
             {"username": "alice", "password": "secret"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Invalid username or password")
+        self.assertContains(response, "waiting for administrator approval")
+        wrong = self.client.post(
+            reverse("ui3:login"),
+            {"username": "alice", "password": "wrong"},
+        )
+        self.assertContains(wrong, "Invalid username or password")
 
     def test_logout_rejects_get(self):
         self.login()
@@ -78,7 +93,7 @@ class AuthTests(Ui3TestCase):
             {"username": "alice", "password": "secret", "next": "https://evil.example/"},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/ui3/jobs/")
+        self.assertEqual(response["Location"], "/ui/jobs/")
 
 
 class RegisterTests(Ui3TestCase):
@@ -106,12 +121,26 @@ class RegisterTests(Ui3TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui3/login/", response["Location"])
+        self.assertIn("/ui/login/", response["Location"])
         user = User.objects.get(username="newbie")
         self.assertFalse(user.is_active)
         login = self.client.post(reverse("ui3:login"), {"username": "newbie", "password": "hunter2"})
         self.assertEqual(login.status_code, 200)
-        self.assertContains(login, "Invalid username or password")
+        self.assertContains(login, "waiting for administrator approval")
+
+    def test_deactivated_user_login_message(self):
+        from django.contrib.auth.models import User
+        from django.utils import timezone
+
+        user = User.objects.create_user("oldie", password="hunter2")
+        user.is_active = False
+        user.last_login = timezone.now()
+        user.save(update_fields=["is_active", "last_login"])
+        login = self.client.post(reverse("ui3:login"), {"username": "oldie", "password": "hunter2"})
+        self.assertEqual(login.status_code, 200)
+        self.assertContains(login, "This account has been deactivated.")
+        wrong = self.client.post(reverse("ui3:login"), {"username": "oldie", "password": "wrong"})
+        self.assertContains(wrong, "Invalid username or password")
 
     def test_register_rejects_duplicate_username(self):
         response = self.client.post(
@@ -143,14 +172,14 @@ class RegisterTests(Ui3TestCase):
         self.login()
         response = self.client.get(reverse("ui3:register"))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/ui3/jobs/")
+        self.assertEqual(response["Location"], "/ui/jobs/")
 
 
 class AccountTests(Ui3TestCase):
     def test_account_requires_login(self):
         response = self.client.get(reverse("ui3:account"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui3/login/", response["Location"])
+        self.assertIn("/ui/login/", response["Location"])
 
     def test_account_page_shows_folder_defaults(self):
         self.login()

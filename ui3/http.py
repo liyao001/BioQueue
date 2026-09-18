@@ -7,7 +7,7 @@ from django.http import HttpResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
 
-ARRAY_PATH_RE = re.compile(r"/ui3/jobs/(\d+)/array/?$")
+ARRAY_PATH_RE = re.compile(r"/ui(?:3)?/jobs/(\d+)/array/?$")
 
 
 # Filter / pagination keys preserved across HTMX POST refreshes.
@@ -39,6 +39,7 @@ LIST_FILTER_KEYS = (
     "page_size",
     "select",
     "ordering",
+    "state",
 )
 
 
@@ -53,7 +54,7 @@ def delegate_for(user):
 
 
 def array_parent_from_request(request):
-    """Job id from /ui3/jobs/<id>/array/ on the request path or HX-Current-URL."""
+    """Job id from /ui/jobs/<id>/array/ on the request path or HX-Current-URL."""
     candidates = [getattr(request, "path", "") or ""]
     hx = request.headers.get("HX-Current-URL") or ""
     if hx:
@@ -173,3 +174,10 @@ def csv_ints(value):
 
 def empty_querydict():
     return QueryDict(mutable=True)
+
+
+def redirect_ui3_prefix(request, rest=""):
+    """Send old /ui3/… bookmarks to the same path under /ui/."""
+    from django.shortcuts import redirect
+
+    return redirect("/ui/" + (rest or ""))

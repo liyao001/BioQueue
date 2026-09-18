@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.http import HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
@@ -37,6 +37,7 @@ def _protocol_page_context(request, selected=None):
         "can_edit_selected": services.can_mutate(request.user, selected) if selected else False,
         "steps": steps,
         "shortcuts": shortcuts,
+        "shortcut_presets": services.shortcut_presets() if selected else [],
         "token_list": services.autocomplete_tokens(request.user),
         "environments": environments,
         "filters": params,
@@ -183,6 +184,44 @@ def protocol_clone(request, pk):
         return with_toast(response, "Protocol cloned.")
     messages.success(request, "Protocol cloned.")
     return redirect(reverse("ui3:protocols") + "?select={}".format(dest.id))
+
+
+def _import_error(request, message):
+    if is_htmx(request):
+        return htmx_error(message)
+    messages.error(request, message)
+    return redirect("ui3:protocols")
+
+
+@ui3_login_required
+@require_http_methods(["GET"])
+def protocol_export(request, pk):
+    proto = services.get_visible_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    body = services.protocol_json_text(proto, request.user)
+    filename = services.protocol_json_filename(proto.name)
+    response = HttpResponse(body, content_type="application/json; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="{}"'.format(filename.replace('"', ""))
+    return response
+
+
+@ui3_login_required
+@require_POST
+def protocol_import(request):
+    try:
+        proto, missing = services.import_protocol_from_upload(request.user, request.FILES.get("file"))
+    except services.ProtocolImportError as exc:
+        return _import_error(request, str(exc))
+    msg = "Protocol '{}' imported.".format(proto.name)
+    if missing:
+        msg += " Missing references: {}.".format(", ".join(missing))
+    if is_htmx(request):
+        ctx = _protocol_page_context(request, selected=proto)
+        response = render(request, "ui3/protocols/_workspace.html", ctx)
+        return with_toast(response, msg)
+    messages.success(request, msg)
+    return redirect(reverse("ui3:protocols") + "?select={}".format(proto.id))
 
 
 @ui3_login_required

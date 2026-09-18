@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 
 from .http import is_htmx
 
-LOGIN_URL = "/ui3/login/"
+LOGIN_URL = "/ui/login/"
 
 
 def ui3_login_required(view):

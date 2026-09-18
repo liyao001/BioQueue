@@ -647,3 +647,152 @@ def preview_mode_for(name, ctype=""):
     if ctype in ("text/html", "application/xhtml+xml") or lower.endswith((".html", ".htm")):
         return "iframe"
     return "download"
+
+
+def slugify_name(text, sep="-"):
+    from django.utils.text import slugify
+
+    if text is None:
+        return ""
+    out = slugify(str(text))
+    if sep == "-":
+        return out
+    if sep == "_":
+        return out.replace("-", "_")
+    return out.replace("-", str(sep))
+
+
+def build_name_variants(name):
+    base = str(name or "")
+    return {
+        "exact": base,
+        "lower": base.lower(),
+        "dash": slugify_name(base, sep="-"),
+        "underscore": slugify_name(base, sep="_"),
+    }
+
+
+def _match_new_basename(old_variants, new_name, basename):
+    allowed_after = {"", ".", "-", "_", " "}
+    new_variants = build_name_variants(new_name)
+    checks = [
+        (old_variants["exact"], new_variants["exact"]),
+        (old_variants["lower"], new_variants["lower"]),
+        (old_variants["dash"], new_variants["dash"]),
+        (old_variants["underscore"], new_variants["underscore"]),
+    ]
+    for ov, nv in checks:
+        if not ov:
+            continue
+        if basename == ov:
+            return nv
+        for delim in (x for x in allowed_after if x):
+            if basename.startswith(ov + delim):
+                return nv + basename[len(ov):]
+    return None
+
+
+def compute_job_renames(job, new_name):
+    result_folder = getattr(job, "result", None)
+    run_dir = getattr(job, "run_dir", "")
+    user_id = getattr(job, "user_id", None)
+    if not result_folder or user_id is None:
+        return [], []
+    root = os.path.join(str(run_dir or ""), str(user_id), str(result_folder))
+    if not os.path.isdir(root):
+        return [], []
+    old_variants = build_name_variants(getattr(job, "job_name", ""))
+    renames = []
+    conflicts = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        for fname in filenames:
+            src = os.path.join(dirpath, fname)
+            try:
+                if os.path.islink(src):
+                    continue
+            except Exception:
+                pass
+            new_base = _match_new_basename(old_variants, new_name, fname)
+            if new_base:
+                dst = os.path.join(dirpath, new_base)
+                if dst != src and os.path.exists(dst):
+                    conflicts.append(dst)
+                renames.append((src, dst))
+        for dname in dirnames:
+            srcd = os.path.join(dirpath, dname)
+            try:
+                if os.path.islink(srcd):
+                    continue
+            except Exception:
+                pass
+            new_dbase = _match_new_basename(old_variants, new_name, dname)
+            if new_dbase:
+                dstd = os.path.join(dirpath, new_dbase)
+                if dstd != srcd and os.path.exists(dstd):
+                    conflicts.append(dstd)
+                renames.append((srcd, dstd))
+    conflicts = sorted(set(conflicts))
+    renames.sort(key=lambda pair: (pair[0].count(os.sep), pair[0]), reverse=True)
+    return renames, conflicts
+
+
+def _safe_rename(src, dst):
+    if src == dst:
+        return True
+    same_ignore_case = src.lower() == dst.lower()
+    if same_ignore_case and src != dst:
+        tmp = src + ".__renametmp__"
+        i = 0
+        while os.path.exists(tmp):
+            i += 1
+            tmp = src + ".__renametmp__{}".format(i)
+        os.rename(src, tmp)
+        os.rename(tmp, dst)
+        return True
+    os.rename(src, dst)
+    return True
+
+
+def apply_renames(renames):
+    files = 0
+    dirs = 0
+    applied = []
+    for src, dst in renames:
+        try:
+            if not os.path.exists(src):
+                continue
+            _safe_rename(src, dst)
+            applied.append((src, dst))
+            if os.path.isdir(dst):
+                dirs += 1
+            else:
+                files += 1
+        except Exception:
+            continue
+    return {"filesRenamed": files, "dirsRenamed": dirs, "applied": applied}
+
+
+def rename_job_files(job, new_name, dry_run=False):
+    result_folder = getattr(job, "result", None)
+    run_dir = getattr(job, "run_dir", "")
+    user_id = getattr(job, "user_id", None)
+    out = {
+        "root": os.path.join(str(run_dir or ""), str(user_id or ""), str(result_folder or "")),
+        "filesRenamed": 0,
+        "dirsRenamed": 0,
+        "renames": [],
+        "conflicts": [],
+    }
+    renames, conflicts = compute_job_renames(job, new_name)
+    out["renames"] = renames
+    out["conflicts"] = conflicts
+    if conflicts:
+        return out
+    if dry_run or not renames:
+        return out
+    res = apply_renames(renames)
+    out.update({
+        "filesRenamed": res.get("filesRenamed", 0),
+        "dirsRenamed": res.get("dirsRenamed", 0),
+    })
+    return out

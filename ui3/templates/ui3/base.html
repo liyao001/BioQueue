@@ -67,6 +67,7 @@
           <li><a href="{% url 'ui3:account' %}">Account</a></li>
           <li><a href="{% url 'ui3:archives' %}">Archives</a></li>
           {% if user.is_staff %}
+          <li><a href="{% url 'ui3:users' %}">Users</a></li>
           <li><a href="{% url 'ui3:job_migrate' %}">Migrate jobs</a></li>
           {% endif %}
           <li>

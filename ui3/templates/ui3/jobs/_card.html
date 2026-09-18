@@ -242,16 +242,24 @@
               hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"
               hx-confirm="Rerun job #{{ job.id }} in situ?"><i class="fa-solid fa-arrows-rotate"></i></button>
       {% endif %}
-      {% if job.status != 0 and job.status != 1 %}
+      {% if job.status == -1 %}
       <button type="button" class="icon-btn icon-btn-warn"
               title="{% if job.locked %}Locked — unlock to mark failed{% else %}Mark failed{% endif %}"
               {% if job.locked %}disabled{% endif %}
               hx-post="{% url 'ui3:job_mark_wrong' job.id %}"
               hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-triangle-exclamation"></i></button>
       {% endif %}
-      {% if job.status == -1 or job.status == -3 or job.status == 2 %}
+      {% if job.status == -3 %}
       <button type="button" class="icon-btn icon-btn-ok"
-              title="{% if job.locked %}Locked — unlock to resume{% else %}Resume from step{% endif %}"
+              title="{% if job.locked %}Locked — unlock to resume{% else %}Resume from failed step{% endif %}"
+              {% if job.locked %}disabled{% endif %}
+              hx-post="{% url 'ui3:job_resume' job.id %}" hx-vals='{"from_failed": "1"}'
+              hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"
+              hx-confirm="Resume job #{{ job.id }} from the failed step?"><i class="fa-solid fa-play"></i></button>
+      {% endif %}
+      {% if job.status == -1 or job.status == -3 or job.status == 2 %}
+      <button type="button" class="icon-btn"
+              title="{% if job.locked %}Locked — unlock to resume{% else %}Resume from a chosen step{% endif %}"
               {% if job.locked %}disabled{% endif %}
               hx-get="{% url 'ui3:job_resume' job.id %}" hx-target="#modal-root" hx-swap="innerHTML"><i class="fa-solid fa-timeline"></i></button>
       {% endif %}

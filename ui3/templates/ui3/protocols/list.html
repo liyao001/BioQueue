@@ -6,7 +6,16 @@
     <h1 class="text-2xl font-semibold">Protocols</h1>
     <p class="text-sm opacity-70 page-head-sub">Manage protocols and their steps</p>
   </div>
-  <a class="ui-btn ui-btn-primary shrink-0" href="{% url 'ui3:protocol_create' %}"><i class="fas fa-plus"></i> New Protocol</a>
+  <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+    <form method="post" action="{% url 'ui3:protocol_import' %}" enctype="multipart/form-data"
+          class="inline-flex items-center gap-2">
+      {% csrf_token %}
+      <input class="ui-input" type="file" name="file" accept=".json,application/json"
+             required aria-label="Protocol JSON file">
+      <button class="ui-btn" type="submit"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+    </form>
+    <a class="ui-btn ui-btn-primary" href="{% url 'ui3:protocol_create' %}"><i class="fas fa-plus"></i> New Protocol</a>
+  </div>
 </div>
 {% include "ui3/protocols/_workspace.html" %}
 {% endblock %}

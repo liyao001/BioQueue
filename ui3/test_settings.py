@@ -35,7 +35,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "QueueDB",
-    "ui3",
+    "ui3.apps.Ui3Config",
 ]
 
 MIDDLEWARE = [
@@ -77,6 +77,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 SILENCED_SYSTEM_CHECKS = ["fields.E005"]
+UI3_PLUGINS = []
 
 # Skip historical QueueDB migrations; build tables from current models.
 class _DisableMigrations(dict):

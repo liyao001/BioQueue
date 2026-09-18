@@ -9,7 +9,7 @@ class DagExplorerTests(Ui3TestCase):
     def test_login_required(self):
         response = self.client.get(reverse("ui3:dag"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui3/login/", response["Location"])
+        self.assertIn("/ui/login/", response["Location"])
 
     def test_page_is_js_island(self):
         self.login()

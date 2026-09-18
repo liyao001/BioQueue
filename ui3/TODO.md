@@ -12,3 +12,6 @@
 - [ ] Optional table view for job monitor (card view is the default)
 - [ ] Keyboard shortcuts for job monitor
 - [x] Inline edit workspace / runner / array setting on cards
+- [ ] Samples (`/ui/register-sample/` …) — skipped; see `CHANGELOG.md`
+- [ ] Learning / predictions UI — skipped; see `CHANGELOG.md`
+- [ ] Share protocol with peer — skipped; see `CHANGELOG.md`

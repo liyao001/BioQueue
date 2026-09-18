@@ -13,10 +13,12 @@ from ..http import htmx_error, hx_redirect, is_htmx
 from .. import services
 
 
-def _next_inside_ui3(request):
-    nxt = request.POST.get("next") or request.GET.get("next") or "/ui3/jobs/"
-    if not nxt.startswith("/ui3/"):
-        nxt = "/ui3/jobs/"
+def _next_inside_ui(request):
+    nxt = request.POST.get("next") or request.GET.get("next") or "/ui/jobs/"
+    if nxt.startswith("/ui3/"):
+        nxt = "/ui/" + nxt[len("/ui3/"):]
+    if not nxt.startswith("/ui/"):
+        nxt = "/ui/jobs/"
     return nxt
 
 
@@ -31,7 +33,7 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None and getattr(user, "is_active", False):
             login(request, user)
-            nxt = _next_inside_ui3(request)
+            nxt = _next_inside_ui(request)
             if is_htmx(request):
                 from django.http import HttpResponse
 
@@ -39,7 +41,14 @@ def login_view(request):
                 response["HX-Redirect"] = nxt
                 return response
             return redirect(nxt)
-        error = "Invalid username or password."
+        existing = User.objects.filter(username=username).first()
+        if existing is not None and not existing.is_active and existing.check_password(password):
+            if services.user_is_pending(existing):
+                error = "This account is waiting for administrator approval."
+            else:
+                error = "This account has been deactivated."
+        else:
+            error = "Invalid username or password."
     return render(
         request,
         "ui3/login.html",

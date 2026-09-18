@@ -11,7 +11,7 @@ import re
 from functools import reduce
 
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 from QueueDB.models import (
@@ -512,12 +512,7 @@ def job_seed_summaries(user, ids):
 
 def rename_job(job, new_name, dry_run=False):
     """Rename job files/dirs then job_name. Returns result dict from rename helper."""
-    try:
-        from ui.tools import rename_job_files
-    except Exception:
-        rename_job_files = None
-    if rename_job_files is None:
-        raise RuntimeError("rename_job_files is unavailable")
+    from .files import rename_job_files
     result = rename_job_files(job, new_name, dry_run=dry_run)
     if result.get("conflicts"):
         return result
@@ -653,6 +648,37 @@ def protocol_steps(protocol):
     if protocol is None:
         return Step.objects.none()
     return Step.objects.filter(parent=protocol).select_related("env").order_by("step_order", "id")
+
+
+class JobActionError(ValueError):
+    """User-facing job mutation failure."""
+
+
+def mark_job_wrong(job):
+    if job.locked:
+        raise JobActionError("This job is locked, please unlock first.")
+    if job.status != JobStatus.FINISHED:
+        raise JobActionError("Only a finished job can be marked failed.")
+    job.set_status(JobStatus.WRONG)
+    audit_operation(job, "Marked wrong")
+    return job
+
+
+def resume_job_from(job, rollback_to=None):
+    """Queue the job from a step index. None keeps the current (failed) step."""
+    if job.locked:
+        raise JobActionError("This job is locked, please unlock first.")
+    n_steps = protocol_steps(job.protocol).count()
+    max_step = max(0, n_steps - 1) if n_steps else 0
+    current = job.resume or 0
+    if rollback_to is None:
+        target = min(max(current, 0), max_step) if n_steps else max(current, 0)
+    else:
+        target = min(max(int(rollback_to), 0), max_step) if n_steps else max(int(rollback_to), 0)
+        if target > current:
+            target = current
+    job.resume_job(target)
+    return job
 
 
 def protocol_step_counts(protocol_ids):
@@ -2021,3 +2047,194 @@ def folder_defaults_for(user):
         "using_custom_uploads": bool(upload),
         "using_custom_archives": bool(archive),
     }
+
+
+class UserManageError(ValueError):
+    """User-facing staff account management failure."""
+
+
+USER_STATES = ("all", "pending", "active", "staff", "deactivated")
+
+
+def _require_staff_actor(actor):
+    if actor is None or not getattr(actor, "is_staff", False):
+        raise UserManageError("Staff access required.")
+
+
+def user_is_pending(user):
+    return user is not None and (not user.is_active) and user.last_login is None
+
+
+def user_is_deactivated(user):
+    return user is not None and (not user.is_active) and user.last_login is not None
+
+
+def pending_user_count(actor):
+    from django.contrib.auth.models import User
+
+    _require_staff_actor(actor)
+    return User.objects.filter(is_active=False, last_login__isnull=True).count()
+
+
+def search_users(actor, q="", state="all"):
+    from django.contrib.auth.models import User
+
+    _require_staff_actor(actor)
+    qs = User.objects.all()
+    state = (state or "all").strip().lower()
+    if state not in USER_STATES:
+        state = "all"
+    if state == "pending":
+        qs = qs.filter(is_active=False, last_login__isnull=True)
+    elif state == "deactivated":
+        qs = qs.filter(is_active=False, last_login__isnull=False)
+    elif state == "active":
+        qs = qs.filter(is_active=True)
+    elif state == "staff":
+        qs = qs.filter(is_staff=True, is_active=True)
+    text = (q or "").strip()
+    if text:
+        clauses = [
+            Q(username__icontains=text),
+            Q(email__icontains=text),
+            Q(first_name__icontains=text),
+            Q(last_name__icontains=text),
+        ]
+        if text.isdigit():
+            clauses.append(Q(pk=int(text)))
+        qs = qs.filter(reduce(operator.or_, clauses))
+    return qs.order_by("is_active", "last_login", "-date_joined", "username")
+
+
+def get_managed_user(pk):
+    from django.contrib.auth.models import User
+
+    try:
+        return User.objects.get(pk=int(pk))
+    except (TypeError, ValueError, User.DoesNotExist):
+        return None
+
+
+def _guard_user_change(actor, target):
+    _require_staff_actor(actor)
+    if target is None:
+        raise UserManageError("Account not found.")
+    if target.is_superuser and not getattr(actor, "is_superuser", False):
+        raise UserManageError("Only a superuser can change a superuser account.")
+
+
+def _lock_user(target):
+    from django.contrib.auth.models import User
+
+    try:
+        return User.objects.select_for_update().get(pk=target.pk)
+    except User.DoesNotExist:
+        raise UserManageError("Account not found.")
+
+
+def _locked_active_staff_count(exclude):
+    from django.contrib.auth.models import User
+
+    return (
+        User.objects.select_for_update()
+        .filter(is_staff=True, is_active=True)
+        .exclude(pk=exclude.pk)
+        .count()
+    )
+
+
+def set_user_active(actor, target, active):
+    from django.utils import timezone
+
+    _guard_user_change(actor, target)
+    active = bool(active)
+    with transaction.atomic():
+        locked = _lock_user(target)
+        _guard_user_change(actor, locked)
+        if locked.pk == actor.pk and not active:
+            raise UserManageError("You cannot deactivate your own account.")
+        if locked.is_staff and locked.is_active and not active and _locked_active_staff_count(locked) < 1:
+            raise UserManageError("Cannot deactivate the last active staff account.")
+        if locked.is_active == active:
+            return locked
+        locked.is_active = active
+        fields = ["is_active"]
+        if not active and locked.last_login is None:
+            locked.last_login = timezone.now()
+            fields.append("last_login")
+        locked.save(update_fields=fields)
+        return locked
+
+
+def set_user_staff(actor, target, staff):
+    _guard_user_change(actor, target)
+    staff = bool(staff)
+    if not getattr(actor, "is_superuser", False):
+        raise UserManageError("Only a superuser can change staff status.")
+    with transaction.atomic():
+        locked = _lock_user(target)
+        _guard_user_change(actor, locked)
+        if not getattr(actor, "is_superuser", False):
+            raise UserManageError("Only a superuser can change staff status.")
+        if locked.pk == actor.pk and not staff:
+            raise UserManageError("You cannot remove staff from your own account.")
+        if locked.is_staff and not staff and locked.is_active and _locked_active_staff_count(locked) < 1:
+            raise UserManageError("Cannot remove staff from the last active staff account.")
+        if locked.is_staff == staff:
+            return locked
+        locked.is_staff = staff
+        locked.save(update_fields=["is_staff"])
+        return locked
+
+
+def create_managed_user(actor, *, username, password, password_2, email="", first_name="", last_name="", activate=True, staff=False):
+    from django.contrib.auth.models import Group, User
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    _require_staff_actor(actor)
+    if staff and not getattr(actor, "is_superuser", False):
+        raise UserManageError("Only a superuser can grant staff.")
+    username = (username or "").strip()
+    email = (email or "").strip()
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+    if not username:
+        raise UserManageError("Username is required.")
+    if len(username) > 150:
+        raise UserManageError("Username is too long (max 150 characters).")
+    if User.objects.filter(username=username).exists():
+        raise UserManageError("That username is already taken.")
+    if not password:
+        raise UserManageError("Password is required.")
+    if password != (password_2 or ""):
+        raise UserManageError("Passwords do not match.")
+    if email and len(email) > 254:
+        raise UserManageError("Email is too long (max 254 characters).")
+    if len(first_name) > 150 or len(last_name) > 150:
+        raise UserManageError("Name is too long (max 150 characters).")
+    user = User(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        is_active=bool(activate),
+        is_staff=bool(staff),
+    )
+    try:
+        user.full_clean(exclude=["password"])
+    except ValidationError as exc:
+        raise UserManageError("; ".join(msg for msgs in exc.message_dict.values() for msg in msgs))
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        raise UserManageError("; ".join(exc.messages))
+    user.set_password(password)
+    try:
+        with transaction.atomic():
+            user.save()
+            group, _created = Group.objects.get_or_create(name="normal")
+            user.groups.add(group)
+    except IntegrityError:
+        raise UserManageError("That username is already taken.")
+    return user

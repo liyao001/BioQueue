@@ -1,6 +1,6 @@
 # ui3 — design principles for agents
 
-Server-rendered BioQueue UI. HTMX for interactions, Tailwind + DaisyUI for look, Django templates for structure. Parallel to `ui/` and `ui2-frontend`. Same QueueDB models and the same ownership / search rules as ui2.
+Server-rendered BioQueue UI. HTMX for interactions, Tailwind + DaisyUI for look, Django templates for structure. Public URLs are `/ui/…` (`/` redirects there). Package path is still `ui3`. Same QueueDB models and the same ownership / search rules as ui2.
 
 **Read this file before changing `ui3/`. Copy an existing page; do not invent a new stack.**
 
@@ -19,7 +19,7 @@ Server-rendered BioQueue UI. HTMX for interactions, Tailwind + DaisyUI for look,
 | Look (source) | `static_src/input.css` → rebuild `static/ui3/app.css` |
 | Isolated tests | `tests/` + `test_settings.py` (SQLite, no Postgres/Celery) |
 
-Areas today: **jobs**, **protocols**, **workspaces**, **environments**, **references**, **auth**, **DAG** (Cytoscape island on `/ui3/dag/`; data from `services.build_job_dag`).
+Areas today: **jobs**, **protocols**, **workspaces**, **environments**, **references**, **auth**, **DAG** (Cytoscape island on `/ui/dag/`; data from `services.build_job_dag`), **plugins** (`ui3/plugins/` registry; site code in gitignored `ui3/plugins/local/` or `settings.UI3_PLUGINS`; lab Dec/WandB still loaded from `ui.views.plugins`).
 
 ## Design principles
 
@@ -105,7 +105,7 @@ On viewports `< 768px`, and on job-card combos at any width, `ui3` ports the pan
 
 All shared page JS is `window.ui3` in `base.html`. Add a function there if several templates need it. Do not add a bundler (no Vite/webpack in this app).
 
-The DAG explorer is the one JS island: Cytoscape from CDN + `static/ui3/dag.js`. Graph JSON is `GET /ui3/dag/graph/?root=&up=&down=&max_nodes=` (`services.build_job_dag`, same History/CrossAccess walk as ui2). Seed search is `GET /ui3/dag/search/?q=`; hydrate IDs with `GET /ui3/dag/jobs/?ids=`. Job cards link to `/ui3/dag/?seeds=<id>`.
+The DAG explorer is the one JS island: Cytoscape from CDN + `static/ui3/dag.js`. Graph JSON is `GET /ui/dag/graph/?root=&up=&down=&max_nodes=` (`services.build_job_dag`, same History/CrossAccess walk as ui2). Seed search is `GET /ui/dag/search/?q=`; hydrate IDs with `GET /ui/dag/jobs/?ids=`. Job cards link to `/ui/dag/?seeds=<id>`.
 
 Existing helpers you should reuse: `comboToggle` / `comboSelect` / `closeCombos`, `toggleNav` / `closeNav`, `toggleFilters` / `closeFilters`, `shouldPauseAutoRefresh`, `syncStatusCsv`, selection / bulk helpers.
 
@@ -124,7 +124,7 @@ Already handled globally — do not re-solve these per page:
 
 1. **Service first.** `visible_*` / `get_owned_*` / `search_*` in `services.py`. Do not filter querysets in the view.
 2. **View** in the matching `views/<area>.py`. Decorate with `ui3_login_required` and `require_GET` / `require_POST`. Import the module from `urls.py` — do not re-export in `views/__init__.py`.
-3. **URL** under `/ui3/…` with `app_name = "ui3"`.
+3. **URL** under `/ui/…` with `app_name = "ui3"` (reverse names are `ui3:…`).
 4. **Templates.** Full page + `_` partial. Reuse `page-head`, `ui-toolbar`, pager, modal shell.
 5. **HTMX.** Full GET uses `render_htmx`. Mutations refresh the list/table partial. Errors use `htmx_error`. Job actions include `#job-filters`.
 6. **Limits.** Match model `max_length` on the input (`maxlength=`) and reject oversize POSTs with 400.
@@ -149,7 +149,22 @@ Already handled globally — do not re-solve these per page:
 - Reset forms on failed HTMX requests.
 - Wrap flex toolbars in `display: contents` wrappers.
 - Commit secrets, or change `test_settings.SECRET_KEY` to a real key.
-- Rebuild the DAG explorer as an HTMX list. Graph data is `GET /ui3/dag/graph/`; the canvas is `static/ui3/dag.js` + Cytoscape from CDN.
+- Rebuild the DAG explorer as an HTMX list. Graph data is `GET /ui/dag/graph/`; the canvas is `static/ui3/dag.js` + Cytoscape from CDN.
+- Put lab-specific WandB / Dec / similar views in committed ui3 templates. Use `ui3.plugins.Plugin` + `ui3/plugins/local/` or `UI3_PLUGINS`.
+
+## Site plugins
+
+Keep project-specific pages out of the general tree. Core ships empty hooks:
+
+| Hook | Where it shows |
+| --- | --- |
+| `urlpatterns()` | `/ui/…` (same prefix as the rest of the app) |
+| `shortcut_presets()` | protocol “Add shortcut” picker; creates a normal shortcut |
+| `nav_items(request)` | optional header link (standalone pages only) |
+
+Job cards never call plugins. They show protocol shortcuts, and those hrefs may point at `/ui/…/{id}`.
+
+Register at import: `ui3.plugins.register(MyPlugin())`. Drop the module in `ui3/plugins/local/` (gitignored) or list it in `UI3_PLUGINS`. Copy `ui3/plugins/local/README.md`.
 
 ## Deferred (see `TODO.md`)
 

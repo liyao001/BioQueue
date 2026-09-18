@@ -81,6 +81,13 @@
 
 {% if user.is_staff %}
 <div class="card bg-base-100 shadow-sm p-5 mt-4">
+  <h2 class="text-lg font-semibold">Users</h2>
+  <p class="text-sm opacity-70 mt-1">Approve new registrations and manage who can sign in.</p>
+  <div class="mt-3 flex justify-end">
+    <a class="ui-btn" href="{% url 'ui3:users' %}">Open users</a>
+  </div>
+</div>
+<div class="card bg-base-100 shadow-sm p-5 mt-4">
   <h2 class="text-lg font-semibold">Migrate jobs</h2>
   <p class="text-sm opacity-70 mt-1">Staff only. Reassign jobs from one account to another and move their result folders.</p>
   <div class="mt-3 flex justify-end">

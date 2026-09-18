@@ -1,0 +1,84 @@
+{% extends "ui3/base.html" %}
+{% block title %}Users – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">Users</h1>
+    <p class="text-sm opacity-70 page-head-sub">Staff only. Approve new registrations and manage who can sign in.</p>
+  </div>
+</div>
+
+<form id="user-filters" class="filter-bar flex flex-wrap gap-2 mb-4"
+      hx-get="{% url 'ui3:users' %}"
+      hx-target="#user-table"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="#page-size-select"
+      hx-trigger="submit, input delay:400ms from:input, change from:select">
+  <input class="ui-input flex-1" type="search" name="q" value="{{ q }}" placeholder="Search by username, email, name, or id" autocomplete="off" aria-label="Search users">
+  <select class="ui-select" name="state" aria-label="Account state">
+    <option value="all" {% if state == "all" %}selected{% endif %}>All</option>
+    <option value="pending" {% if state == "pending" %}selected{% endif %}>Pending</option>
+    <option value="deactivated" {% if state == "deactivated" %}selected{% endif %}>Deactivated</option>
+    <option value="active" {% if state == "active" %}selected{% endif %}>Active</option>
+    <option value="staff" {% if state == "staff" %}selected{% endif %}>Staff</option>
+  </select>
+  <button class="ui-btn" type="submit">Search</button>
+</form>
+
+{% include "ui3/users/_table.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Add account</h2>
+  <p class="text-sm opacity-70 mb-4">Creates a user in the normal group. Leave Activate unchecked to require a later approval.</p>
+  <form method="post" action="{% url 'ui3:user_create' %}"
+        hx-post="{% url 'ui3:user_create' %}"
+        hx-target="#user-table"
+        hx-swap="outerHTML"
+        hx-include="#user-filters,#page-size-select"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <label class="form-control">
+        <div class="label"><span class="label-text">Username</span></div>
+        <input class="ui-input w-full" name="username" maxlength="150" required autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Email</span><span class="label-text-alt">optional</span></div>
+        <input class="ui-input w-full" type="email" name="email" maxlength="254" autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">First name</span></div>
+        <input class="ui-input w-full" name="first_name" maxlength="150" autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Last name</span></div>
+        <input class="ui-input w-full" name="last_name" maxlength="150" autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Password</span></div>
+        <input class="ui-input w-full" type="password" name="password" required autocomplete="new-password">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Confirm password</span></div>
+        <input class="ui-input w-full" type="password" name="password_2" required autocomplete="new-password">
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-4 mt-3">
+      <label class="label cursor-pointer justify-start gap-2 px-0">
+        <input type="checkbox" class="checkbox checkbox-sm" name="activate" value="1">
+        <span class="label-text">Activate immediately</span>
+      </label>
+      {% if request.user.is_superuser %}
+      <label class="label cursor-pointer justify-start gap-2 px-0">
+        <input type="checkbox" class="checkbox checkbox-sm" name="staff" value="1">
+        <span class="label-text">Staff</span>
+      </label>
+      {% endif %}
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Create account</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

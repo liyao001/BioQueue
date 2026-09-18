@@ -679,9 +679,11 @@ def job_mark_wrong(request, pk):
         return err
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
-    job.set_status(JobStatus.WRONG)
+    try:
+        services.mark_job_wrong(job)
+    except services.JobActionError as exc:
+        return _bad(request, str(exc))
     job.refresh_from_db()
-    services.audit_operation(job, "Marked wrong")
     return _refresh_or_row(request, job, "Job #{} marked failed.".format(job.id))
 
 
@@ -701,12 +703,19 @@ def job_resume(request, pk):
         )
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
-    rollback = int_or_none(request.POST.get("rollback_to")) or 0
-    rollback_to = min(max(rollback, 0), max_step)
-    if rollback_to <= job.resume:
-        job.resume_job(rollback_to)
+    if request.POST.get("from_failed") == "1":
+        if job.status != JobStatus.WRONG:
+            return _bad(request, "Resume from failed step is only for failed jobs.")
+        try:
+            services.resume_job_from(job, rollback_to=None)
+        except services.JobActionError as exc:
+            return _bad(request, str(exc))
     else:
-        job.resume_job(job.resume)
+        rollback = int_or_none(request.POST.get("rollback_to")) or 0
+        try:
+            services.resume_job_from(job, rollback_to=rollback)
+        except services.JobActionError as exc:
+            return _bad(request, str(exc))
     job.refresh_from_db()
     if is_htmx(request):
         ctx = _job_list_context(request)

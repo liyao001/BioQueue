@@ -672,6 +672,40 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, 'max="2"')
         self.assertNotContains(response, 'max="3"')
 
+    def test_failed_job_card_hides_mark_failed_and_offers_resume(self):
+        failed = self.make_job(job_name="failed-card", status=JobStatus.WRONG, resume=1)
+        done = self.make_job(job_name="done-card", status=JobStatus.FINISHED, resume=1)
+        self.login()
+        failed_page = self.client.get(reverse("ui3:jobs"), {"q": "failed-card"})
+        self.assertContains(failed_page, "Resume from failed step")
+        self.assertContains(failed_page, 'from_failed')
+        self.assertNotContains(failed_page, reverse("ui3:job_mark_wrong", args=[failed.id]))
+        done_page = self.client.get(reverse("ui3:jobs"), {"q": "done-card"})
+        self.assertContains(done_page, reverse("ui3:job_mark_wrong", args=[done.id]))
+        self.assertNotContains(done_page, "Resume from failed step")
+
+    def test_resume_from_failed_step_keeps_resume_point(self):
+        from QueueDB.models import Step
+
+        Step.objects.create(parent=self.protocol, software="a", parameter="x", step_order=1, hash="h1", user=self.user)
+        Step.objects.create(parent=self.protocol, software="b", parameter="y", step_order=2, hash="h2", user=self.user)
+        Step.objects.create(parent=self.protocol, software="c", parameter="z", step_order=3, hash="h3", user=self.user)
+        job = self.make_job(status=JobStatus.WRONG, resume=2)
+        self.login()
+        response = self.client.post(reverse("ui3:job_resume", args=[job.id]), {"from_failed": "1"})
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.WAITING)
+        self.assertEqual(job.resume, 2)
+
+    def test_cannot_mark_failed_job_failed_again(self):
+        job = self.make_job(status=JobStatus.WRONG)
+        self.login()
+        response = self.client.post(reverse("ui3:job_mark_wrong", args=[job.id]))
+        self.assertEqual(response.status_code, 400)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.WRONG)
+
     def test_crossaccess_read_cannot_rerun(self):
         from QueueDB.models import CrossAccess
 
@@ -693,7 +727,7 @@ class JobTests(Ui3TestCase):
         response = self.client.post(
             reverse("ui3:job_rerun", args=[keep.id]),
             HTTP_HX_REQUEST="true",
-            HTTP_HX_CURRENT_URL="http://testserver/ui3/jobs/?q=alpha",
+            HTTP_HX_CURRENT_URL="http://testserver/ui/jobs/?q=alpha",
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "keep-alpha")

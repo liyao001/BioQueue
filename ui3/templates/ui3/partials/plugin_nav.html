@@ -1,0 +1,5 @@
+{% for item in items %}
+<a href="{{ item.href }}" class="{% if item.active %}is-active{% endif %}">
+  {% if item.icon %}<i class="{{ item.icon }}"></i> {% endif %}{{ item.label }}
+</a>
+{% endfor %}

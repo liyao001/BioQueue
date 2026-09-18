@@ -12,6 +12,8 @@ class ProtocolTests(Ui3TestCase):
         self.assertContains(response, "RNA-seq")
         self.assertNotContains(response, "secret-proto")
         self.assertContains(response, "page-head")
+        self.assertContains(response, "Import JSON")
+        self.assertContains(response, reverse("ui3:protocol_import"))
 
     def test_create_protocol_with_steps(self):
         self.login()
@@ -213,6 +215,34 @@ class ProtocolTests(Ui3TestCase):
         self.assertContains(response, "page size")
         self.assertContains(response, "protocol")
         self.assertContains(response, "Oldest")
+        self.assertContains(response, "Search by name, description, or id")
+
+    def test_search_matches_description(self):
+        ProtocolList.objects.create(
+            name="ATAC",
+            description="call peaks from tn5 cuts",
+            user=self.user,
+            ver="atac1",
+        )
+        other = ProtocolList.objects.create(
+            name="WGBS",
+            description="bisulfite methylation",
+            user=self.user,
+            ver="wgbs1",
+        )
+        self.login()
+        by_desc = self.client.get(reverse("ui3:protocols"), {"q": "peaks"})
+        self.assertContains(by_desc, "ATAC")
+        self.assertNotContains(by_desc, "WGBS")
+        by_name = self.client.get(reverse("ui3:protocols"), {"q": "WGBS"})
+        self.assertContains(by_name, "WGBS")
+        self.assertNotContains(by_name, "ATAC")
+        by_id = self.client.get(reverse("ui3:protocols"), {"q": str(other.id)})
+        self.assertContains(by_id, "WGBS")
+        self.assertNotContains(by_id, "ATAC")
+        combo = self.client.get(reverse("ui3:protocol_options"), {"combo_q": "tn5"})
+        self.assertContains(combo, "ATAC")
+        self.assertNotContains(combo, "WGBS")
 
     def test_environment_options_filter(self):
         from QueueDB.models import VirtualEnvironment
@@ -351,3 +381,130 @@ class ProtocolTests(Ui3TestCase):
         self.assertEqual(step.software, "__SHELL__")
         self.assertEqual(step.parameter, "echo secret")
         self.assertFalse(protocol_steps(self.other_protocol).filter(software="hacked").exists())
+
+    def test_export_protocol_json(self):
+        import json
+
+        from QueueDB.models import Reference
+
+        Step.objects.create(
+            parent=self.protocol,
+            software="bwa",
+            parameter="mem {{hg38}} {InputFile}",
+            step_order=1,
+            hash=compute_step_hash("bwa", "mem {{hg38}} {InputFile}"),
+            version_check="bwa --version",
+            user=self.user,
+        )
+        Reference.objects.create(name="hg38", path="/refs/hg38.fa", description="human genome", user=self.user)
+        self.login()
+        page = self.client.get(reverse("ui3:protocol_detail", args=[self.protocol.id]))
+        self.assertContains(page, reverse("ui3:protocol_export", args=[self.protocol.id]))
+        response = self.client.get(reverse("ui3:protocol_export", args=[self.protocol.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Type"].startswith("application/json"))
+        self.assertIn("RNA-seq.json", response["Content-Disposition"])
+        data = json.loads(response.content.decode())
+        self.assertEqual(data["name"], "RNA-seq")
+        self.assertEqual(data["description"], "demo")
+        self.assertEqual(len(data["step"]), 1)
+        self.assertEqual(data["step"][0]["software"], "bwa")
+        self.assertEqual(data["step"][0]["parameter"], "mem {{hg38}} {InputFile}")
+        self.assertEqual(data["step"][0]["version_check"], "bwa --version")
+        self.assertEqual(data["reference"]["hg38"], "human genome")
+
+        public = ProtocolList.objects.create(name="public-export", description="ok", user=None, ver="px")
+        public_export = self.client.get(reverse("ui3:protocol_export", args=[public.id]))
+        self.assertEqual(public_export.status_code, 200)
+        self.assertEqual(json.loads(public_export.content.decode())["name"], "public-export")
+
+        forbidden = self.client.get(reverse("ui3:protocol_export", args=[self.other_protocol.id]))
+        self.assertEqual(forbidden.status_code, 403)
+
+    def test_import_protocol_json(self):
+        import json
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from QueueDB.models import Reference
+
+        payload = {
+            "name": "Imported ATAC",
+            "description": "from json",
+            "ver": "ignored",
+            "step": [
+                {
+                    "software": "macs2",
+                    "parameter": "callpeak -t {{hg38}}",
+                    "step_order": 1,
+                    "version_check": "",
+                }
+            ],
+            "reference": {"hg38": "human genome"},
+        }
+        self.login()
+        missing_ref = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("atac.json", json.dumps(payload).encode(), content_type="application/json")},
+        )
+        self.assertEqual(missing_ref.status_code, 302)
+        proto = ProtocolList.objects.get(name="Imported ATAC", user=self.user)
+        self.assertEqual(proto.description, "from json")
+        steps = list(protocol_steps(proto))
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0].software, "macs2")
+        self.assertEqual(steps[0].parameter, "callpeak -t {{hg38}}")
+        self.assertIn("select={}".format(proto.id), missing_ref["Location"])
+
+        dup = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("atac.json", json.dumps(payload).encode(), content_type="application/json")},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(dup.status_code, 400)
+
+        bad = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("bad.json", b"not-json", content_type="application/json")},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(bad.status_code, 400)
+
+        empty = self.client.post(reverse("ui3:protocol_import"), HTTP_HX_REQUEST="true")
+        self.assertEqual(empty.status_code, 400)
+
+        Reference.objects.create(name="hg38", path="/refs/hg38.fa", description="human", user=self.user)
+        payload["name"] = "Imported ATAC 2"
+        ok_refs = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("atac2.json", json.dumps(payload).encode(), content_type="application/json")},
+        )
+        self.assertEqual(ok_refs.status_code, 302)
+        self.assertTrue(ProtocolList.objects.filter(name="Imported ATAC 2", user=self.user).exists())
+
+    def test_import_protocol_json_roundtrip(self):
+        import json
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        Step.objects.create(
+            parent=self.protocol,
+            software="cutadapt",
+            parameter="-q 20",
+            step_order=1,
+            hash=compute_step_hash("cutadapt", "-q 20"),
+            user=self.user,
+        )
+        self.login()
+        exported = self.client.get(reverse("ui3:protocol_export", args=[self.protocol.id]))
+        data = json.loads(exported.content.decode())
+        data["name"] = "RNA-seq from json"
+        imported = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("rna.json", json.dumps(data).encode(), content_type="application/json")},
+        )
+        self.assertEqual(imported.status_code, 302)
+        dest = ProtocolList.objects.get(name="RNA-seq from json", user=self.user)
+        dest_steps = list(protocol_steps(dest))
+        self.assertEqual([s.software for s in dest_steps], ["cutadapt"])
+        self.assertEqual(dest_steps[0].parameter, "-q 20")
+        self.assertEqual(dest.description, "demo")
