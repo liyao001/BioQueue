@@ -855,6 +855,10 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, 'id="ui3-tokens"')
         self.assertContains(response, "data-ui3-complete")
         self.assertContains(response, "InputFile")
+        # Django would eat "{{" + token + "}}" as a string literal, inserting
+        # " + token + " instead of {{Token}}. Split the braces in JS instead.
+        self.assertContains(response, '"{" + "{" + token + "}" + "}"')
+        self.assertNotContains(response, '"{{" + token + "}}"')
 
     def test_clone_bad_id_shows_error(self):
         self.login()

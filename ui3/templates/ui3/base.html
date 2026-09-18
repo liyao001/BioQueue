@@ -689,7 +689,7 @@
           var m = head.match(/\{\{([A-Za-z0-9_]*)$/);
           if (!m) return;
           var start = caret - (m[1] ? m[1].length : 0) - 2;
-          el.value = head.slice(0, start) + "{{" + token + "}}" + tail;
+          el.value = head.slice(0, start) + "{" + "{" + token + "}" + "}" + tail;
           var next = start + token.length + 4;
           el.selectionStart = el.selectionEnd = next;
           window.ui3.hideTokenMenu();
