@@ -1182,7 +1182,7 @@ def job_file_preview(request, pk):
         return _bad(request, "trace is required")
     if request.GET.get("raw"):
         return preview_response(job, trace)
-    name = request.GET.get("name") or ""
+    name = request.GET.get("name") or listed_display_name(job, trace) or ""
     mode = preview_mode_for(name)
     text = ""
     if mode == "text":

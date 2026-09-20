@@ -76,6 +76,49 @@ TEXT_TYPES = {
     "application/x-sh",
 }
 
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+HTML_EXTS = (".html", ".htm", ".xhtml")
+PDF_EXTS = (".pdf",)
+TEXT_EXTS = (
+    ".txt",
+    ".log",
+    ".out",
+    ".err",
+    ".stdout",
+    ".stderr",
+    ".csv",
+    ".tsv",
+    ".json",
+    ".xml",
+    ".yml",
+    ".yaml",
+    ".md",
+    ".fa",
+    ".fasta",
+    ".fq",
+    ".fastq",
+    ".sam",
+    ".bed",
+    ".gtf",
+    ".gff",
+    ".sh",
+    ".py",
+    ".r",
+    ".cfg",
+    ".ini",
+    ".conf",
+    ".lst",
+)
+
+
+def _is_log_name(lower):
+    """Match *.log, *.out, and rotated names like app.log.1."""
+    base = os.path.basename(lower or "")
+    if base.endswith((".log", ".out", ".err", ".stdout", ".stderr")):
+        return True
+    parts = base.split(".")
+    return len(parts) >= 3 and "log" in parts[:-1]
+
 
 def format_bytes(n):
     try:
@@ -611,10 +654,8 @@ def preview_response(job, trace):
         raise Http404("File not found")
     ctype, _ = mimetypes.guess_type(path)
     ctype = ctype or "application/octet-stream"
-    # Prefer extension-based text mode so .bed/.sam/etc. are not FileResponse.
-    if preview_mode_for(path, ctype) == "text" or any(
-        ctype.startswith(prefix) or ctype == prefix.rstrip("/") for prefix in TEXT_TYPES
-    ) or ctype.startswith("text/"):
+    mode = preview_mode_for(path, ctype)
+    if mode == "text":
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
                 body = fh.read(2_000_000)
@@ -627,6 +668,15 @@ def preview_response(job, trace):
         ):
             ctype = "text/plain"
         return HttpResponse(body, content_type="{}; charset=utf-8".format(ctype))
+    if mode == "iframe" and (
+        ctype in ("text/html", "application/xhtml+xml") or path.lower().endswith(HTML_EXTS)
+    ):
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                body = fh.read(2_000_000)
+        except Exception as exc:
+            return HttpResponseBadRequest(str(exc))
+        return HttpResponse(body, content_type="text/html; charset=utf-8")
     response = FileResponse(open(path, "rb"), as_attachment=False, filename=os.path.basename(path))
     response["Content-Type"] = ctype
     response["Content-Disposition"] = 'inline; filename="{}"'.format(os.path.basename(path))
@@ -636,16 +686,22 @@ def preview_response(job, trace):
 def preview_mode_for(name, ctype=""):
     lower = (name or "").lower()
     ctype = ctype or (mimetypes.guess_type(name or "")[0] or "")
-    if ctype.startswith("image/") or lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")):
+    if ctype.startswith("image/") or lower.endswith(IMAGE_EXTS):
         return "img"
-    if ctype.startswith("text/") or ctype in ("application/json", "application/xml", "application/javascript") or lower.endswith(
-        (".txt", ".log", ".err", ".csv", ".tsv", ".json", ".xml", ".yml", ".yaml", ".md", ".fa", ".fasta", ".fq", ".fastq", ".sam", ".bed", ".gtf", ".gff")
+    # text/html starts with text/, so HTML must win before the generic text branch
+    # or the modal dumps source into <pre> instead of rendering it.
+    if ctype in ("text/html", "application/xhtml+xml") or lower.endswith(HTML_EXTS):
+        return "iframe"
+    if ctype == "application/pdf" or lower.endswith(PDF_EXTS):
+        return "iframe"
+    if (
+        any(ctype.startswith(prefix) or ctype == prefix.rstrip("/") for prefix in TEXT_TYPES)
+        or ctype.startswith("text/")
+        or ctype in ("application/json", "application/xml", "application/javascript", "text/x-log")
+        or lower.endswith(TEXT_EXTS)
+        or _is_log_name(lower)
     ):
         return "text"
-    if ctype == "application/pdf" or lower.endswith(".pdf"):
-        return "iframe"
-    if ctype in ("text/html", "application/xhtml+xml") or lower.endswith((".html", ".htm")):
-        return "iframe"
     return "download"
 
 

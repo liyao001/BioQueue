@@ -387,6 +387,60 @@ class JobTests(Ui3TestCase):
         self.assertEqual(bed_preview.status_code, 200)
         self.assertContains(bed_preview, "chr1")
 
+    def test_preview_html_renders_and_logs_are_text(self):
+        import os
+        import tempfile
+
+        from ui3.files import list_job_files, preview_mode_for
+
+        self.assertEqual(preview_mode_for("report.html"), "iframe")
+        self.assertEqual(preview_mode_for("report.HTML"), "iframe")
+        self.assertEqual(preview_mode_for("page.htm", "text/html"), "iframe")
+        self.assertEqual(preview_mode_for("run.log"), "text")
+        self.assertEqual(preview_mode_for("nextflow.log.1"), "text")
+        self.assertEqual(preview_mode_for("cluster.out"), "text")
+
+        tmp = tempfile.mkdtemp()
+        job = self.make_job(job_name="preview-types", result="out", run_dir=tmp)
+        folder = os.path.join(tmp, str(self.user.id), "out")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "report.html"), "w") as fh:
+            fh.write("<html><body><h1>HelloReport</h1></body></html>")
+        with open(os.path.join(folder, "run.log"), "w") as fh:
+            fh.write("step started\n")
+        with open(os.path.join(folder, "nextflow.log.1"), "w") as fh:
+            fh.write("rotated log line\n")
+        self.login()
+        by_name = {f["name"]: f for f in list_job_files(job)}
+        html_preview = self.client.get(
+            reverse("ui3:job_file_preview", args=[job.id]),
+            {"trace": by_name["report.html"]["trace"], "name": "report.html"},
+        )
+        self.assertEqual(html_preview.status_code, 200)
+        self.assertContains(html_preview, "<iframe")
+        self.assertNotContains(html_preview, "&lt;html&gt;")
+        raw_html = self.client.get(
+            reverse("ui3:job_file_preview", args=[job.id]),
+            {"trace": by_name["report.html"]["trace"], "raw": "1"},
+        )
+        self.assertEqual(raw_html.status_code, 200)
+        self.assertIn("text/html", raw_html["Content-Type"])
+        self.assertContains(raw_html, "HelloReport")
+        log_preview = self.client.get(
+            reverse("ui3:job_file_preview", args=[job.id]),
+            {"trace": by_name["run.log"]["trace"], "name": "run.log"},
+        )
+        self.assertEqual(log_preview.status_code, 200)
+        self.assertContains(log_preview, "step started")
+        self.assertContains(log_preview, "<pre")
+        rotated = self.client.get(
+            reverse("ui3:job_file_preview", args=[job.id]),
+            {"trace": by_name["nextflow.log.1"]["trace"], "name": "nextflow.log.1"},
+        )
+        self.assertEqual(rotated.status_code, 200)
+        self.assertContains(rotated, "rotated log line")
+
+
     def test_job_files_sort(self):
         import os
         import tempfile
