@@ -316,6 +316,8 @@ class ProtocolTests(Ui3TestCase):
         self.assertRegex(html, r'value="shell"[^>]*selected|selected[^>]*value="shell"')
         self.assertContains(response, "Script")
         self.assertNotContains(response, 'name="step_kind"')
+        self.assertContains(response, "filter environments")
+        self.assertContains(response, 'data-combo-nosubmit')
 
     def test_htmx_edit_command_step_still_partial(self):
         self.login()

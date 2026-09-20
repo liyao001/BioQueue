@@ -7,6 +7,16 @@
 @source inline("alert alert-error alert-success alert-warning shadow hidden toast toast-end");
 
     :root { --bq-green: #308034; --bq-green-2: #80c684; --bq-radius: 0.375rem; --radius-field: 0.375rem; }
+    .bq-toast .alert-success {
+      background-color: #6a994e;
+      color: #fff;
+      border-color: #6a994e;
+    }
+    .bq-toast .alert-error {
+      background-color: #bc4749;
+      color: #fff;
+      border-color: #bc4749;
+    }
     .btn { border-radius: var(--bq-radius); }
     .bq-header { background: linear-gradient(135deg, #308034 0%, #80c684 100%); overflow: visible; }
     .htmx-indicator { display: none; }

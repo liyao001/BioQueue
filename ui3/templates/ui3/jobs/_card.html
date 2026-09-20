@@ -82,10 +82,10 @@
       <h2 class="text-lg font-semibold mt-2 break-words">{{ job.job_name }}</h2>
     </div>
     <div class="relative w-8 h-8 shrink-0">
-      <div class="absolute inset-0 flex items-center justify-center">{% status_badge job %}</div>
-      {% if job.status == 1 and job.ui3_step_total %}
+      <div class="absolute inset-0 flex items-center justify-center">{% status_badge job job.ui3_step_command %}</div>
+      {% if job.ui3_step_total and job.status == 1 or job.ui3_step_total and job.status == -3 %}
       <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none opacity-80"
-           title="step {{ job.resume|default:0|add:1 }} of {{ job.ui3_step_total }}">
+           title="{% if job.status == -3 %}failed {% endif %}step {{ job.resume|default:0|add:1 }} of {{ job.ui3_step_total }}{% if job.ui3_step_command %} — {{ job.ui3_step_command }}{% endif %}">
         {{ job.resume|default:0|add:1 }}/{{ job.ui3_step_total }}
       </div>
       {% endif %}

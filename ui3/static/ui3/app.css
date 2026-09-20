@@ -10,3 +10,5 @@
 .dag-search-item{display:flex;align-items:center;gap:.5rem;width:100%;text-align:left;padding:.45rem .65rem;border:0;background:transparent;cursor:pointer}
 .dag-search-item:hover{background:#f3f4f6}
 .dag-search-item small{display:block;color:#6b7280;font-size:.75rem}
+.bq-toast .alert-success{background-color:#6a994e;color:#fff;border-color:#6a994e}
+.bq-toast .alert-error{background-color:#bc4749;color:#fff;border-color:#bc4749}

@@ -133,6 +133,7 @@
         return true;
       },
       closeModal: function () {
+        window.ui3.closeCombos();
         window.ui3.closePicker();
         var root = window.ui3.ensureModalRoot();
         root.innerHTML = "";
@@ -156,6 +157,15 @@
         var kind = level === "error" ? "alert-error" : (level === "warning" ? "alert-warning" : "alert-success");
         var alert = document.createElement("div");
         alert.className = "alert " + kind + " shadow";
+        if (kind === "alert-success") {
+          alert.style.backgroundColor = "#6a994e";
+          alert.style.color = "#fff";
+          alert.style.borderColor = "#6a994e";
+        } else if (kind === "alert-error") {
+          alert.style.backgroundColor = "#bc4749";
+          alert.style.color = "#fff";
+          alert.style.borderColor = "#bc4749";
+        }
         var span = document.createElement("span");
         span.textContent = message || "Request failed";
         alert.appendChild(span);
@@ -344,7 +354,10 @@
         return !!(combo && (combo.classList.contains("job-card-combo") || combo.closest(".job-card")));
       },
       shouldPortCombo: function (combo) {
-        return window.ui3.isCardCombo(combo) || window.innerWidth < 768;
+        if (!combo) return false;
+        return window.ui3.isCardCombo(combo)
+          || window.innerWidth < 768
+          || !!combo.closest(".ui-modal");
       },
       comboPanel: function (combo) {
         return (combo && combo._ui3Panel) || (combo && combo.querySelector(".ui-combo-panel"));
@@ -375,7 +388,8 @@
       },
       portComboPanel: function (combo) {
         var panel = window.ui3.comboPanel(combo);
-        if (!panel || panel.parentNode === document.body) return panel;
+        if (!panel) return panel;
+        if (panel.parentNode === document.body) return panel;
         combo._ui3PanelHome = { parent: panel.parentNode, next: panel.nextSibling };
         combo._ui3Panel = panel;
         panel._ui3Combo = combo;
@@ -390,15 +404,24 @@
         panel.style.top = "";
         panel.style.bottom = "";
         panel.style.left = "";
+        panel.style.right = "";
         panel.style.width = "";
         panel.style.maxHeight = "";
         panel.style.minWidth = "";
+        panel.style.position = "";
+        panel.style.zIndex = "";
+        panel.style.overflowY = "";
+        panel.style.display = "";
         if (combo._ui3PanelHome) {
           var home = combo._ui3PanelHome;
-          if (home.next && home.next.parentNode === home.parent) {
-            home.parent.insertBefore(panel, home.next);
-          } else if (home.parent) {
-            home.parent.appendChild(panel);
+          if (home.parent && home.parent.isConnected) {
+            if (home.next && home.next.parentNode === home.parent) {
+              home.parent.insertBefore(panel, home.next);
+            } else {
+              home.parent.appendChild(panel);
+            }
+          } else {
+            panel.remove();
           }
           combo._ui3PanelHome = null;
         }
@@ -410,6 +433,10 @@
         document.querySelectorAll(".ui-combo.is-open").forEach(function (el) {
           el.classList.remove("is-open");
           window.ui3.resetComboPanel(el);
+        });
+        document.querySelectorAll(".ui-combo-panel.is-ported").forEach(function (panel) {
+          var combo = panel._ui3Combo;
+          if (!combo || !combo.isConnected) panel.remove();
         });
       },
       bindComboWheelTrap: function (combo) {
@@ -432,13 +459,35 @@
         var panel = window.ui3.portComboPanel(combo);
         if (!panel || !toggle) return;
         window.ui3.bindComboWheelTrap(combo);
+        var modal = combo.closest(".ui-modal");
+        if (modal && typeof toggle.scrollIntoView === "function") {
+          window.ui3._ignoreComboScroll = (window.ui3._ignoreComboScroll || 0) + 1;
+          try { toggle.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+          catch (err) { toggle.scrollIntoView(false); }
+          window.setTimeout(function () {
+            window.ui3._ignoreComboScroll = Math.max(0, (window.ui3._ignoreComboScroll || 1) - 1);
+          }, 0);
+        }
         var toggleRect = toggle.getBoundingClientRect();
+        if (toggleRect.height < 8 || toggleRect.width < 8) {
+          var fallback = modal ? modal.getBoundingClientRect() : null;
+          if (fallback && fallback.width) {
+            toggleRect = {
+              left: fallback.left + 16,
+              width: Math.max(160, fallback.width - 32),
+              top: Math.max(8, fallback.bottom - 48),
+              bottom: Math.max(48, fallback.bottom - 8),
+              height: 40
+            };
+          }
+        }
         var box = window.ui3.safeComboBox();
         var gap = 4;
         var mobile = window.innerWidth < 768;
         panel.style.position = "fixed";
-        panel.style.zIndex = "90";
+        panel.style.zIndex = "95";
         panel.style.display = "block";
+        panel.style.bottom = "auto";
         var computedMin = parseFloat(window.getComputedStyle(panel).minWidth) || 0;
         var width = mobile
           ? Math.max(16, window.innerWidth - 16)
@@ -451,22 +500,27 @@
         panel.style.minWidth = width + "px";
         panel.style.right = "auto";
         panel.style.overflowY = "auto";
-        var spaceBelow = window.innerHeight - Math.max(toggleRect.bottom, box.top) - box.bottom - gap;
-        var spaceAbove = Math.min(toggleRect.top, window.innerHeight - box.bottom) - box.top - gap;
-        var dropup = toggleRect.top > (box.top + (window.innerHeight - box.top - box.bottom) * 0.55)
-          || (spaceBelow < 140 && spaceAbove > spaceBelow);
-        var avail = dropup ? spaceAbove : spaceBelow;
-        var maxH = Math.min(mobile ? 360 : 280, Math.max(140, avail));
+        var spaceBelow = window.innerHeight - toggleRect.bottom - box.bottom - gap;
+        var spaceAbove = toggleRect.top - box.top - gap;
+        var dropup = spaceBelow < 140 && spaceAbove > spaceBelow;
+        var avail = Math.max(120, dropup ? spaceAbove : spaceBelow);
+        var maxH = Math.min(mobile ? 360 : 280, avail);
+        panel.style.maxHeight = maxH + "px";
+        panel.style.top = (dropup
+          ? Math.max(box.top, toggleRect.top - gap - maxH)
+          : toggleRect.bottom + gap) + "px";
+        var h = Math.min(maxH, panel.getBoundingClientRect().height || maxH);
         if (dropup) {
           combo.classList.add("is-dropup");
-          panel.style.top = "auto";
-          panel.style.bottom = Math.max(box.bottom, window.innerHeight - toggleRect.top + gap) + "px";
-          panel.style.maxHeight = maxH + "px";
+          panel.style.top = Math.max(box.top, toggleRect.top - gap - h) + "px";
         } else {
           combo.classList.remove("is-dropup");
-          panel.style.bottom = "auto";
-          panel.style.top = Math.max(box.top, toggleRect.bottom + gap) + "px";
-          panel.style.maxHeight = Math.min(maxH, window.innerHeight - parseFloat(panel.style.top) - box.bottom) + "px";
+          var top = toggleRect.bottom + gap;
+          if (top + 8 > window.innerHeight - box.bottom) {
+            top = Math.max(box.top, toggleRect.top - gap - h);
+            combo.classList.add("is-dropup");
+          }
+          panel.style.top = top + "px";
         }
       },
       comboToggle: function (btn) {
@@ -481,7 +535,8 @@
           var panel = window.ui3.comboPanel(combo);
           var filter = (panel || combo).querySelector(".combo-filter");
           if (filter) {
-            filter.focus();
+            try { filter.focus({ preventScroll: true }); }
+            catch (err) { filter.focus(); }
             if (window.htmx) htmx.trigger(filter, "input");
           }
         }
@@ -917,6 +972,10 @@
       }
     });
     document.body.addEventListener("htmx:beforeSwap", function (event) {
+      var target = event.detail.target;
+      if (target && target.id === "modal-root") {
+        window.ui3.closeCombos();
+      }
       var status = event.detail.xhr && event.detail.xhr.status;
       if (status >= 400) {
         var target = event.detail.target;
@@ -972,21 +1031,30 @@
         }
         window.ui3.updateFileSelectBar(filesRoot);
       }
-      var combo = e.target && e.target.closest && e.target.closest(".job-card-combo.is-open");
-      if (!combo && e.target && e.target.closest) {
-        var panel = e.target.closest(".ui-combo-panel");
+      var src = (e.detail && (e.detail.target || e.detail.elt)) || e.target;
+      var combo = src && src.closest && src.closest(".ui-combo.is-open");
+      if (!combo && src && src.closest) {
+        var panel = src.closest(".ui-combo-panel");
         combo = panel && panel._ui3Combo;
       }
-      if (combo && combo.classList.contains("is-open")) window.ui3.placeComboPanel(combo);
+      if (combo && combo.classList.contains("is-open") && window.ui3.shouldPortCombo(combo)) {
+        window.ui3.placeComboPanel(combo);
+      }
     });
     document.addEventListener("click", function (event) {
       window.ui3.ignoreClickIfSelected(event);
     }, true);
     document.addEventListener("scroll", function (e) {
+      if (window.ui3._ignoreComboScroll) return;
       var open = document.querySelector(".ui-combo.is-open");
       if (!open) return;
       var panel = window.ui3.comboPanel(open);
       if (e.target && (open.contains(e.target) || (panel && panel.contains(e.target)))) return;
+      var modal = open.closest(".ui-modal");
+      if (modal && e.target && (e.target === modal || modal.contains(e.target))) {
+        window.ui3.placeComboPanel(open);
+        return;
+      }
       window.ui3.closeCombos();
     }, true);
     window.addEventListener("resize", function () {

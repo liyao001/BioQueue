@@ -88,7 +88,7 @@ def _job_list_context(request, extra_params=None):
     workspace_id = int_or_none(params.get("workspace"))
     jobs = list(page.object_list)
     services.shortcuts_for_jobs(request.user, jobs)
-    step_counts = services.protocol_step_counts([j.protocol_id for j in jobs])
+    step_map = services.protocol_steps_by_parent([j.protocol_id for j in jobs])
     delegate = delegate_for(request.user)
     staff = bool(getattr(request.user, "is_staff", False))
     parent_job_obj = None
@@ -96,7 +96,13 @@ def _job_list_context(request, extra_params=None):
     if parent_id:
         parent_job_obj = services.get_readable_job(request.user, parent_id)
     for job in jobs:
-        job.ui3_step_total = step_counts.get(job.protocol_id) or 0
+        steps = step_map.get(job.protocol_id) or []
+        job.ui3_step_total = len(steps)
+        job.ui3_step_command = ""
+        if job.status in (JobStatus.RUNNING, JobStatus.WRONG) and steps:
+            idx = job.resume or 0
+            if 0 <= idx < len(steps):
+                job.ui3_step_command = services.step_command_preview(steps[idx])
         job.ui3_can_write = staff or job.user_id == getattr(delegate, "id", None)
     return {
         "page_obj": page,

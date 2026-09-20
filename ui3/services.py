@@ -650,6 +650,42 @@ def protocol_steps(protocol):
     return Step.objects.filter(parent=protocol).select_related("env").order_by("step_order", "id")
 
 
+SHELL_SOFTWARE = "__SHELL__"
+STEP_COMMAND_MAX = 240
+
+
+def protocol_steps_by_parent(protocol_ids):
+    """Map protocol_id -> ordered Step list (software/parameter only)."""
+    ids = list({i for i in (protocol_ids or []) if i})
+    if not ids:
+        return {}
+    out = {}
+    qs = (
+        Step.objects.filter(parent_id__in=ids)
+        .only("parent_id", "software", "parameter", "step_order")
+        .order_by("parent_id", "step_order", "id")
+    )
+    for step in qs:
+        out.setdefault(step.parent_id, []).append(step)
+    return out
+
+
+def step_command_preview(step, max_len=STEP_COMMAND_MAX):
+    """One-line command for a status tooltip; truncated if long."""
+    if step is None:
+        return ""
+    software = (step.software or "").strip()
+    parameter = (step.parameter or "").strip()
+    if software == SHELL_SOFTWARE:
+        text = parameter or software
+    else:
+        text = (software + " " + parameter).strip()
+    text = " ".join(text.split())
+    if max_len and len(text) > max_len:
+        text = text[: max_len - 1].rstrip() + "…"
+    return text
+
+
 class JobActionError(ValueError):
     """User-facing job mutation failure."""
 
@@ -683,17 +719,7 @@ def resume_job_from(job, rollback_to=None):
 
 def protocol_step_counts(protocol_ids):
     """Map protocol_id -> step count for the given ids."""
-    ids = [i for i in (protocol_ids or []) if i]
-    if not ids:
-        return {}
-    from django.db.models import Count
-
-    return dict(
-        Step.objects.filter(parent_id__in=ids)
-        .values("parent_id")
-        .annotate(n=Count("id"))
-        .values_list("parent_id", "n")
-    )
+    return {pid: len(steps) for pid, steps in protocol_steps_by_parent(protocol_ids).items()}
 
 
 def visible_shortcuts(user, protocol=None, active_only=False):

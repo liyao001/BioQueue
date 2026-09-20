@@ -99,7 +99,7 @@ Copy a job-toolbar or job-card combo. Required pieces:
 - `hx-disinherit="*"` on the panel so HTMX does not inherit list swap rules
 - Enter in the filter input must `preventDefault`
 
-On viewports `< 768px`, and on job-card combos at any width, `ui3` ports the panel to `document.body` and positions it between the header and the sticky pager. Do not implement a second dropdown system.
+On viewports `< 768px`, on job-card combos, and on combos inside `.ui-modal`, `ui3` ports the panel to `document.body` and positions it between the header and the sticky pager. Do not implement a second dropdown system.
 
 ## JavaScript
 

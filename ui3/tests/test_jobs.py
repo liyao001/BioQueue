@@ -121,6 +121,7 @@ class JobTests(Ui3TestCase):
         self.login()
         response = self.client.get(reverse("ui3:jobs"))
         self.assertContains(response, "1/2")
+        self.assertContains(response, 'title="a x"')
         self.assertContains(response, "Open eval")
         self.assertContains(response, "/eval/{}".format(job.id))
         self.assertContains(response, "tab=out")
@@ -259,6 +260,9 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, 'aria-controls="bq-nav"')
         self.assertContains(response, "page-head")
         self.assertContains(response, "shouldPortCombo")
+        self.assertContains(response, 'combo.closest(".ui-modal")')
+        self.assertContains(response, "preventScroll")
+        self.assertContains(response, "scrollIntoView")
         self.assertContains(response, "toggleFilters")
         self.assertContains(response, "scheduleToastDismiss")
         self.assertContains(response, "htmx:oobAfterSwap")
@@ -671,6 +675,62 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, "0–2")
         self.assertContains(response, 'max="2"')
         self.assertNotContains(response, 'max="3"')
+
+    def test_failed_card_shows_step_progress_and_command(self):
+        from QueueDB.models import Step
+
+        Step.objects.create(
+            parent=self.protocol,
+            software="bwa",
+            parameter="mem -t 8",
+            step_order=1,
+            hash="h1",
+            user=self.user,
+        )
+        Step.objects.create(
+            parent=self.protocol,
+            software="samtools",
+            parameter="sort",
+            step_order=2,
+            hash="h2",
+            user=self.user,
+        )
+        self.make_job(job_name="failed-steps", status=JobStatus.WRONG, resume=1)
+        self.login()
+        response = self.client.get(reverse("ui3:jobs"), {"q": "failed-steps"})
+        self.assertContains(response, "2/2")
+        self.assertContains(response, "failed step 2 of 2")
+        self.assertContains(response, 'title="samtools sort"')
+
+    def test_step_command_tooltip_is_truncated(self):
+        from QueueDB.models import Step
+
+        long_param = "x" * 400
+        Step.objects.create(
+            parent=self.protocol,
+            software="echo",
+            parameter=long_param,
+            step_order=1,
+            hash="h1",
+            user=self.user,
+        )
+        self.make_job(job_name="long-cmd", status=JobStatus.RUNNING, resume=0)
+        self.login()
+        response = self.client.get(reverse("ui3:jobs"), {"q": "long-cmd"})
+        html = response.content.decode()
+        self.assertIn("echo " + "x" * 20, html)
+        self.assertIn("…", html)
+        self.assertNotIn(long_param, html)
+
+    def test_toast_uses_brand_success_and_error_colors(self):
+        from ui3.http import toast_html
+
+        ok = toast_html("Saved.", "success")
+        self.assertIn("#6a994e", ok)
+        self.assertIn("Saved.", ok)
+        err = toast_html("Nope.", "error")
+        self.assertIn("#bc4749", err)
+        self.assertIn("Nope.", err)
 
     def test_failed_job_card_hides_mark_failed_and_offers_resume(self):
         failed = self.make_job(job_name="failed-card", status=JobStatus.WRONG, resume=1)

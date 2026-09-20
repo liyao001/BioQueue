@@ -1,4 +1,5 @@
 from django import template
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 from QueueDB.models import JobStatus
@@ -34,12 +35,13 @@ def qs_url(context, **updates):
 
 
 @register.simple_tag
-def status_badge(job):
+def status_badge(job, tooltip=None):
     label = dict(JobStatus.choices).get(job.status, str(job.status))
     icon, color = STATUS_ICONS.get(job.status, ("fa-circle", "text-gray-400"))
+    tip = tooltip or label
     return mark_safe(
         '<span class="inline-flex items-center justify-center w-6 h-6 {}" title="{}" aria-label="{}">'
-        '<i class="fa-solid {}"></i></span>'.format(color, label, label, icon)
+        '<i class="fa-solid {}"></i></span>'.format(color, escape(tip), escape(label), icon)
     )
 
 

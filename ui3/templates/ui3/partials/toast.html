@@ -1,5 +1,7 @@
 <div id="toast-root" hx-swap-oob="innerHTML">
-  <div class="alert {% if level == 'error' %}alert-error{% else %}alert-success{% endif %} shadow">
+  <div class="alert {% if level == 'error' %}alert-error{% elif level == 'warning' %}alert-warning{% else %}alert-success{% endif %} shadow"
+       {% if level == 'error' %}style="background-color:#bc4749;color:#fff;border-color:#bc4749"
+       {% elif level != 'warning' %}style="background-color:#6a994e;color:#fff;border-color:#6a994e"{% endif %}>
     <span>{{ message }}</span>
   </div>
 </div>
