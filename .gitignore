@@ -12,3 +12,18 @@ deploy/prerequisites.txt
 worker/config.conf
 
 config/custom.conf
+ui2-frontend/node_modules/*
+ui2-frontend/dist/*
+ui3/node_modules/*
+ui3/plugins/local/*
+ui3/AGENTS.md
+!ui3/plugins/local/__init__.py
+!ui3/plugins/local/README.md
+**/.ipynb_checkpoints/*
+QueueDB/migrations/*
+ui/static/admin/img/*
+ui/.migrations/*
+ui/static/ui/fontawesome/*
+.pixi/
+**/.pixi/
+worker3/.testdata/
