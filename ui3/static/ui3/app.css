@@ -12,3 +12,14 @@
 .dag-search-item small{display:block;color:#6b7280;font-size:.75rem}
 .bq-toast .alert-success{background-color:#6a994e;color:#fff;border-color:#6a994e}
 .bq-toast .alert-error{background-color:#bc4749;color:#fff;border-color:#bc4749}
+.ui-modal-editor{width:min(95vw,90rem)}
+.ui-modal-editor form{width:100%;min-width:0}
+.ui-modal-editor textarea.ui-input,.ui-modal-editor textarea.textarea,.ui-modal-editor input.ui-input{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.ui-modal-editor textarea.font-mono{min-height:16rem;overflow-wrap:anywhere;word-break:break-word}
+.job-card{position:relative}
+.job-card.htmx-request,.job-card.is-busy{pointer-events:none;cursor:wait}
+.job-card-busy,.job-results-busy{display:none;position:absolute;inset:0;z-index:6;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;background:rgba(255,255,255,.78);color:#111827;font-size:.875rem;text-align:center;padding:1rem}
+.job-card.htmx-request>.job-card-busy:not([hidden]),.job-card.is-busy>.job-card-busy:not([hidden]),#job-results.is-busy>.job-results-busy:not([hidden]){display:flex}
+#job-results{position:relative}
+#job-results.is-busy,body:has(#bulk-form.htmx-request) #job-results,body:has(.job-card.htmx-request) #job-filters,body:has(.job-card.is-busy) #job-filters,body:has(#bulk-form.htmx-request) #job-filters,body:has(.job-card.htmx-request) #bulk-bar,body:has(.job-card.is-busy) #bulk-bar{pointer-events:none;cursor:wait}
+body:has(.job-card.htmx-request) #job-filters,body:has(.job-card.is-busy) #job-filters,body:has(#bulk-form.htmx-request) #job-filters,body:has(.job-card.htmx-request) #bulk-bar,body:has(.job-card.is-busy) #bulk-bar{opacity:.55}

@@ -39,7 +39,15 @@ def worker_settings(workspace, log_dir, max_job=4):
     }
 
 
-def seed_echo_job(workspace, job_name="echo-job", marker=ECHO_MARKER, username="worker3"):
+def seed_echo_job(
+    workspace,
+    job_name="echo-job",
+    marker=ECHO_MARKER,
+    username="worker3",
+    input_file="",
+    resume=0,
+    n_steps=1,
+):
     from django.contrib.auth.models import User
     from QueueDB.models import Job, JobStatus, ProtocolList, Step
 
@@ -49,22 +57,24 @@ def seed_echo_job(workspace, job_name="echo-job", marker=ECHO_MARKER, username="
     protocol = ProtocolList.objects.create(name="echo-proto", user=user, ver="test")
     software = "echo"
     parameter = "{} {{{{JobName}}}}".format(marker)
-    Step.objects.create(
-        parent=protocol,
-        software=software,
-        parameter=parameter,
-        step_order=1,
-        hash=step_hash(software, parameter),
-        user=user,
-    )
+    for order in range(1, max(int(n_steps), 1) + 1):
+        Step.objects.create(
+            parent=protocol,
+            software=software,
+            parameter=parameter,
+            step_order=order,
+            hash=step_hash(software, parameter),
+            user=user,
+        )
     return Job.objects.create(
         user=user,
         protocol=protocol,
         protocol_ver=protocol.ver,
         job_name=job_name,
-        input_file="",
+        input_file=input_file,
         parameter="",
         run_dir=workspace,
+        resume=resume,
         status=JobStatus.WAITING,
     )
 

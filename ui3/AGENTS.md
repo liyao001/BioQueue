@@ -46,7 +46,7 @@ Patterns to copy:
 
 - **List refresh after an action:** `_refresh_or_row` in `views/jobs.py`, or workspace edit/delete (render `_table.html`, append OOB closer, `with_toast`).
 - **Close a modal after save:** append `'<div id="modal-root" hx-swap-oob="innerHTML"></div>'`.
-- **Job list polling:** `#job-results` has `hx-disinherit="hx-swap hx-target hx-push-url"` so child buttons do not inherit `outerHTML` onto the wrong target. Poll every 8s only when `shouldPauseAutoRefresh()` is false (open combo, modal, nav, mobile filters, or a focused field). Mark quiet pollers with `data-ui3-quiet`.
+- **Job list polling:** `#job-results` has `hx-disinherit="hx-swap hx-target hx-push-url"` so child buttons do not inherit `outerHTML` onto the wrong target. Poll every 8s only when `shouldPauseAutoRefresh()` is false (open combo, modal, nav, mobile filters, a focused field, or a job card/list locked for delete). Mark quiet pollers with `data-ui3-quiet`. File-heavy actions (delete, purge, clean rerun) set `data-ui3-lock="card"` / `hx-indicator="closest .job-card"` so the whole card is inert until the request finishes.
 - **Form reset:** `hx-on::after-request="if(event.detail.successful) this.reset()"` — never reset on 400.
 
 Stable swap targets (do not rename without updating every `hx-target`):
@@ -63,6 +63,7 @@ Naming:
 - `list.html` / `new.html` / `login.html` — full pages, extend `base.html`
 - `_card.html`, `_table.html`, `_results.html` — swap targets
 - `_edit_modal.html`, `_files_modal.html`, … — fragments for `#modal-root`
+- Long-text edits use `ui-modal-lg ui-modal-editor` (job parameter/input, step parameter, shortcuts). Short forms (rename, resume) stay `ui-modal-sm`.
 - `partials/` — pager, toast, running badge
 
 CSS classes (prefer these over raw DaisyUI `btn` / `navbar`):

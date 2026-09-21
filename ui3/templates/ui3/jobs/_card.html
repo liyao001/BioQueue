@@ -1,6 +1,10 @@
 {% load ui3_tags %}
 <article id="job-card-{{ job.id }}"
          class="job-card p-3 flex flex-col h-full {% if job.status == -3 %}is-failed{% endif %} {% if job.audit %}is-audit{% endif %} {% if job.locked %}is-locked{% endif %}">
+  <div class="job-card-busy hidden" hidden aria-hidden="true">
+    <div class="ui-busy-spinner"></div>
+    <p>Deleting files…</p>
+  </div>
   <header class="flex items-start justify-between gap-2">
     <div class="min-w-0">
       <div class="job-card-actions flex items-center gap-2 text-sm flex-wrap">
@@ -234,6 +238,8 @@
               {% if job.locked %}disabled{% endif %}
               hx-post="{% url 'ui3:job_rerun' job.id %}" hx-include="#job-filters"
               hx-target="#job-results" hx-swap="outerHTML"
+              hx-indicator="closest .job-card" hx-sync="#job-results:abort"
+              data-ui3-lock="card"
               hx-confirm="Rerun job #{{ job.id }} (clean)?"><i class="fa-solid fa-rotate-right"></i></button>
       <button type="button" class="icon-btn"
               title="{% if job.locked %}Locked — unlock to rerun{% else %}Rerun in-situ{% endif %}"
@@ -268,6 +274,8 @@
               {% if job.locked %}disabled{% endif %}
               hx-post="{% url 'ui3:job_delete' job.id %}" hx-include="#job-filters"
               hx-target="#job-results" hx-swap="outerHTML"
+              hx-indicator="closest .job-card" hx-sync="#job-results:abort"
+              data-ui3-lock="card"
               hx-confirm="Delete job #{{ job.id }}?"><i class="fa-solid fa-trash"></i></button>
       <button type="button" class="icon-btn"
               title="{% if job.locked %}Locked — unlock to edit comments{% else %}Comments / memo{% endif %}"
@@ -312,6 +320,8 @@
                     onclick="ui3.closeCombos()"
                     hx-post="{% url 'ui3:job_purge' job.id %}" hx-include="#job-filters"
                     hx-target="#job-results" hx-swap="outerHTML"
+                    hx-indicator="closest .job-card" hx-sync="#job-results:abort"
+                    data-ui3-lock="card"
                     hx-confirm="Purge result files for job #{{ job.id }}? The job record is kept.">
               <i class="fa-solid fa-eraser"></i> Purge result files
             </button>

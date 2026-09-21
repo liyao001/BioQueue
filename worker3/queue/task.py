@@ -7,6 +7,7 @@ from configparser import ConfigParser
 from copy import copy
 
 from worker3 import bases
+from worker3.queue.input_check import build_input_check_step, non_empty_input_entries
 from worker3.step import _Step
 from QueueDB.models import Job, _JS_RESOURCELOCK
 
@@ -98,6 +99,11 @@ class Task(object):
 
         self._settings = settings
         self._snapshot_file = ""
+        self._input_check_step = None
+        if self._resume == 0 and non_empty_input_entries(self._job_input_files):
+            self._input_check_step = build_input_check_step(
+                settings, len(self._job_input_files)
+            )
 
     def __str__(self):
         return "{job_name} ({job_id})".format(job_name=self.job_name, job_id=self.job_id)
@@ -228,6 +234,11 @@ class Task(object):
     @property
     def steps(self):
         return self._steps
+
+    @property
+    def input_check_step(self):
+        """Synthetic first-step check; not in :attr:`steps` and does not consume resume."""
+        return self._input_check_step
 
     @property
     def user_options(self):

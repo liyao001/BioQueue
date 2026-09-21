@@ -242,3 +242,103 @@ class EchoJobIntegrationTests(TestCase):
         self.assertIn("known-node", str(ctx.exception))
         listing = format_runner_list()
         self.assertIn("known-node", listing)
+
+    def test_missing_input_fails_before_protocol_step(self):
+        missing = str(Path(self.tmp) / "does-not-exist.fq")
+        job = seed_echo_job(self.tmp, job_name="missing-input", input_file=missing)
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        self.assertIsNotNone(task.input_check_step)
+        queue.run_step(task)
+        job = Job.objects.get(id=job.id)
+        self.assertEqual(job.status, JobStatus.WRONG)
+        self.assertEqual(job.resume, 0)
+        log_text = (self.log_dir / "{}.log".format(job.id)).read_text()
+        err_text = (self.log_dir / "{}.err".format(job.id)).read_text()
+        self.assertNotIn(ECHO_MARKER, log_text)
+        self.assertIn("Checking 1 input file(s) before launch.", log_text)
+        self.assertIn("missing file", err_text.lower())
+        self.assertIn("does-not-exist.fq", err_text)
+
+    def test_present_input_allows_protocol_to_run(self):
+        present = Path(self.tmp) / "ok.fq"
+        present.write_text("ok")
+        job = seed_echo_job(self.tmp, job_name="ok-input", input_file=str(present))
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job = Job.objects.get(id=job.id)
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        log_text = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn("Checking 1 input file(s) before launch.", log_text)
+        self.assertIn(ECHO_MARKER, log_text)
+
+    def test_failed_history_parent_fails_child_without_running_protocol(self):
+        parent = seed_echo_job(self.tmp, job_name="hist-parent")
+        parent.status = JobStatus.WRONG
+        parent.result = "{}v0".format(parent.id)
+        parent.save()
+        token = "{{History:%d-out.txt}}" % parent.id
+        child = seed_echo_job(self.tmp, job_name="hist-child", input_file=token)
+        queue = self._queue()
+        queue.fetch_jobs()
+        snapshot = queue.queued_jobs_snapshot()
+        self.assertIn(child.id, snapshot)
+        task = snapshot[child.id]
+        queue.run_step(task)
+        child = Job.objects.get(id=child.id)
+        self.assertEqual(child.status, JobStatus.WRONG)
+        self.assertEqual(child.resume, 0)
+        log_text = (self.log_dir / "{}.log".format(child.id)).read_text()
+        err_text = (self.log_dir / "{}.err".format(child.id)).read_text()
+        self.assertNotIn(ECHO_MARKER, log_text)
+        self.assertIn("parent job is not runnable", err_text)
+
+    def test_resume_skips_input_check(self):
+        missing = str(Path(self.tmp) / "still-missing.fq")
+        job = seed_echo_job(
+            self.tmp,
+            job_name="resume-skip-check",
+            input_file=missing,
+            resume=1,
+            n_steps=2,
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        self.assertIsNone(task.input_check_step)
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job = Job.objects.get(id=job.id)
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        log_text = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn(ECHO_MARKER, log_text)
+        self.assertNotIn("Checking ", log_text)
+
+    def test_later_step_does_not_recheck_inputs(self):
+        present = Path(self.tmp) / "ok.fq"
+        present.write_text("ok")
+        job = seed_echo_job(
+            self.tmp,
+            job_name="two-step-input",
+            input_file=str(present),
+            n_steps=2,
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        self.assertIsNotNone(task.input_check_step)
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job = Job.objects.get(id=job.id)
+        self.assertEqual(job.resume, 1)
+        self.assertNotEqual(job.status, JobStatus.WRONG)
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job = Job.objects.get(id=job.id)
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        log_text = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertEqual(log_text.count("Checking 1 input file(s) before launch."), 1)

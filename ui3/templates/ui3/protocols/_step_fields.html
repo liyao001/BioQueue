@@ -19,7 +19,8 @@
   <label class="form-control">
     <div class="label"><span class="label-text" data-ui3-parameter-label">{% if is_shell %}Script{% else %}Parameter{% endif %}</span></div>
     <textarea class="ui-input w-full font-mono" name="parameter" data-ui3-parameter data-ui3-complete
-              rows="{% if is_shell %}8{% else %}2{% endif %}"
+              {% if parameter_rows %}data-ui3-parameter-rows="{{ parameter_rows }}"{% endif %}
+              rows="{% if parameter_rows %}{{ parameter_rows }}{% elif is_shell %}8{% else %}2{% endif %}"
               placeholder="{% if is_shell %}{% shell_script_placeholder %}{% else %}command / parameter string{% endif %}">{{ parameter|default:'' }}</textarea>
     <p class="text-xs opacity-70 mt-1{% if not is_shell %} hidden{% endif %}" data-ui3-parameter-help>
       Runs as bash in the job folder. Software is <code>{% shell_software %}</code>.

@@ -32,6 +32,9 @@ class WorkspaceTests(Ui3TestCase):
 
     def test_edit_and_delete(self):
         self.login()
+        modal = self.client.get(reverse("ui3:workspace_edit", args=[self.workspace.id]), HTTP_HX_REQUEST="true")
+        self.assertContains(modal, "ui-modal-lg")
+        self.assertContains(modal, "ui-modal-editor")
         response = self.client.post(
             reverse("ui3:workspace_edit", args=[self.workspace.id]),
             {"name": "ws1-renamed", "description": "updated"},

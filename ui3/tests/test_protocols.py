@@ -158,6 +158,10 @@ class ProtocolTests(Ui3TestCase):
         self.assertIn(toggle.status_code, (200, 302))
         sc.refresh_from_db()
         self.assertEqual(sc.active, 0)
+        modal = self.client.get(reverse("ui3:shortcut_edit", args=[sc.id]), HTTP_HX_REQUEST="true")
+        self.assertContains(modal, "ui-modal-lg")
+        self.assertContains(modal, "ui-modal-editor")
+        self.assertContains(modal, 'name="href_template"')
         edit = self.client.post(
             reverse("ui3:shortcut_edit", args=[sc.id]),
             {
@@ -318,6 +322,10 @@ class ProtocolTests(Ui3TestCase):
         self.assertNotContains(response, 'name="step_kind"')
         self.assertContains(response, "filter environments")
         self.assertContains(response, 'data-combo-nosubmit')
+        self.assertContains(response, "ui-modal-lg")
+        self.assertContains(response, "ui-modal-editor")
+        self.assertContains(response, 'data-ui3-parameter-rows="12"')
+        self.assertContains(response, 'rows="12"')
 
     def test_htmx_edit_command_step_still_partial(self):
         self.login()
@@ -332,6 +340,9 @@ class ProtocolTests(Ui3TestCase):
         get = self.client.get(reverse("ui3:step_edit", args=[step.id]), HTTP_HX_REQUEST="true")
         self.assertEqual(get.status_code, 200)
         self.assertNotContains(get, "<html")
+        self.assertContains(get, "ui-modal-lg")
+        self.assertContains(get, "ui-modal-editor")
+        self.assertContains(get, 'data-ui3-parameter-rows="12"')
         self.assertContains(get, "bwa")
         self.assertRegex(get.content.decode(), r'value="command"[^>]*selected|selected[^>]*value="command"')
         post = self.client.post(

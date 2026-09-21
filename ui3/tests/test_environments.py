@@ -52,6 +52,10 @@ class EnvironmentTests(Ui3TestCase):
 
     def test_edit_and_delete(self):
         self.login()
+        modal = self.client.get(reverse("ui3:environment_edit", args=[self.env.id]), HTTP_HX_REQUEST="true")
+        self.assertContains(modal, "ui-modal-lg")
+        self.assertContains(modal, "ui-modal-editor")
+        self.assertContains(modal, 'name="value"')
         response = self.client.post(
             reverse("ui3:environment_edit", args=[self.env.id]),
             {"name": "py311", "ve_type": "conda", "value": "bioqueue2", "activation_command": ""},

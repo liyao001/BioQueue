@@ -366,6 +366,23 @@
     }
     .ui-modal.ui-modal-sm { width: min(36rem, 95vw); }
     .ui-modal.ui-modal-lg { width: min(95vw, 90rem); }
+    .ui-modal-editor {
+      width: min(95vw, 90rem);
+    }
+    .ui-modal-editor form { width: 100%; min-width: 0; }
+    .ui-modal-editor textarea.ui-input,
+    .ui-modal-editor textarea.textarea,
+    .ui-modal-editor input.ui-input {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .ui-modal-editor textarea.font-mono {
+      min-height: 16rem;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .ui-modal-x {
       position: absolute; top: 0.65rem; right: 0.65rem;
       width: 2rem; height: 2rem; border: 1px solid #d1d5db; border-radius: 0.375rem;
@@ -426,8 +443,52 @@
     }
     .field-label { font-weight: 600; }
     .field-label::after { content: ":"; margin-right: 0.25rem; }
-    .job-card { border: 1px solid #e5e7eb; border-radius: 0.375rem; background: #fff; }
+    .job-card { position: relative; border: 1px solid #e5e7eb; border-radius: 0.375rem; background: #fff; }
     .job-card:hover { border-color: #86efac; box-shadow: 0 8px 16px rgba(0,0,0,0.06); }
+    .job-card.htmx-request,
+    .job-card.is-busy {
+      pointer-events: none;
+      cursor: wait;
+    }
+    .job-card-busy,
+    .job-results-busy {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.78);
+      color: #111827;
+      font-size: 0.875rem;
+      text-align: center;
+      padding: 1rem;
+    }
+    .job-card.htmx-request > .job-card-busy:not([hidden]),
+    .job-card.is-busy > .job-card-busy:not([hidden]),
+    #job-results.is-busy > .job-results-busy:not([hidden]) {
+      display: flex;
+    }
+    #job-results { position: relative; }
+    #job-results.is-busy,
+    body:has(#bulk-form.htmx-request) #job-results,
+    body:has(.job-card.htmx-request) #job-filters,
+    body:has(.job-card.is-busy) #job-filters,
+    body:has(#bulk-form.htmx-request) #job-filters,
+    body:has(.job-card.htmx-request) #bulk-bar,
+    body:has(.job-card.is-busy) #bulk-bar {
+      pointer-events: none;
+      cursor: wait;
+    }
+    body:has(.job-card.htmx-request) #job-filters,
+    body:has(.job-card.is-busy) #job-filters,
+    body:has(#bulk-form.htmx-request) #job-filters,
+    body:has(.job-card.htmx-request) #bulk-bar,
+    body:has(.job-card.is-busy) #bulk-bar {
+      opacity: 0.55;
+    }
     .job-card.is-failed { border-color: #fca5a5; }
     .job-card.is-failed:hover { border-color: #f87171; }
     .job-card.is-audit { background: #fff7ed; border-color: #fdba74; }
@@ -693,7 +754,7 @@
         padding: 0.5rem;
         padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
       }
-      .ui-modal, .ui-modal.ui-modal-sm, .ui-modal.ui-modal-lg {
+      .ui-modal, .ui-modal.ui-modal-sm, .ui-modal.ui-modal-lg, .ui-modal-editor {
         width: 100%;
         max-height: min(92dvh, calc(100vh - 1rem));
         padding: 1rem;

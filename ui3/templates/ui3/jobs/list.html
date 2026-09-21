@@ -195,7 +195,9 @@
       hx-target="#job-results"
       hx-swap="outerHTML"
       hx-include="#job-filters"
-      hx-disabled-elt="button">
+      hx-disabled-elt="button"
+      hx-sync="#job-results:abort"
+      data-ui3-lock="results">
   {% csrf_token %}
   <div id="bulk-bar" class="bulk-bar hidden">
     <span id="bulk-count" class="text-sm font-medium">0 selected</span>

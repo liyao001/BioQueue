@@ -1,5 +1,13 @@
 # ui3 changelog
 
+## 2026-09-20 — Wide edit modals
+
+Job field edits (parameter, input, comments), protocol step edits, shortcuts, environments, workspaces, and references use `ui-modal-lg ui-modal-editor`. Mono textareas fill the dialog (min 16rem tall) so long commands and paths are easier to edit. Rename/resume stay small.
+
+## 2026-09-20 — Lock job UI while deleting files
+
+Deleting (or purging / clean-rerunning) a job can take a while because result files are removed on the server. While that request is in flight the whole job card is locked — not just the delete button — and auto-refresh / filters / bulk actions cannot swap the list out from under it. Bulk delete locks the results panel.
+
 ## 2026-09-18 — Default UI at `/ui/`
 
 The HTMX app is the site UI. Browser paths are `/ui/…` (jobs, login, plugins). `/` redirects to `/ui/`. Old `/ui3/…` bookmarks redirect to the same path under `/ui/`.

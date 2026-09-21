@@ -8,8 +8,10 @@ from worker3.tests.harness import setup_django
 _DJANGO_OK, _DJANGO_ERR = setup_django()
 
 if _DJANGO_OK:
+    import numpy as np
     from worker3.step import _Step
 else:
+    np = None  # type: ignore
     _Step = None  # type: ignore
 
 
@@ -205,3 +207,39 @@ class ShellStepTests(unittest.TestCase):
         self.assertEqual(out["mem"], 20)
         self.assertEqual(out["cpu"], 30)
         self.assertEqual(out["vrt_mem"], 40)
+
+    def test_fit_resource_line_constant_x_is_intercept_only(self):
+        step = _Step("echo", "hi", "", "h", None, 0, "", _settings())
+        x = np.array([100.0, 100.0, 100.0])
+        y = np.array([10.0, 12.0, 14.0])
+        slope, intercept, r = step._fit_resource_line(x, y)
+        self.assertEqual(slope, 0.0)
+        self.assertEqual(intercept, 12.0)
+        self.assertEqual(r, 0.0)
+
+    def test_regression_factory_identical_inputs_does_not_raise(self):
+        step = _Step("echo", "hi", "", "h", None, 0, "", self._ml_settings("linear"))
+        frame = (
+            [50, 50, 50],
+            [10, 12, 8],
+            [100, 110, 90],
+            [1, 2, 3],
+            [200, 210, 190],
+        )
+        with patch.object(step, "_load_train_frame", return_value=frame):
+            fitted = step._regression_factory(save=0)
+        self.assertIsNotNone(fitted)
+        self.assertEqual(len(fitted), 8)
+        slope_disk, intercept_disk = fitted[0], fitted[1]
+        self.assertEqual(slope_disk, 0)
+        self.assertEqual(intercept_disk, 10.0)
+
+    def test_predict_factory_survives_failed_regression(self):
+        step = _Step("echo", "hi", "", "h", None, 0, "", self._ml_settings("linear"))
+        with patch("worker3.step.Prediction") as pred, patch.object(
+            step, "_regression_factory", return_value=None
+        ), patch("worker3.step.logger"):
+            pred.objects.filter.return_value = []
+            out = step._predict_factory(in_size=100, training_num=3)
+        self.assertIsNone(out["cpu"])
+        self.assertIsNone(out["disk"])

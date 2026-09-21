@@ -331,12 +331,55 @@
         if (document.querySelector(".bq-header.is-nav-open")) return true;
         if (document.querySelector(".filter-panel.is-open") && window.innerWidth < 768) return true;
         if (document.querySelector("dialog[open]")) return true;
+        if (window.ui3.isJobUiLocked()) return true;
         var el = document.activeElement;
         if (!el) return false;
         var tag = (el.tagName || "").toUpperCase();
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
         if (el.isContentEditable) return true;
         return !!(el.closest && el.closest("[data-ui3-pause-refresh]"));
+      },
+      isJobUiLocked: function () {
+        return !!document.querySelector(".job-card.is-busy, .job-card.htmx-request, #job-results.is-busy, #bulk-form.htmx-request");
+      },
+      lockSpecFor: function (elt, event) {
+        if (!elt) return null;
+        var lock = elt.getAttribute ? elt.getAttribute("data-ui3-lock") : "";
+        if (!lock && event && event.detail && event.detail.requestConfig) {
+          var ev = event.detail.requestConfig.triggeringEvent;
+          var submitter = ev && ev.submitter;
+          if (submitter && submitter.getAttribute) lock = submitter.getAttribute("data-ui3-lock") || "";
+        }
+        if (lock === "card") {
+          return { root: elt.closest ? elt.closest(".job-card") : null, kind: "card" };
+        }
+        if (lock === "results") {
+          return { root: document.getElementById("job-results"), kind: "results" };
+        }
+        return null;
+      },
+      setJobUiLocked: function (root, on) {
+        if (!root || !root.querySelectorAll) return;
+        root.classList.toggle("is-busy", !!on);
+        if (on) root.setAttribute("aria-busy", "true");
+        else root.removeAttribute("aria-busy");
+        var overlay = root.querySelector(":scope > .job-card-busy, :scope > .job-results-busy");
+        if (overlay) {
+          overlay.classList.toggle("hidden", !on);
+          if (on) overlay.removeAttribute("hidden");
+          else overlay.setAttribute("hidden", "");
+          overlay.setAttribute("aria-hidden", on ? "false" : "true");
+        }
+        root.querySelectorAll("button, input, select, textarea").forEach(function (el) {
+          if (on) {
+            if (el.disabled) el.setAttribute("data-ui3-was-disabled", "1");
+            else el.disabled = true;
+          } else if (el.hasAttribute("data-ui3-was-disabled")) {
+            el.removeAttribute("data-ui3-was-disabled");
+          } else {
+            el.disabled = false;
+          }
+        });
       },
       jobFilterValues: function () {
         var form = document.getElementById("job-filters");
@@ -684,6 +727,7 @@
           block: !!opts.block,
           modal: !!opts.modal,
           elt: opts.elt || null,
+          lockRoot: opts.lockRoot || null,
           id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
         };
         window.ui3._busyTokens.add(token);
@@ -692,6 +736,10 @@
         }
         if (opts.elt && opts.elt.setAttribute) {
           opts.elt.setAttribute("aria-busy", "true");
+        }
+        if (token.lockRoot) {
+          window.ui3.closeCombos();
+          window.ui3.setJobUiLocked(token.lockRoot, true);
         }
         window.ui3.syncBusyClasses();
         return token;
@@ -705,12 +753,16 @@
         if (token.elt && token.elt.removeAttribute) {
           token.elt.removeAttribute("aria-busy");
         }
+        if (token.lockRoot) window.ui3.setJobUiLocked(token.lockRoot, false);
         window.ui3.syncBusyClasses();
       },
       resetBusy: function () {
         if (window.ui3._busyTokens) window.ui3._busyTokens.clear();
         if (window.ui3._busyTokenMap) window.ui3._busyTokenMap.clear();
         document.body.classList.remove("ui3-busy", "ui3-busy-block");
+        document.querySelectorAll(".job-card.is-busy, #job-results.is-busy").forEach(function (el) {
+          window.ui3.setJobUiLocked(el, false);
+        });
         document.querySelectorAll("[aria-busy='true']").forEach(function (el) {
           el.removeAttribute("aria-busy");
         });
@@ -832,7 +884,8 @@
         if (paramHelp) paramHelp.classList.toggle("hidden", !isShell);
         if (paramLabel) paramLabel.textContent = isShell ? "Script" : "Parameter";
         if (param) {
-          param.rows = isShell ? 8 : 2;
+          var tall = parseInt(param.getAttribute("data-ui3-parameter-rows") || "", 10);
+          param.rows = (tall > 0) ? tall : (isShell ? 8 : 2);
           param.placeholder = isShell
             ? ('echo "job {' + '{Job}}"\nls "{' + '{Workspace}}"')
             : "command / parameter string";
@@ -898,23 +951,38 @@
     });
     document.body.addEventListener("htmx:beforeRequest", function (event) {
       var src = event.detail.elt;
+      var target = event.detail.target;
       if (src && src.id === "job-results" && window.ui3.shouldPauseAutoRefresh()) {
         event.preventDefault();
         return;
       }
+      if (window.ui3.isJobUiLocked() && target && target.id === "job-results") {
+        var lockSpec = window.ui3.lockSpecFor(src, event);
+        var allowedRoot = lockSpec && lockSpec.root;
+        var fromLocked = !!(src && (
+          src.closest(".job-card.is-busy, .job-card.htmx-request, #job-results.is-busy") ||
+          src.id === "bulk-form" ||
+          (allowedRoot && (allowedRoot === src || allowedRoot.contains(src)))
+        ));
+        if (!fromLocked) {
+          event.preventDefault();
+          return;
+        }
+      }
       window.ui3.ensureModalRoot();
       var elt = event.detail.elt;
-      var target = event.detail.target;
       var quiet = window.ui3.isQuietRequest(elt);
       var toModal = !!(target && target.id === "modal-root");
       // Never wipe an open modal with the loading placeholder when the request
       // comes from inside that modal (e.g. job-results filter typing).
       var fromOpenModal = !!(elt && elt.closest && elt.closest("#modal-root .ui-modal"));
+      var lockSpec = window.ui3.lockSpecFor(elt, event);
       var token = window.ui3.beginBusy({
         quiet: quiet,
         block: toModal && !fromOpenModal,
         modal: toModal && !fromOpenModal,
         elt: elt,
+        lockRoot: lockSpec && lockSpec.root,
         label: window.ui3.busyLabelFor(elt),
       });
       if (!token) return;

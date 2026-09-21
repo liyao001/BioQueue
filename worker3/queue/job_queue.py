@@ -33,7 +33,9 @@ from worker3.queue.process_runner import ProcessRunner
 from worker3.queue.cluster_request import build_cluster_request, resolve_cluster_type
 from worker3.queue.protocol import Protocol
 from worker3.queue.task import Task
+from worker3.queue.input_check import bind_input_dependencies, missing_local_inputs
 from worker3.queue.constants import DEPENDENCY_WAIT_INTERVAL, PREDICT_BASE, PREDICT_LINEAR
+from worker3.step import _Step
 
 logger = logging.getLogger("BioQueue")
 
@@ -849,6 +851,53 @@ class JobQueue(object):
             except Exception:
                 logger.exception("Failed to stop auxiliary process pid %s", getattr(proc, "pid", None))
 
+    @staticmethod
+    def _append_job_log(path, text):
+        if not text.endswith("\n"):
+            text = text + "\n"
+        try:
+            with open(path, "a") as fh:
+                fh.write(text)
+        except OSError:
+            logger.exception("Failed to write job log %s", path)
+
+    def _fail_input_check(self, job_obj, log_file, errlog_file, message):
+        logger.error("Job %s input check failed: %s", job_obj.job_id, message.strip())
+        self._append_job_log(log_file, message)
+        self._append_job_log(errlog_file, message)
+        self.dequeue(job_obj, is_error=1)
+
+    def _run_input_preflight(self, job_obj, log_file, errlog_file):
+        """Validate declared inputs before protocol step 0. Returns False if the job was failed."""
+        if getattr(job_obj, "resume", 0) != 0:
+            return True
+        step = getattr(job_obj, "input_check_step", None)
+        if not isinstance(step, _Step):
+            return True
+        bind_input_dependencies(step, job_obj)
+        n_inputs = len([raw for raw in (job_obj.job_input_files or []) if (raw or "").strip()])
+        self._append_job_log(
+            log_file,
+            "Checking {n} input file(s) before launch.\n".format(n=n_inputs),
+        )
+        if len(step.dependent_jobs) > 0 and not self._dependencies_are_ready(job_obj, step):
+            ids = ", ".join(str(dep) for dep in sorted(step.dependent_jobs))
+            self._fail_input_check(
+                job_obj,
+                log_file,
+                errlog_file,
+                "Input check failed: History/CrossAccess parent job is not runnable ({ids}).".format(
+                    ids=ids
+                ),
+            )
+            return False
+        missing = missing_local_inputs(job_obj)
+        if missing:
+            lines = ["Input check failed: missing file(s):"] + ["  " + path for path in missing]
+            self._fail_input_check(job_obj, log_file, errlog_file, "\n".join(lines))
+            return False
+        return True
+
     def _dependencies_are_ready(self, job_obj, step_obj):
         terminal_fail = {_JS_WRONG, _JS_INTERRUPTED}
         for sd in step_obj.dependent_jobs:
@@ -1088,11 +1137,16 @@ class JobQueue(object):
 
             if not os.path.exists(job_obj.run_folder):
                 raise IOError("Cannot write content to {dest}".format(dest=job_obj.run_folder))
-            recheck = self.forecast_step(step_obj, job_obj)
-            reserved = recheck is True
 
             log_file = os.path.join(self._settings["env"]["log"], "{job_id}.log".format(job_id=job_obj.job_id))
             errlog_file = os.path.join(self._settings["env"]["log"], "{job_id}.err".format(job_id=job_obj.job_id))
+
+            if not self._run_input_preflight(job_obj, log_file, errlog_file):
+                finished = True
+                return
+
+            recheck = self.forecast_step(step_obj, job_obj)
+            reserved = recheck is True
 
             if not reserved:
                 return

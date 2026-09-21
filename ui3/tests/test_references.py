@@ -43,6 +43,10 @@ class ReferenceTests(Ui3TestCase):
 
     def test_edit_and_delete(self):
         self.login()
+        modal = self.client.get(reverse("ui3:reference_edit", args=[self.ref.id]), HTTP_HX_REQUEST="true")
+        self.assertContains(modal, "ui-modal-lg")
+        self.assertContains(modal, "ui-modal-editor")
+        self.assertContains(modal, 'name="path"')
         response = self.client.post(
             reverse("ui3:reference_edit", args=[self.ref.id]),
             {"name": "hg38.p14", "path": "/refs/hg38.p14.fa", "description": "updated"},

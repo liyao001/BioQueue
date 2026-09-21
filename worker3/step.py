@@ -482,6 +482,25 @@ class _Step(object):
 
         return tmp_in, tmp_out, tmp_mem, tmp_cpu, tmp_vrt_mem
 
+    @staticmethod
+    def _fit_resource_line(x, y_arr, intercept_only=False):
+        """Slope/intercept/r for one resource. Constant x falls back to intercept-only."""
+        y_arr = np.array(y_arr, dtype=float)
+        mask = ~(np.isnan(x) | np.isnan(y_arr))
+        if intercept_only or mask.sum() < 2:
+            slope = 0.0
+            intercept = np.nanmean(y_arr[mask]) if mask.sum() else (np.nanmean(y_arr) if len(y_arr) else np.nan)
+            return slope, intercept, 0.0
+        xs = x[mask]
+        ys = y_arr[mask]
+        if not np.isfinite(xs).all() or np.allclose(xs, xs[0]):
+            return 0.0, np.nanmean(ys), 0.0
+        try:
+            slope, intercept, r, _p, _se = linregress(xs, ys)
+        except ValueError:
+            return 0.0, np.nanmean(ys), 0.0
+        return slope, intercept, r
+
     def _regression_factory(self, save=0):
         """
         linear regression helper
@@ -498,17 +517,7 @@ class _Step(object):
             # v for virtual memory
             for y, label in zip((out, mem, cpu, vrt_mem), ("o", "m", "c", "v")):
                 y_arr = np.array(y, dtype=float)
-                mask = ~(np.isnan(x) | np.isnan(y_arr))
-                if label == "c":
-                    slope = 0
-                    intercept = np.nanmean(y_arr)
-                    r = 1
-                elif mask.sum() >= 2:
-                    slope, intercept, r, _p, _se = linregress(x[mask], y_arr[mask])
-                else:
-                    slope = 0
-                    intercept = np.nanmax(y_arr) if len(y_arr) else np.nan
-                    r = 1
+                slope, intercept, r = self._fit_resource_line(x, y_arr, intercept_only=(label == "c"))
                 coefficients["r_{l}".format(l=label)] = r
                 if np.isnan(slope) or np.isnan(intercept):
                     coefficients["slope_{l}".format(l=label)] = 0
@@ -541,6 +550,7 @@ class _Step(object):
                    coefficients['slope_v'], coefficients['intercept_v']
         except Exception as e:
             logger.exception(e)
+            return None
 
     def _predict_factory(self, in_size=-99999.0, training_num=0):
         """
@@ -576,9 +586,12 @@ class _Step(object):
                     return unknown
                 else:
                     if training_num < 10:
-                        ao, bo, am, bm, ac, bc, av, bv = self._regression_factory(save=0)
+                        fitted = self._regression_factory(save=0)
                     else:
-                        ao, bo, am, bm, ac, bc, av, bv = self._regression_factory()
+                        fitted = self._regression_factory()
+                    if not fitted:
+                        return unknown
+                    ao, bo, am, bm, ac, bc, av, bv = fitted
                     if not self._coeff_ok(bo, ao):
                         predict_need['disk'] = None
                     else:

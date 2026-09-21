@@ -88,6 +88,14 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, reverse("ui3:job_dependents", args=[job.id]))
         self.assertContains(response, reverse("ui3:job_purge", args=[job.id]))
         self.assertContains(response, reverse("ui3:job_rename", args=[job.id]))
+        self.assertContains(response, "job-card-busy")
+        self.assertContains(response, 'data-ui3-lock="card"')
+        self.assertContains(response, 'hx-indicator="closest .job-card"')
+        self.assertContains(response, 'hx-sync="#job-results:abort"')
+        self.assertContains(response, 'id="bulk-form"')
+        self.assertContains(response, 'data-ui3-lock="results"')
+        self.assertContains(response, "job-results-busy hidden")
+        self.assertContains(response, "isJobUiLocked")
         self.assertNotContains(response, "<thead>")
 
     def test_running_card_shows_step_progress_and_shortcuts(self):
@@ -290,9 +298,22 @@ class JobTests(Ui3TestCase):
         self.login()
         response = self.client.get(reverse("ui3:job_edit_field", args=[job.id, "comments"]))
         self.assertContains(response, "ui-overlay")
+        self.assertContains(response, "ui-modal-lg")
+        self.assertContains(response, "ui-modal-editor")
+        self.assertContains(response, 'rows="16"')
         self.assertContains(response, "data-ui3-close")
         self.assertNotContains(response, "modal-open")
         self.assertNotContains(response, "Insert from job results")
+
+    def test_parameter_edit_modal_is_wide(self):
+        job = self.make_job()
+        self.login()
+        response = self.client.get(reverse("ui3:job_edit_field", args=[job.id, "parameter"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "ui-modal-lg")
+        self.assertContains(response, "ui-modal-editor")
+        self.assertContains(response, 'class="ui-input w-full font-mono"')
+        self.assertContains(response, 'rows="16"')
 
     def test_input_file_edit_offers_job_results_picker(self):
         job = self.make_job()

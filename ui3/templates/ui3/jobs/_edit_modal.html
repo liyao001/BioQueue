@@ -1,15 +1,15 @@
 <div class="ui-overlay">
-  <div class="ui-modal ui-modal-sm" role="dialog" aria-modal="true">
+  <div class="ui-modal ui-modal-lg ui-modal-editor" role="dialog" aria-modal="true">
     <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
     <h3 class="font-bold text-lg pr-8">Edit {{ title }} for job #{{ job.id }}</h3>
-    <form class="mt-3" method="post" action="{% url 'ui3:job_edit_field' job.id field %}"
+    <form class="mt-3 w-full min-w-0" method="post" action="{% url 'ui3:job_edit_field' job.id field %}"
           hx-post="{% url 'ui3:job_edit_field' job.id field %}"
           hx-target="#job-results"
           hx-swap="outerHTML"
           hx-include="#job-filters">
       {% csrf_token %}
       {% if token_list %}{{ token_list|json_script:"ui3-tokens" }}{% endif %}
-      <textarea class="textarea textarea-bordered w-full font-mono" name="value" rows="8"
+      <textarea class="ui-input w-full font-mono" name="value" rows="16"
                 id="id_edit_{{ field }}"
                 {% if field == "array_setting" %}maxlength="100"{% endif %}
                 {% if token_list %}data-ui3-complete{% endif %}>{{ value }}</textarea>

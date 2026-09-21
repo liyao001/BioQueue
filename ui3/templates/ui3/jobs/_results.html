@@ -8,6 +8,10 @@
      hx-trigger="every 8s[window.ui3 && !window.ui3.shouldPauseAutoRefresh()]"
      hx-swap="outerHTML"
      {% endif %}>
+  <div class="job-results-busy hidden" hidden aria-hidden="true">
+    <div class="ui-busy-spinner"></div>
+    <p>Working on selected jobs…</p>
+  </div>
   <div class="flex items-center justify-between gap-2 mb-2 text-sm">
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" class="checkbox checkbox-sm" id="select-all-page"
