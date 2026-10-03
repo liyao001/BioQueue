@@ -1,0 +1,34 @@
+<script>
+(function () {
+  var field = document.getElementById("id_sample_sheet");
+  var section = document.getElementById("sample-fields");
+  if (!field || !section) return;
+  var active = {{ samples_active|yesno:"true,false" }};
+  var force = {{ force|yesno:"true,false" }};
+  var hold = {{ samples_hold|yesno:"true,false" }} && !force;
+  var next = "{{ samples_value|escapejs }}";
+  section.classList.toggle("hidden", !active);
+  field.disabled = !active;
+  document.getElementById("sample-required").textContent = "{{ samples_required|escapejs }}" ? "Required fields: {{ samples_required|escapejs }}" : "";
+  var summary = document.getElementById("sample-run-summary");
+  var fileMap = document.getElementById("sample-file-map");
+  var fileError = document.getElementById("sample-file-error");
+  if (summary) summary.textContent = "{{ samples_summary|escapejs }}";
+  if (fileMap) fileMap.textContent = "{{ samples_files|escapejs }}";
+  if (fileError) fileError.textContent = "{{ samples_error|escapejs }}";
+  if (!hold && (force || !field.value.trim() || field.value === field._generatedSamples)) {
+    field.value = next;
+    field._generatedSamples = next;
+    ui3.validateJsonField(field, 'samples');
+    if (force) {
+      // Replace any request made with the previous protocol's sample records.
+      document.getElementById("id_protocol").dispatchEvent(new Event("samples-ready"));
+    } else if (next) {
+      field.dispatchEvent(new Event("input", {bubbles: true}));
+    }
+  }
+  if (field.value) {
+    field.rows = Math.max(8, Math.min(18, field.value.split("\n").length + 1));
+  }
+})();
+</script>

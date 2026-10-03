@@ -4,9 +4,41 @@
   if (!el) return;
   var next = "{{ value|escapejs }}";
   var cur = (el.value || "").trim();
-  // Match ui2: fill empty fields; overwrite only when the user just picked a protocol.
   var force = {{ force|yesno:"true,false" }};
-  if (!force && cur) return;
-  el.value = next;
+  var entries = next.split(";").filter(Boolean);
+  var values = new Map(entries.map(function (part) {
+    var eq = part.indexOf("=");
+    return [part.slice(0, eq), part.slice(eq + 1)];
+  }));
+  if (force || !cur) {
+    el.value = next;
+  } else {
+    var previous = el._scaffoldValues || new Map();
+    var seen = new Set();
+    // Refresh untouched generated values, while keeping user overrides.
+    var parts = [];
+    cur.split(";").forEach(function (part) {
+      if (!part.trim()) return;
+      var eq = part.indexOf("=");
+      var key = (eq < 0 ? part : part.slice(0, eq)).trim();
+      if (eq >= 0 && previous.has(key) && part.slice(eq + 1) === previous.get(key)) {
+        if (!values.has(key)) return;
+        part = key + "=" + values.get(key);
+      }
+      seen.add(key);
+      parts.push(part);
+    });
+    values.forEach(function (value, key) { if (!seen.has(key)) parts.push(key + "=" + value); });
+    el.value = parts.length ? parts.join(";") + ";" : "";
+  }
+  el._scaffoldValues = values;
+  var missing = [];
+  values.forEach(function (value, key) {
+    if (!String(value).trim()) missing.push(key);
+  });
+  var note = document.getElementById("parameter-missing");
+  if (note) {
+    note.textContent = missing.length ? "No value yet: " + missing.join(", ") + ". Set them here, or override one sample under Samples." : "";
+  }
 })();
 </script>

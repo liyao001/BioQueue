@@ -96,7 +96,12 @@ def _job_list_context(request, extra_params=None):
     if parent_id:
         parent_job_obj = services.get_readable_job(request.user, parent_id)
     for job in jobs:
-        steps = step_map.get(job.protocol_id) or []
+        if (getattr(job.protocol, "template", None) or "").strip():
+            steps = services.runnable_steps(job)
+            job.ui3_templated = True
+        else:
+            steps = step_map.get(job.protocol_id) or []
+            job.ui3_templated = False
         job.ui3_step_total = len(steps)
         job.ui3_step_command = ""
         if job.status in (JobStatus.RUNNING, JobStatus.WRONG) and steps:
@@ -273,6 +278,7 @@ def _new_job_base_context(request, *, tab="single", form=None, error=None, warni
         "protocols": protocols,
         "workspaces": workspaces,
         "selected_protocol": selected_protocol,
+        "samples_active": bool(selected_protocol and (selected_protocol.template or "").strip()),
         "selected_workspace": selected_workspace,
         "clone": clone,
         "form": form,
@@ -349,6 +355,18 @@ def job_create(request):
             )
             return render(request, "ui3/jobs/new.html", ctx, status=400)
         array_setting = (request.POST.get("array_setting") or "").strip() or None
+        sample_sheet = request.POST.get("sample_sheet") or ""
+        try:
+            sample_sheet = services.prepare_sample_sheet(protocol, request.POST.get("input_file") or "", sample_sheet)
+        except services.ProtocolTemplateError as exc:
+            ctx = _new_job_base_context(
+                request,
+                tab="single",
+                form=request.POST,
+                error=str(exc),
+                clone=clone,
+            )
+            return render(request, "ui3/jobs/new.html", ctx, status=400)
         job = services.create_job(
             delegate_for(request.user),
             job_name=name,
@@ -359,6 +377,7 @@ def job_create(request):
             comments=request.POST.get("comments") or "",
             is_gpu_job=1 if request.POST.get("is_gpu_job") else 0,
             array_setting=array_setting,
+            sample_sheet=sample_sheet,
         )
         messages.success(request, "Job #{} created.".format(job.id))
         return redirect("ui3:jobs")
@@ -374,6 +393,7 @@ def job_create(request):
             "comments": clone.comments or "",
             "is_gpu_job": clone.is_gpu_job,
             "array_setting": clone.array_setting or "",
+            "sample_sheet": clone.sample_sheet or "",
         }
         # Ensure clone protocol appears in options even if not in default visible set.
         if clone.protocol_id and protocols.filter(pk=clone.protocol_id).first() is None:
@@ -496,10 +516,37 @@ def job_create_array(request):
 
 @ui3_login_required
 @require_http_methods(["GET"])
+def sample_scaffold(request):
+    protocol = services.get_usable_protocol(request.user, int_or_none(request.GET.get("protocol")))
+    try:
+        context = services.sample_scaffold(protocol, request.GET.get("input_file", ""))
+    except (services.ProtocolTemplateError, ValueError, TypeError):
+        context = {
+            "samples_active": bool(protocol and protocol.template),
+            "samples_value": "",
+            "samples_required": "",
+            "samples_error": "",
+            "samples_summary": "",
+            "samples_files": "",
+            "samples_hold": False,
+        }
+    context["force"] = request.GET.get("force") == "1"
+    return render(request, "ui3/jobs/_sample_scaffold.html", context)
+
+@ui3_login_required
+@require_http_methods(["GET"])
 def parameter_scaffold(request):
     protocol_id = int_or_none(request.GET.get("protocol"))
     protocol = services.get_usable_protocol(request.user, protocol_id) if protocol_id else None
-    value = services.parameter_scaffold(protocol, request.user) if protocol else ""
+    try:
+        value = services.parameter_scaffold(
+            protocol, request.user,
+            input_file=request.GET.get("input_file", ""),
+            sample_sheet=request.GET.get("sample_sheet", ""),
+        )
+    except services.ProtocolTemplateError:
+        # Input groups and JSON are often incomplete while the user types.
+        return HttpResponse(status=204)
     if request.GET.get("format") == "text":
         return HttpResponse(value, content_type="text/plain; charset=utf-8")
     force = (request.GET.get("force") or "").lower() in ("1", "true", "yes")
@@ -767,6 +814,7 @@ def job_edit_field(request, pk, field):
         "input_file": "input_file",
         "comments": "comments",
         "array_setting": "array_setting",
+        "sample_sheet": "sample_sheet",
     }
     if field not in allowed:
         return _bad(request, "Unknown field.")
@@ -786,7 +834,15 @@ def job_edit_field(request, pk, field):
             },
         )
     value = request.POST.get("value") or ""
-    if field == "parameter":
+    if field == "sample_sheet":
+        try:
+            value = services.prepare_sample_sheet(job.protocol, job.input_file or "", value)
+        except services.ProtocolTemplateError as exc:
+            return _bad(request, str(exc))
+        job.sample_sheet = value
+        job.save(update_fields=["sample_sheet"])
+        services.audit_operation(job, "Changed sample sheet", comment=value)
+    elif field == "parameter":
         job.update_parameter(value)
     elif field == "input_file":
         job.update_inputs(value)

@@ -173,6 +173,17 @@
                 hx-get="{% url 'ui3:job_edit_field' job.id 'input_file' %}" hx-target="#modal-root" hx-swap="innerHTML">{{ job.input_file|default:"(empty)" }}</button>
       {% endif %}
     </div>
+    {% if job.ui3_templated %}
+    <div class="mt-1">
+      <span class="field-label">Samples</span>
+      {% if job.status == 1 or job.locked or not job.ui3_can_write %}
+        <pre class="font-mono text-xs whitespace-pre-wrap break-words opacity-60">{{ job.sample_sheet|default:"(from input files)" }}</pre>
+      {% else %}
+        <button type="button" class="block w-full text-left font-mono text-xs whitespace-pre-wrap break-words hover:underline"
+                hx-get="{% url 'ui3:job_edit_field' job.id 'sample_sheet' %}" hx-target="#modal-root" hx-swap="innerHTML">{{ job.sample_sheet|default:"(from input files)" }}</button>
+      {% endif %}
+    </div>
+    {% endif %}
     <div class="mt-1 flex items-center gap-2 flex-wrap">
       <span class="field-label">Array setting</span>
       {% if job.locked or not job.ui3_can_write %}

@@ -26,9 +26,27 @@ from QueueDB.models import (
     Step,
     VirtualEnvironment,
     Workspace,
+    _recompute_protocol_ver,
+)
+from QueueDB.protocol_template import (
+    MAX_SAMPLES,
+    TOKEN_RE,
+    ProtocolTemplateError,
+    build_records,
+    expand_document,
+    expand_job,
+    is_template_payload,
+    normalize_template,
+    outline_document,
+    parse_sample_sheet,
+    resolve_template_environments,
+    split_input_files,
+    template_input_files,
+    template_step_items,
 )
 
 from .http import csv_ints, delegate_for, int_or_none
+from .template_editor import blank_template_document, edit_template_document, read_template_form, template_editor_context
 
 
 PAGE_SIZE_DEFAULT = 12
@@ -868,6 +886,7 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
         name=name,
         description=(src.description if copy_description else None),
         user=user,
+        template=getattr(src, "template", "") or "",
     )
     for step in protocol_steps(src):
         create_step(
@@ -880,6 +899,8 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
         )
     if copy_shortcuts:
         clone_shortcuts(src, dest, user)
+    if (getattr(dest, "template", "") or "").strip():
+        _recompute_protocol_ver(dest)
     return dest
 
 
@@ -899,8 +920,133 @@ def protocol_json_filename(name):
     return safe + ".json"
 
 
+_ENV_TYPES = ("conda", "venv")
+
+def _pick_environment(name, owner_id):
+    """The environment runtime resolution would use, or None when that is not unique."""
+    available = list(
+        VirtualEnvironment.objects.filter(Q(user_id=owner_id) | Q(user_id=None), name=name)
+    )
+    own = [env for env in available if env.user_id == owner_id]
+    choices = own or [env for env in available if env.user_id is None]
+    if len(choices) == 1:
+        return choices[0]
+    return None
+
+def _environment_export_entry(name, owner_id):
+    env = _pick_environment(name, owner_id)
+    if env is None:
+        return {"ve_type": "conda", "recipe": "", "value": name}
+    ve_type = env.ve_type if env.ve_type in _ENV_TYPES else "conda"
+    return {
+        "ve_type": ve_type,
+        "recipe": env.recipe or "",
+        "value": (env.value or "").strip() or name,
+    }
+
+def _protocol_environment_names(protocol):
+    raw_template = (getattr(protocol, "template", None) or "").strip()
+    names = []
+    seen = set()
+    if raw_template:
+        try:
+            document = json.loads(raw_template)
+        except json.JSONDecodeError:
+            document = None
+        if isinstance(document, dict):
+            for item in template_step_items(document):
+                raw_name = item.get("env")
+                name = raw_name.strip() if isinstance(raw_name, str) else ""
+                if name and name not in seen:
+                    seen.add(name)
+                    names.append(name)
+        return names
+    for step in protocol_steps(protocol):
+        if step.env_id and step.env and step.env.name not in seen:
+            seen.add(step.env.name)
+            names.append(step.env.name)
+    return names
+
+def protocol_environment_section(protocol):
+    """One export entry per environment name the protocol uses."""
+    owner_id = getattr(protocol, "user_id", None)
+    return {name: _environment_export_entry(name, owner_id) for name in _protocol_environment_names(protocol)}
+
+def _import_environments(owner, raw):
+    """
+    Create missing environment rows from an export section.
+
+    Does not run the recipe. An owned or single public row that already resolves
+    the name is left in place, except an empty recipe on an owned row is filled in.
+    Returns names whose recipes were left unchanged.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        raise ProtocolImportError("Protocol environments must be an object.")
+    notes = []
+    for raw_name, spec in raw.items():
+        name = str(raw_name or "").strip()
+        if not name:
+            continue
+        if len(name) > 50:
+            raise ProtocolImportError("Environment name '{}' is too long.".format(name))
+        if spec is None:
+            spec = {}
+        if not isinstance(spec, dict):
+            raise ProtocolImportError("Environment '{}' must be an object.".format(name))
+        ve_type = str(spec.get("ve_type") or "conda").strip()
+        if ve_type not in _ENV_TYPES:
+            ve_type = "conda"
+        recipe = "" if spec.get("recipe") is None else str(spec.get("recipe"))
+        value = str(spec.get("value") or "").strip() or name
+        existing = _pick_environment(name, owner.id)
+        incoming = recipe.strip()
+        if existing is None:
+            VirtualEnvironment.objects.create(
+                name=name,
+                ve_type=ve_type,
+                value=value,
+                recipe=recipe,
+                activation_command=None,
+                user=owner,
+            )
+            continue
+        current = (existing.recipe or "").strip()
+        if existing.user_id == owner.id and not current and incoming:
+            existing.recipe = recipe
+            existing.save(update_fields=["recipe"])
+            continue
+        if incoming and current != incoming:
+            notes.append(name)
+    return notes
+
 def protocol_json_payload(protocol, user=None):
-    """Legacy-compatible protocol JSON (name, description, ver, step, reference)."""
+    """Legacy-compatible protocol JSON, plus an environment recipe section."""
+    raw_template = (getattr(protocol, "template", None) or "").strip()
+    if raw_template:
+        try:
+            data = json.loads(raw_template)
+        except json.JSONDecodeError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        data["name"] = protocol.name
+        data["description"] = protocol.description
+        data["ver"] = protocol.ver
+        refs = {}
+        if user is not None:
+            known = {r.name: (r.description or "") for r in visible_references(user)}
+            for token in PROTOCOL_WILDCARD_RE.findall(raw_template):
+                ref_name = (token or "").split(":")[0].split("||")[0].strip()
+                root = ref_name.split(".")[0]
+                if root in ("sample", "samples", "shared", "index"):
+                    continue
+                if ref_name and ref_name in known and ref_name not in refs:
+                    refs[ref_name] = known[ref_name]
+        data["reference"] = refs
+        data["environment"] = protocol_environment_section(protocol)
+        return data
     steps_out = []
     for step in protocol_steps(protocol):
         steps_out.append(
@@ -910,6 +1056,7 @@ def protocol_json_payload(protocol, user=None):
                 "hash": step.hash or compute_step_hash(step.software, step.parameter),
                 "step_order": step.step_order,
                 "version_check": step.version_check or "",
+                "env": step.env.name if step.env_id else "",
             }
         )
     refs = {}
@@ -926,6 +1073,7 @@ def protocol_json_payload(protocol, user=None):
         "ver": protocol.ver,
         "step": steps_out,
         "reference": refs,
+        "environment": protocol_environment_section(protocol),
     }
 
 
@@ -955,7 +1103,8 @@ def import_protocol_from_json(user, payload):
     """
     Create an owned protocol from legacy export JSON.
 
-    Returns (protocol, missing_reference_names).
+    Returns (protocol, missing_reference_names, unchanged_environment_names).
+    Environment rows are table entries only; recipes are never executed.
     """
     if not isinstance(payload, dict):
         raise ProtocolImportError("Invalid protocol JSON.")
@@ -973,7 +1122,26 @@ def import_protocol_from_json(user, payload):
     description = payload.get("description")
     if description is not None:
         description = str(description).strip() or None
+    if is_template_payload(payload):
+        try:
+            template = normalize_template(payload)
+        except ProtocolTemplateError as exc:
+            raise ProtocolImportError(str(exc))
+        with transaction.atomic():
+            env_notes = _import_environments(owner, payload.get("environment"))
+            try:
+                resolve_template_environments(json.loads(template), owner.id)
+            except ProtocolTemplateError as exc:
+                raise ProtocolImportError(str(exc))
+            proto = ProtocolList.objects.create(
+                name=name, description=description, user=owner, template=template
+            )
+            _recompute_protocol_ver(proto)
+        known = set(visible_references(user).values_list("name", flat=True))
+        missing = [ref_name for ref_name, _desc in _reference_entries(payload.get("reference")) if ref_name not in known]
+        return proto, missing, env_notes
     with transaction.atomic():
+        env_notes = _import_environments(owner, payload.get("environment"))
         proto = ProtocolList.objects.create(name=name, description=description, user=owner)
         for index, raw in enumerate(steps, start=1):
             if not isinstance(raw, dict):
@@ -986,17 +1154,20 @@ def import_protocol_from_json(user, payload):
                 order = int(raw.get("step_order") or index)
             except (TypeError, ValueError):
                 order = index
+            env_name = raw.get("env")
+            env_name = env_name.strip() if isinstance(env_name, str) else ""
             create_step(
                 proto,
                 software,
                 parameter,
                 order,
+                env=_pick_environment(env_name, owner.id) if env_name else None,
                 user=owner,
                 version_check=raw.get("version_check") or "",
             )
     known = set(visible_references(user).values_list("name", flat=True))
     missing = [name for name, _desc in _reference_entries(payload.get("reference")) if name not in known]
-    return proto, missing
+    return proto, missing, env_notes
 
 
 def import_protocol_from_upload(user, upload):
@@ -1499,11 +1670,219 @@ def get_usable_protocol(user, pk):
     return protocol
 
 
-def parameter_scaffold(protocol, user=None):
-    """
-    Build semicolon-separated Key= scaffold from protocol step {{Key}} tokens.
+def sample_field_schema(document):
+    """Editable sample fields, excluding file slots and computed outputs."""
+    fields = dict((document.get("samples") or {}).get("fields") or {})
+    fields = {key: value for key, value in fields.items() if key not in ("name", "prefix", "index", "files") and not re.fullmatch(r"r\d+", key)}
+    outputs = set()
+    tokens = []
 
-    Mirrors CreateJobPage.tsx: exclude builtin tokens and reference names.
+    def collect(value):
+        if isinstance(value, str):
+            tokens.extend(TOKEN_RE.findall(value))
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+
+    def visit(items, stack=()):
+        for item in items:
+            if "call" in item:
+                name = item["call"]
+                if name not in stack:
+                    visit((document.get("blocks", {}).get(name) or {}).get("steps", []), stack + (name,))
+            if "map" in item:
+                visit(item.get("steps", []), stack)
+            outputs.update((item.get("outputs") or {}).keys())
+            collect(item)
+
+    visit(document.get("pipeline", []))
+    collect(fields)
+    required = set()
+    optional = {}
+    for token in tokens:
+        name, separator, default = token.partition("||")
+        parts = name.strip().split(".")
+        if parts[0] not in ("sample", "samples") or len(parts) < 2:
+            continue
+        key = parts[-1]
+        if key in fields or key in outputs or key in ("name", "prefix", "index", "files") or re.fullmatch(r"r\d+", key):
+            continue
+        if not separator:
+            required.add(key)
+        else:
+            optional.setdefault(key, set()).add(default)
+    for key, values in optional.items():
+        if key not in required and len(values) == 1:
+            fields[key] = next(iter(values))
+    for key in sorted(required):
+        fields[key] = ""
+    return fields, required
+
+def _sample_scaffold_result(**kwargs):
+    result = {
+        "samples_active": False,
+        "samples_value": "",
+        "samples_required": "",
+        "samples_error": "",
+        "samples_summary": "",
+        "samples_files": "",
+        "samples_hold": False,
+    }
+    result.update(kwargs)
+    return result
+
+def sample_scaffold(protocol, input_file=""):
+    """Build an editable example without overriding job-parameter bindings."""
+    raw = (getattr(protocol, "template", None) or "").strip()
+    if not raw:
+        return _sample_scaffold_result()
+    document = json.loads(raw)
+    schema = dict(document.get("samples") or {})
+    fields, required = sample_field_schema(document)
+    # Keep sample-field links editable: renaming a sample must still update
+    # values such as {{sample.name}}. Only bind the numeric index in fields.
+    schema["fields"] = {}
+    group = int(schema.get("group") or 1) or 1
+    files = split_input_files(input_file)
+    base = {
+        "samples_active": True,
+        "samples_required": ", ".join(sorted(required)),
+    }
+    if files and len(files) % group != 0:
+        noun = "file" if group == 1 else "files"
+        return _sample_scaffold_result(
+            samples_error=(
+                "{} input files cannot be split evenly. This template uses {} {} per sample."
+            ).format(len(files), group, noun),
+            samples_hold=True,
+            **base,
+        )
+    count = min(MAX_SAMPLES, max(1, len(files) // group if files else 1))
+    records = build_records(schema, [""] * (group * count), [])
+    rows = []
+    for record in records:
+        row = {"name": record["name"]}
+        for key, value in fields.items():
+            row[key] = TOKEN_RE.sub(
+                lambda match: record["index"] if match.group(1).strip() in ("index", "sample.index") else match.group(0),
+                "" if value is None else str(value),
+            )
+        rows.append(row)
+    summary = ""
+    file_map = ""
+    error = ""
+    sheet = json.dumps(rows)
+    try:
+        preview_input = input_file if files else ";".join("file{}".format(index) for index in range(group))
+        steps = expand_job(protocol, preview_input, sheet)
+        step_count = len(steps)
+        step_word = "step" if step_count == 1 else "steps"
+        if files:
+            sample_word = "sample" if count == 1 else "samples"
+            summary = "{} {}, {} {} will run.".format(count, sample_word, step_count, step_word)
+            named = build_records(dict(document.get("samples") or {}), files, [])
+            chunks = []
+            for index, record in enumerate(named):
+                chunk = files[index * group:(index + 1) * group]
+                chunks.append("{} ({})".format(record["name"], ", ".join(chunk)))
+            shown = chunks[:12]
+            file_map = "Input files by sample: {}{}.".format(
+                "; ".join(shown),
+                "" if len(chunks) <= 12 else "; …",
+            )
+        else:
+            summary = "Preview for 1 sample: {} {}. Add input files to count every sample.".format(step_count, step_word)
+    except ProtocolTemplateError as exc:
+        error = str(exc).replace("samples.group", "files per sample")
+    return _sample_scaffold_result(
+        samples_value=json.dumps(rows, indent=2),
+        samples_summary=summary,
+        samples_files=file_map,
+        samples_error=error,
+        **base,
+    )
+
+def prepare_sample_sheet(protocol, input_file, sample_sheet):
+    """Validate a sample sheet and, for a template protocol, the expansion."""
+    text = sample_sheet or ""
+    if protocol is None or not (getattr(protocol, "template", None) or "").strip():
+        return ""
+    if text.strip():
+        rows = parse_sample_sheet(text)
+        _, required = sample_field_schema(json.loads(protocol.template))
+        for index, row in enumerate(rows, 1):
+            for key in required:
+                if key in row and not str(row[key] if row[key] is not None else "").strip():
+                    raise ProtocolTemplateError(f"Sample {index}: provide a value for '{key}'.")
+    if protocol is not None and (getattr(protocol, "template", None) or "").strip():
+        expand_job(protocol, input_file or "", text)
+    return text
+
+def template_context(protocol):
+    """Outline and a two-sample preview for the protocol page."""
+    empty = {
+        "template_active": False,
+        "template_source": "",
+        "template_outline": [],
+        "template_preview": [],
+        "template_error": "",
+    }
+    raw = (getattr(protocol, "template", None) or "").strip() if protocol is not None else ""
+    if not raw:
+        return empty
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError:
+        empty.update(template_active=True, template_source=raw, template_error="Stored template is not valid JSON.")
+        return empty
+    if not isinstance(document, dict):
+        empty.update(template_active=True, template_source=raw, template_error="Stored template is not a JSON object.")
+        return empty
+    pretty = json.dumps(document, indent=2, sort_keys=True)
+    schema = document.get("samples") if isinstance(document.get("samples"), dict) else {}
+    try:
+        group = int(schema.get("group") or 1)
+    except (TypeError, ValueError):
+        group = 1
+    group = max(group, 1)
+    dummy = ";".join("file{}".format(index) for index in range(1, group * 2 + 1))
+    error = ""
+    preview = []
+    try:
+        preview = expand_document(document, dummy, "")
+    except ProtocolTemplateError as exc:
+        error = str(exc)
+    return {
+        "template_active": True,
+        "template_source": pretty,
+        "template_outline": outline_document(document),
+        "template_preview": preview,
+        "template_error": error,
+    }
+
+def runnable_steps(job):
+    """Steps the worker will run: expanded template, or the stored step list."""
+    protocol = getattr(job, "protocol", None)
+    if protocol is None:
+        return []
+    if not (getattr(protocol, "template", None) or "").strip():
+        return list(protocol_steps(protocol))
+    try:
+        return expand_job(protocol, getattr(job, "input_file", "") or "", getattr(job, "sample_sheet", "") or "") or []
+    except ProtocolTemplateError:
+        return []
+
+def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet=""):
+    """
+    Build Key=default; entries from protocol step {{Key||default}} tokens.
+
+    Expand templates first so sample indices and block arguments use the same
+    bindings as execution. Before inputs are entered, preview one sample.
+    Incomplete inputs raise ProtocolTemplateError; callers can keep the current
+    scaffold until the user finishes editing. Exclude builtins and references.
     """
     if protocol is None:
         return ""
@@ -1522,24 +1901,50 @@ def parameter_scaffold(protocol, user=None):
         except Exception:
             pass
 
-    user_keys = []
-    seen = set()
-    token_re = re.compile(r"\{\{(.*?)\}\}", re.IGNORECASE | re.DOTALL)
-    for step in protocol_steps(protocol):
-        for match in token_re.finditer(step.parameter or ""):
+    defaults = {}
+    texts = []
+    raw_template = (getattr(protocol, "template", None) or "").strip()
+    if raw_template:
+        if not template_input_files(input_file, sample_sheet):
+            try:
+                schema = json.loads(raw_template).get("samples") or {}
+                group = int(schema.get("group") or 1)
+            except (ValueError, TypeError, AttributeError):
+                raise ProtocolTemplateError("Invalid sample schema.")
+            # Prefilled metadata rows do not supply files. Preview each row
+            # until real input groups (or explicit sheet files) are available.
+            count = max(1, len(parse_sample_sheet(sample_sheet)))
+            if count > MAX_SAMPLES:
+                raise ProtocolTemplateError(f"At most {MAX_SAMPLES} samples are supported.")
+            input_file = ";".join("file{}".format(i) for i in range(group * count))
+        texts.extend(step.parameter for step in expand_job(protocol, input_file, sample_sheet))
+    else:
+        for step in protocol_steps(protocol):
+            texts.append(step.parameter or "")
+    for text in texts:
+        for match in PROTOCOL_WILDCARD_RE.finditer(text):
             raw = match.group(1) or ""
-            name = str(raw.split(":")[0])
-            if "{{" in name and "}}" not in name:
-                name += "}}"
-            if not name or ";" in name:
+            token, separator, default = raw.partition("||")
+            name = token.split(":")[0].strip()
+            root = name.split(".")[0]
+            if root in ("sample", "samples", "shared", "index"):
                 continue
-            if name in predef or name in seen:
+            if not name or ";" in name or "{" in name or "}" in name:
                 continue
-            seen.add(name)
-            user_keys.append(name)
-    if not user_keys:
-        return ""
-    return "".join("{}=;".format(k) for k in user_keys)
+            if name in predef:
+                continue
+            values = defaults.setdefault(name, set())
+            if separator:
+                values.add(default)
+    entries = []
+    for name, values in defaults.items():
+        # Conflicting per-step defaults must stay local to their tokens. A
+        # semicolon cannot be represented in the job parameter field either.
+        default = next(iter(values)) if len(values) == 1 else ""
+        if any(char in default for char in ";{}"):
+            default = ""
+        entries.append("{}={};".format(name, default))
+    return "".join(entries)
 
 
 def create_job(
@@ -1554,6 +1959,7 @@ def create_job(
     is_gpu_job=0,
     array_setting=None,
     slave=None,
+    sample_sheet="",
 ):
     run_dir = ""
     try:
@@ -1574,6 +1980,7 @@ def create_job(
         "is_gpu_job": 1 if is_gpu_job else 0,
         "run_dir": run_dir,
         "visibility": 1,
+        "sample_sheet": sample_sheet or "",
     }
     if array_setting is not None and str(array_setting).strip() != "":
         kwargs["array_setting"] = str(array_setting).strip()

@@ -764,7 +764,16 @@ class JobQueue(object):
                     # sync the ORM instance so later save() calls do not revert the claim.
                     job.status = _JS_RUNNING
                     self.enqueue(t_job)
-                except Exception:
+                except Exception as exc:
+                    from QueueDB.protocol_template import ProtocolTemplateError
+
+                    if isinstance(exc, ProtocolTemplateError):
+                        logger.error("Job %s template expansion failed: %s", job.id, exc)
+                        try:
+                            Job.objects.filter(id=job.id).update(status=_JS_WRONG)
+                        except Exception:
+                            logger.exception("Failed to mark job %s failed after template error", job.id)
+                        continue
                     logger.exception("Failed to enqueue claimed job %s; returning it to WAITING", job.id)
                     try:
                         Job.objects.filter(id=job.id, status=_JS_RUNNING).update(status=_JS_WAITING)

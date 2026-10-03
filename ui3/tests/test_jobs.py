@@ -1070,7 +1070,7 @@ class JobTests(Ui3TestCase):
         Step.objects.create(
             parent=self.protocol,
             software="tool",
-            parameter="{{Genome}} {{ThreadN}} {{MyKey:opt}} {{InputFile}}",
+            parameter="{{Genome}} {{ThreadN}} {{MyKey:opt}} {{InputFile}} {{UMI_LEN||6}} {{MODE||per_read}} {{ZERO||0}} {{EXPR||a=b}}",
             step_order=1,
             hash="abc",
             user=self.user,
@@ -1086,8 +1086,20 @@ class JobTests(Ui3TestCase):
         self.assertIn("MyKey=", body)
         self.assertNotIn("ThreadN=", body)
         self.assertNotIn("InputFile=", body)
+        self.assertIn("UMI_LEN=6;MODE=per_read;ZERO=0;EXPR=a=b;", body)
         html = self.client.get(reverse("ui3:parameter_scaffold"), {"protocol": self.protocol.id})
-        self.assertContains(html, "if (!force && cur) return")
+        self.assertTemplateUsed(html, "ui3/jobs/_parameter_scaffold.html")
+        self.assertNotContains(html, "<html")
+
+    def test_scaffold_preserves_conflicting_or_unrepresentable_defaults(self):
+        from QueueDB.models import Step
+        from ui3.services import parameter_scaffold
+
+        Step.objects.create(
+            parent=self.protocol, software="tool", user=self.user, step_order=1, hash="defaults",
+            parameter="{{SAME}} {{SAME||6}} {{SAME||6}} {{DIFFERENT||6}} {{DIFFERENT||8}} {{LIST||a;b}}",
+        )
+        self.assertEqual(parameter_scaffold(self.protocol, self.user), "SAME=6;DIFFERENT=;LIST=;")
 
     def test_workspace_uploads_list(self):
         import os

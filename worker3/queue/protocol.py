@@ -18,25 +18,27 @@ class Protocol(object):
         return self._ver
 
     def customize_steps_by_user_dir(self, workspace_path, user_id):
-        step_list = []
-        for index, step in enumerate(self.raw_steps):
-            # priority for self-compiled tool
-            sp = step.software
+        return [self._to_step(step, workspace_path, user_id) for step in self.raw_steps]
 
-            if str(sp).strip() != _Step.SHELL_TAG and workspace_path is not None and os.path.exists(workspace_path):
-                if user_id is not None:
-                    software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(user_id)), "bin"),
-                                                 str(step.software))
-                    if os.path.exists(software_path) and os.path.isfile(software_path):
-                        sp = software_path
+    def materialize_expanded(self, expanded, workspace_path, user_id):
+        return [self._to_step(step, workspace_path, user_id) for step in expanded]
 
-            step_list.append(_Step(software=sp.rstrip(),
-                                   parameter=str(step.parameter),
-                                   specify_output=step.specify_output,
-                                   md5_hex=step.hash,
-                                   env=step.env,
-                                   version_check=step.version_check,
-                                   force_local=step.force_local,
-                                   settings=self._settings,
-                                   gpu_step=bool(getattr(step, "gpu_step", 0))))
-        return step_list
+    def _to_step(self, step, workspace_path, user_id):
+        sp = step.software
+
+        if str(sp).strip() != _Step.SHELL_TAG and workspace_path is not None and os.path.exists(workspace_path):
+            if user_id is not None:
+                software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(user_id)), "bin"),
+                                             str(step.software))
+                if os.path.exists(software_path) and os.path.isfile(software_path):
+                    sp = software_path
+
+        return _Step(software=sp.rstrip(),
+                     parameter=str(step.parameter),
+                     specify_output=step.specify_output,
+                     md5_hex=step.hash,
+                     env=step.env,
+                     version_check=step.version_check,
+                     force_local=step.force_local,
+                     settings=self._settings,
+                     gpu_step=bool(getattr(step, "gpu_step", 0)))

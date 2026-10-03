@@ -209,17 +209,26 @@ class _Step(object):
 
     @staticmethod
     def _special_parameter_map(par, sp_map):
-        for keyword in sp_map.keys():
-            pure_key = sp_map[keyword].replace('{{', '').replace('}}', '')
-            if pure_key in sp_map.keys():
-                sp_map[keyword] = sp_map[pure_key]
-        for keyword in sp_map.keys():
-            key_default = keyword.split('||')
-            if len(key_default) == 2 and sp_map[keyword] == '':
-                # if the parameter is not specified, then use default value
-                par = par.replace('{{' + keyword + '}}', key_default[1])
-            else:
-                par = par.replace('{{' + keyword + '}}', sp_map[keyword])
+        values = dict(sp_map)
+        for keyword, value in values.items():
+            pure_key = value.replace('{{', '').replace('}}', '')
+            if pure_key in values:
+                values[keyword] = values[pure_key]
+
+        def replace(match):
+            token = match.group(1)
+            key, separator, default = token.partition('||')
+            # Accept both current Key= values and legacy Key||default= values.
+            value = values.get(key, values.get(token))
+            if separator and value in (None, ''):
+                return default
+            return value if value is not None else match.group(0)
+
+        for _ in range(6):
+            resolved = re.sub(r'\{\{([^{}]+)\}\}', replace, par)
+            if resolved == par:
+                break
+            par = resolved
         return par
 
     @staticmethod

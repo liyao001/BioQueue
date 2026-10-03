@@ -56,9 +56,16 @@ class Task(object):
             self._job_ver = -1
 
         # for translating protocol
-        self._steps = self._protocol.customize_steps_by_user_dir(workspace_path=self._work_dir, user_id=self._user.id)
+        from QueueDB.protocol_template import template_input_files
+
+        if (getattr(job_obj.protocol, "template", "") or "").strip():
+            self._job_input_files = template_input_files(
+                self._job_input or "", getattr(job_obj, "sample_sheet", "") or ""
+            )
+        else:
+            self._job_input_files = (self._job_input or "").split(";")
+        self._steps = self._load_steps()
         self._job_parameters = None
-        self._job_input_files = self._job_input.split(";")
         self._outputs = []
         self._new_files = []
         self._output_dict = dict()
@@ -104,6 +111,20 @@ class Task(object):
             self._input_check_step = build_input_check_step(
                 settings, len(self._job_input_files)
             )
+
+    def _load_steps(self):
+        from QueueDB.protocol_template import expand_job
+
+        expanded = expand_job(
+            self._db_obj.protocol,
+            self._job_input or "",
+            getattr(self._db_obj, "sample_sheet", "") or "",
+        )
+        if expanded is None:
+            return self._protocol.customize_steps_by_user_dir(
+                workspace_path=self._work_dir, user_id=self._user.id
+            )
+        return self._protocol.materialize_expanded(expanded, self._work_dir, self._user.id)
 
     def __str__(self):
         return "{job_name} ({job_id})".format(job_name=self.job_name, job_id=self.job_id)
@@ -494,4 +515,3 @@ class Task(object):
 
             with open(os.path.join(self.run_folder, ".snapshot.ini"), 'w') as configfile:
                 snapshot.write(configfile)
-

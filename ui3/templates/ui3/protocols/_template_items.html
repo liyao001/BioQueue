@@ -1,0 +1,60 @@
+<div class="tpl-list">
+{% for node in group.nodes %}
+<details class="tpl-entry"{% if node.kind == 'map' or editor_open %} open{% endif %} data-tpl-key='{{ node.key }}'>
+  <summary>
+    <span class="tpl-entry-index">{{ node.number }}</span>
+    <span class="tpl-entry-title">{% if node.kind == 'step' %}{{ node.item.software|default:"New command" }}{% elif node.kind == 'call' %}{% if node.anchor %}<a class="link link-hover" href="#{{ node.anchor }}" onclick="event.stopPropagation()">{{ node.item.call|default:"Choose block" }}</a>{% else %}{{ node.item.call|default:"Choose block" }}{% endif %}{% else %}For each sample{% endif %}</span>
+    <span class="tpl-entry-meta">{{ node.summary }}</span>
+    <span class="tpl-entry-actions">
+      <button type="button" class="icon-btn" aria-label="Move entry {{ node.number }} up" hx-post="{{ editor_url }}" hx-vals="{{ node.up }}" onclick="event.preventDefault()">↑</button>
+      <button type="button" class="icon-btn" aria-label="Move entry {{ node.number }} down" hx-post="{{ editor_url }}" hx-vals="{{ node.down }}" onclick="event.preventDefault()">↓</button>
+      <button type="button" class="icon-btn icon-btn-label icon-btn-danger" hx-post="{{ editor_url }}" hx-vals="{{ node.remove }}" hx-confirm="Remove this entry?" onclick="event.preventDefault()">Remove</button>
+    </span>
+  </summary>
+  <div class="tpl-entry-body">
+  {% if node.kind == 'step' %}
+  <label class="form-control"><span class="label">Software</span><input class="ui-input w-full" name="tf:{{ node.paths.software }}" value="{{ node.item.software }}"></label>
+  <label class="form-control"><span class="label">Parameters</span><textarea class="ui-input w-full font-mono" rows="3" name="tf:{{ node.paths.parameter }}" data-ui3-complete>{{ node.item.parameter|default_if_none:"" }}</textarea></label>
+  <label class="form-control"><span class="label">Run environment</span>
+    <select class="ui-select w-full" name="tf:{{ node.paths.env }}">
+      <option value="">Default worker environment</option>
+      {% if node.item.env and node.item.env not in editor.environment_names %}<option value="{{ node.item.env }}" selected>{{ node.item.env }} (unavailable)</option>{% endif %}
+      {% for env in editor.environments %}<option value="{{ env.name }}" {% if env.name == node.item.env %}selected{% endif %}>{{ env.name }} ({{ env.ve_type }})</option>{% endfor %}
+    </select>
+  </label>
+  <details>
+    <summary class="cursor-pointer text-sm">Outputs and execution options</summary>
+    <div class="form-control">
+      <span class="label">Outputs</span>
+      {% include "ui3/protocols/_template_pairs.html" with path=node.paths.outputs rows=node.output_rows add_label="output" %}
+      <span class="label-text-alt mt-1">Optional. Name the file this command writes, then use that name in a later command. Open <strong>How later steps use an output</strong> above the pipeline for where the name is stored.</span>
+    </div>
+    <label class="form-control"><span class="label">Version check</span><input class="ui-input w-full" name="tf:{{ node.paths.version_check }}" value="{{ node.item.version_check|default_if_none:'' }}"></label>
+    <label class="form-control"><span class="label">Run locally</span><select class="ui-select" name="tb:{{ node.paths.force_local }}"><option value="0">Use configured runner</option><option value="1" {% if node.item.force_local %}selected{% endif %}>Force local</option></select></label>
+    <label class="form-control"><span class="label">GPU</span><select class="ui-select" name="tb:{{ node.paths.gpu_step }}"><option value="0">Not required</option><option value="1" {% if node.item.gpu_step %}selected{% endif %}>Required</option></select></label>
+  </details>
+  {% elif node.kind == 'call' %}
+  <label class="form-control"><span class="label">Block</span>
+    <select class="ui-select w-full" name="tf:{{ node.paths.call }}">
+      <option value="">Choose block</option>
+      {% for name in editor.block_names %}<option value="{{ name }}" {% if name == node.item.call %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </label>
+  <div class="form-control">
+    <span class="label">Arguments</span>
+    {% include "ui3/protocols/_template_pairs.html" with path=node.paths.args rows=node.arg_rows add_label="argument" %}
+    <span class="label-text-alt mt-1">Optional. {% verbatim %}A row bam = {{sample.dedup_bam}} is read inside the block as {{bam}}.{% endverbatim %}</span>
+  </div>
+  {% else %}
+    {% include "ui3/protocols/_template_items.html" with group=node.children remove_vals="" remove_name="" show_save="" %}
+  {% endif %}
+  </div>
+</details>
+{% endfor %}
+<div class="ui-toolbar tpl-list-actions{% if show_save %} tpl-pipeline-actions{% endif %}">
+  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_step }}">Add command</button>
+  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_call }}">Add block call</button>
+  {% if group.add_map %}<button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_map }}">Add sample map</button>{% endif %}
+  {% if show_save %}<button class="ui-btn ui-btn-primary" type="submit"><i class="fa-regular fa-floppy-disk"></i> {{ editor_submit_label }}</button>{% endif %}
+</div>
+</div>

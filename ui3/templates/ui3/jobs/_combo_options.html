@@ -2,9 +2,9 @@
 {% for item in items %}
   <button type="button" class="ui-combo-item"
           data-value="{{ item.id }}"
-          data-label="{% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}"
+          data-label="{% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% if item.template %} (template){% endif %}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}"
           onclick="ui3.comboSelect(this)">
-    {% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}
+    {% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% if item.template %} <span class="tpl-badge">Template</span>{% endif %}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}
   </button>
 {% empty %}
   <div class="text-sm opacity-60 px-2 py-1">No matches</div>

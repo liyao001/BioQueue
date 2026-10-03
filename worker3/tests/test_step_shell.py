@@ -46,6 +46,18 @@ class ShellStepTests(unittest.TestCase):
         if _Step is None:
             self.skipTest("worker3 django deps unavailable: %s" % _DJANGO_ERR)
 
+    def test_parameter_defaults_and_overrides(self):
+        for parameters, expected in [({}, "6"), ({"UMI_LEN": ""}, "6"), ({"UMI_LEN": "8"}, "8"),
+                                     ({"UMI_LEN||6": ""}, "6"), ({"UMI_LEN||6": "9"}, "9")]:
+            with self.subTest(parameters=parameters):
+                self.assertEqual(_Step._special_parameter_map("{{UMI_LEN||6}}", parameters), expected)
+        self.assertEqual(_Step._special_parameter_map("{{Unknown}}", {}), "{{Unknown}}")
+        self.assertEqual(_Step._special_parameter_map("{{flags}}", {"flags": ""}), "")
+
+    def test_parameter_aliases_and_nested_defaults(self):
+        values = {"umi": "{{UMI_LEN||6}}", "UMI_LEN": "8", "ref": "{{genome}}", "genome": "/ref.fa"}
+        self.assertEqual(_Step._special_parameter_map("{{umi}} {{ref}}", values), "8 /ref.fa")
+
     def test_is_shell_from_software_name(self):
         step = _Step("__SHELL__", "echo hi", "", "h", None, 0, "", _settings())
         self.assertTrue(step.is_shell)

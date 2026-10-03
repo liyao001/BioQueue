@@ -4,7 +4,9 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
-from QueueDB.models import ProtocolList, Step
+import json
+
+from QueueDB.models import ProtocolList, Step, _recompute_protocol_ver
 
 from ..decorators import ui3_login_required
 from ..http import combo_query, delegate_for, htmx_error, int_or_none, is_htmx, list_params, querystring, render_htmx, with_toast
@@ -29,7 +31,7 @@ def _protocol_page_context(request, selected=None):
     steps = services.protocol_steps(selected) if selected else []
     environments = services.visible_environments(request.user)
     shortcuts = list(services.visible_shortcuts(request.user, protocol=selected)) if selected else []
-    return {
+    ctx = {
         "page_obj": page,
         "paginator": paginator,
         "protocols": page.object_list,
@@ -48,7 +50,85 @@ def _protocol_page_context(request, selected=None):
         "page_size_choices": (12, 24, 36, 48),
         "item_label": "protocol",
     }
+    ctx.update(services.template_context(selected))
+    if ctx["template_active"]:
+        try:
+            ctx.update(services.template_editor_context(
+                json.loads(selected.template), environments, preview_samples=_preview_count(request),
+            ))
+            ctx.update(_editor_chrome(selected))
+        except (ValueError, TypeError, KeyError):
+            pass  # Keep the raw JSON editor available to repair invalid data.
+    return ctx
 
+
+def _editor_chrome(selected=None):
+    if selected is None:
+        return {
+            "editor_url": reverse("ui3:protocol_template_create_edit"),
+            "editor_form": "#protocol-template-create-form",
+            "editor_submit_label": "Create protocol",
+            "editor_hint": (
+                "Draft changes stay on this page until you create the protocol. "
+                "Environments use their names so exported templates can use matching "
+                "environments on another installation."
+            ),
+        }
+    return {
+        "editor_url": reverse("ui3:protocol_template_edit", args=[selected.id]),
+        "editor_form": "#protocol-meta-form",
+        "editor_submit_label": "Save protocol",
+        "editor_hint": (
+            "Changes are saved only when you select Save protocol. "
+            "Environments use their names so exported templates can use matching "
+            "environments on another installation."
+        ),
+    }
+
+def _preview_count(request):
+    raw = request.POST.get("preview_samples") or request.GET.get("preview_samples") or 2
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 2
+
+def _template_create_context(request, document, form=None, error=None, mode="visual"):
+    environments = services.visible_environments(request.user)
+    ctx = {
+        "environments": environments,
+        "error": error,
+        "form": form or {},
+        "token_list": services.autocomplete_tokens(request.user),
+        "selected": None,
+    }
+    ctx.update(services.template_editor_context(
+        document, environments, mode, preview_samples=_preview_count(request),
+    ))
+    ctx.update(_editor_chrome())
+    ctx["editor_open"] = True
+    return ctx
+
+def _posted_rename(request):
+    try:
+        path = json.loads(request.POST.get("editor_path") or "[]")
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(path, list) or len(path) < 2 or not isinstance(path[1], str):
+        return ""
+    return request.POST.get("br:{}".format(path[1]), "")
+
+def _create_error_page(request, raw, error, document=None):
+    """Redisplay the create form without dropping a draft that cannot be drawn."""
+    try:
+        if document is None:
+            document = json.loads(raw) if (raw or "").strip() else services.blank_template_document()
+        ctx = _template_create_context(request, document, form=request.POST, error=error)
+    except (json.JSONDecodeError, services.ProtocolTemplateError, ValueError, TypeError, KeyError, IndexError):
+        ctx = _template_create_context(
+            request, services.blank_template_document(), form=request.POST, error=error, mode="json",
+        )
+        ctx["editor"]["source"] = raw or ""
+    return render(request, "ui3/protocols/new_template.html", ctx, status=400)
 
 @ui3_login_required
 @require_http_methods(["GET"])
@@ -122,6 +202,57 @@ def protocol_create(request):
 
 
 @ui3_login_required
+@require_http_methods(["GET", "POST"])
+def protocol_template_create(request):
+    if request.method == "GET":
+        return render(
+            request,
+            "ui3/protocols/new_template.html",
+            _template_create_context(request, services.blank_template_document()),
+        )
+    raw = request.POST.get("template") or ""
+    name = (request.POST.get("name") or "").strip()
+    document = None
+    try:
+        document = services.read_template_form(request.POST)
+        template = services.normalize_template(document)
+        user = delegate_for(request.user)
+        services.resolve_template_environments(json.loads(template), user.id)
+    except json.JSONDecodeError:
+        return _create_error_page(request, raw, "Template is not valid JSON.")
+    except services.ProtocolTemplateError as exc:
+        return _create_error_page(request, raw, str(exc), document)
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        return _create_error_page(request, raw, "Invalid template field: {}".format(exc), document)
+    if not name:
+        return _create_error_page(request, template, "Name is required.", json.loads(template))
+    proto = ProtocolList.objects.create(
+        name=name,
+        description=(request.POST.get("description") or "").strip() or None,
+        user=user,
+        template=template,
+    )
+    _recompute_protocol_ver(proto)
+    messages.success(request, "Template protocol '{}' created.".format(proto.name))
+    return redirect(reverse("ui3:protocols") + "?select={}".format(proto.id))
+
+@ui3_login_required
+@require_POST
+def protocol_template_create_edit(request):
+    try:
+        document = services.read_template_form(request.POST)
+        action = request.POST.get("editor_action", "")
+        document = services.edit_template_document(
+            document, action, request.POST.get("editor_path", ""), request.POST.get("editor_block_name", ""),
+            _posted_rename(request),
+        )
+        mode = "json" if action in ("show_json", "format") else "visual"
+        context = _template_create_context(request, document, form=request.POST, mode=mode)
+    except (ValueError, TypeError, KeyError, IndexError, services.ProtocolTemplateError) as exc:
+        return htmx_error("Cannot update template draft: {}".format(exc))
+    return render(request, "ui3/protocols/_template_editor.html", context)
+
+@ui3_login_required
 @require_POST
 def protocol_update(request, pk):
     proto = services.get_owned_protocol(request.user, pk)
@@ -135,7 +266,26 @@ def protocol_update(request, pk):
     proto.name = name
     if "description" in request.POST:
         proto.description = request.POST.get("description") or None
+    if "template" in request.POST:
+        try:
+            incoming = request.POST.get("template") or ""
+            proto.template = services.normalize_template(services.read_template_form(request.POST)) if incoming.strip() else ""
+            if proto.template:
+                services.resolve_template_environments(json.loads(proto.template), proto.user_id)
+        except json.JSONDecodeError:
+            if is_htmx(request):
+                return htmx_error("Template is not valid JSON.")
+            return HttpResponseBadRequest("Template is not valid JSON.")
+        except services.ProtocolTemplateError as exc:
+            if is_htmx(request):
+                return htmx_error(str(exc))
+            return HttpResponseBadRequest(str(exc))
+        except (ValueError, TypeError, KeyError, IndexError) as exc:
+            return htmx_error("Invalid template field: {}".format(exc)) if is_htmx(request) else HttpResponseBadRequest("Invalid template field.")
     proto.save()
+    if "template" in request.POST:
+        _recompute_protocol_ver(proto)
+        proto.refresh_from_db()
     ctx = _protocol_page_context(request, selected=proto)
     if is_htmx(request):
         response = render(request, "ui3/protocols/_workspace.html", ctx)
@@ -143,6 +293,29 @@ def protocol_update(request, pk):
     messages.success(request, "Protocol updated.")
     return redirect("ui3:protocols")
 
+
+@ui3_login_required
+@require_POST
+def protocol_template_edit(request, pk):
+    proto = services.get_owned_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    try:
+        document = services.read_template_form(request.POST)
+        action = request.POST.get("editor_action", "")
+        document = services.edit_template_document(
+            document, action, request.POST.get("editor_path", ""), request.POST.get("editor_block_name", ""),
+            _posted_rename(request),
+        )
+        mode = "json" if action in ("show_json", "format") else "visual"
+        context = services.template_editor_context(
+            document, services.visible_environments(request.user), mode, preview_samples=_preview_count(request),
+        )
+        context.update(_editor_chrome(proto))
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        return htmx_error("Cannot update template draft: {}".format(exc))
+    context["selected"] = proto
+    return render(request, "ui3/protocols/_template_editor.html", context)
 
 @ui3_login_required
 @require_POST
@@ -210,12 +383,14 @@ def protocol_export(request, pk):
 @require_POST
 def protocol_import(request):
     try:
-        proto, missing = services.import_protocol_from_upload(request.user, request.FILES.get("file"))
+        proto, missing, env_notes = services.import_protocol_from_upload(request.user, request.FILES.get("file"))
     except services.ProtocolImportError as exc:
         return _import_error(request, str(exc))
     msg = "Protocol '{}' imported.".format(proto.name)
     if missing:
         msg += " Missing references: {}.".format(", ".join(missing))
+    if env_notes:
+        msg += " Environment recipes left unchanged: {}.".format(", ".join(env_notes))
     if is_htmx(request):
         ctx = _protocol_page_context(request, selected=proto)
         response = render(request, "ui3/protocols/_workspace.html", ctx)

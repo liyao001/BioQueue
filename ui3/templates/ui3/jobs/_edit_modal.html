@@ -9,10 +9,16 @@
           hx-include="#job-filters">
       {% csrf_token %}
       {% if token_list %}{{ token_list|json_script:"ui3-tokens" }}{% endif %}
-      <textarea class="ui-input w-full font-mono" name="value" rows="16"
-                id="id_edit_{{ field }}"
-                {% if field == "array_setting" %}maxlength="100"{% endif %}
-                {% if token_list %}data-ui3-complete{% endif %}>{{ value }}</textarea>
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">{{ title|capfirst }}</span></div>
+        <textarea class="ui-input w-full font-mono" name="value" rows="16"
+                  id="id_edit_{{ field }}"
+                  {% if field == "array_setting" %}maxlength="100"{% endif %}
+                  {% if token_list %}data-ui3-complete{% endif %}>{{ value }}</textarea>
+      </label>
+      {% if field == "sample_sheet" %}
+      <p class="text-sm opacity-70 mt-2">JSON list of sample records. Leave empty to build samples from the input files.</p>
+      {% endif %}
       {% if field == "input_file" %}
       <div class="mt-2 flex flex-wrap gap-2">
         <button type="button" class="ui-btn"

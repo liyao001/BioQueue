@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import tempfile
 import unittest
@@ -54,6 +55,121 @@ class EchoJobIntegrationTests(TestCase):
         )
         options.update(kwargs)
         return JobQueue(**options)
+
+    def _template_job(self, document, inputs="", sheet="", parameter=""):
+        job = seed_echo_job(self.tmp, input_file=inputs)
+        job.protocol.template = json.dumps(document)
+        job.protocol.save(update_fields=["template"])
+        job.sample_sheet = sheet
+        job.parameter = parameter
+        job.save()
+        return job
+
+    def test_template_normalizes_slots_and_runs_defaults(self):
+        paths = []
+        for name in ("a", "b", "c", "d"):
+            path = Path(self.tmp) / name
+            path.write_text(name)
+            paths.append(str(path))
+        document = {"samples": {"group": 2}, "pipeline": [{"map": "samples", "steps": [{
+            "software": "echo", "parameter": "{{sample.r1}} {{sample.r2}} umi={{UMI_LEN||6}}"
+        }]}]}
+        job = self._template_job(document, " {} ;; {};{};{};".format(*paths), parameter="UMI_LEN=;")
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        self.assertEqual(task.job_input_files, paths)
+        for _ in task.steps:
+            disable_ml_collector(task)
+            queue.run_step(task)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        log = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn("{} {} umi=6".format(*paths[:2]), log)
+        self.assertIn("{} {} umi=6".format(*paths[2:]), log)
+
+    def test_template_block_environment_reaches_worker_command(self):
+        from QueueDB.models import VirtualEnvironment
+
+        path = Path(self.tmp) / "input.fq"
+        path.write_text("sample")
+        job = self._template_job({
+            "blocks": {"process": {"steps": [{
+                "software": "__SHELL__", "parameter": "echo {{sample.name}}",
+                "env": "analysis", "force_local": True, "gpu_step": True,
+            }]}},
+            "pipeline": [{"map": "samples", "steps": [{"call": "process"}]}],
+        }, inputs=str(path))
+        environment = VirtualEnvironment.objects.create(
+            user=job.user, name="analysis", value="analysis", ve_type="conda",
+            activation_command="source /opt/conda.sh",
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        step = task.steps[0]
+        self.assertEqual(step._env, environment)
+        self.assertTrue(step._force_local)
+        self.assertTrue(step._gpu_step)
+        step.translate_step_to_runnable(task)
+        self.assertIn("source /opt/conda.sh && conda activate analysis", step.shell_script)
+        self.assertIn("echo rep1", step.shell_script)
+        self.assertIn("conda deactivate", step.shell_script)
+
+    def test_template_sheet_files_reach_global_input_command(self):
+        path = Path(self.tmp) / "sample.fq"
+        path.write_text("sample")
+        job = self._template_job(
+            {"pipeline": [{"software": "echo", "parameter": "{{InputFile}} umi={{UMI_LEN||6}}"}]},
+            sheet=json.dumps([{"r1": str(path)}]), parameter="UMI_LEN=8;",
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        self.assertEqual(task.job_input_files, [str(path)])
+        self.assertIsNotNone(task.input_check_step)
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        log = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn("{} umi=8".format(path), log)
+
+    def test_template_sheet_missing_input_fails_before_first_command(self):
+        job = self._template_job(
+            {"pipeline": [{"software": "echo", "parameter": "should-not-run"}]},
+            sheet=json.dumps([{"r1": str(Path(self.tmp) / "missing.fq")}]),
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.WRONG)
+        log = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn("Input check failed", log)
+        self.assertNotIn("should-not-run", log)
+
+    def test_template_sheet_failed_parent_fails_before_first_command(self):
+        parent = seed_echo_job(self.tmp, job_name="failed-parent")
+        parent.status = JobStatus.WRONG
+        parent.result = "failed-result"
+        parent.save()
+        job = self._template_job(
+            {"pipeline": [{"software": "echo", "parameter": "should-not-run"}]},
+            sheet=json.dumps([{"r1": "{{{{History:{}-out.fq}}}}".format(parent.id)}]),
+        )
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        disable_ml_collector(task)
+        queue.run_step(task)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.WRONG)
+        log = (self.log_dir / "{}.log".format(job.id)).read_text()
+        self.assertIn("parent job is not runnable", log)
+        self.assertNotIn("should-not-run", log)
 
     def test_fetch_and_run_echo_job(self):
         job = seed_echo_job(self.tmp, job_name="echo-job")

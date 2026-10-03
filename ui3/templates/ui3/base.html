@@ -45,6 +45,7 @@
           <ul>
             <li><a href="{% url 'ui3:protocols' %}">Manage Protocols</a></li>
             <li><a href="{% url 'ui3:protocol_create' %}">New Protocol</a></li>
+            <li><a href="{% url 'ui3:protocol_template_create' %}">New Template</a></li>
           </ul>
         </details>
         <a href="{% url 'ui3:references' %}" class="{% if request.resolver_match.url_name|slice:':9' == 'reference' %}is-active{% endif %}">
@@ -614,6 +615,26 @@
         var form = combo.closest("form");
         if (form) form.requestSubmit();
       },
+      validateJsonField: function (field, kind) {
+        var error = "";
+        if (field.value.trim()) {
+          try {
+            var data = JSON.parse(field.value);
+            if (kind === "samples") {
+              if (!Array.isArray(data) || data.some(function (row) { return !row || typeof row !== "object" || Array.isArray(row); })) {
+                error = "Samples must be a JSON list of objects.";
+              }
+            } else if (!data || typeof data !== "object" || Array.isArray(data)) {
+              error = "Template must be a JSON object.";
+            }
+          } catch (e) {
+            error = "Invalid JSON: " + e.message;
+          }
+        }
+        field.setCustomValidity(error);
+        field.setAttribute("aria-invalid", error ? "true" : "false");
+        field.nextElementSibling.textContent = error;
+      },
       appendTokens: function (textareaId, tokens, sep) {
         sep = sep == null ? ";" : sep;
         var el = document.getElementById(textareaId);
@@ -692,6 +713,58 @@
         if (elt.hasAttribute("data-ui3-quiet")) return true;
         var trigger = elt.getAttribute("hx-trigger") || "";
         return /\bevery\b/.test(trigger);
+      },
+      findAddedTemplateEntry: function (root, saved) {
+        if (!root || !saved) return null;
+        if (saved.openBlock) {
+          var blocks = root.querySelectorAll("details[data-tpl-key]");
+          for (var b = 0; b < blocks.length; b++) {
+            if (blocks[b].getAttribute("data-tpl-key") === saved.openBlock) return blocks[b];
+          }
+        }
+        if (!saved.addUnder) return null;
+        var best = null;
+        var bestN = -1;
+        root.querySelectorAll("details[data-tpl-key]").forEach(function (node) {
+          var parsed = null;
+          try { parsed = JSON.parse(node.getAttribute("data-tpl-key")); } catch (err) { parsed = null; }
+          if (!parsed || parsed.length !== saved.addUnder.length + 1) return;
+          for (var i = 0; i < saved.addUnder.length; i++) if (parsed[i] !== saved.addUnder[i]) return;
+          if (typeof parsed[parsed.length - 1] === "number" && parsed[parsed.length - 1] >= bestN) {
+            bestN = parsed[parsed.length - 1];
+            best = node;
+          }
+        });
+        return best;
+      },
+      placeTemplateEditor: function (root, saved) {
+        if (!root || !saved) return;
+        var node = window.ui3.findAddedTemplateEntry(root, saved);
+        if (node) {
+          var field = node.querySelector("input.ui-input, textarea.ui-input, select.ui-select");
+          var anchor = field || node;
+          anchor.style.scrollMarginTop = "5rem";
+          anchor.style.scrollMarginBottom = "1.5rem";
+          if (field) {
+            try { field.focus({ preventScroll: true }); } catch (err) { field.focus(); }
+          }
+          anchor.scrollIntoView({ block: "center", inline: "nearest" });
+          return;
+        }
+        if (saved.scroll != null) window.scrollTo(0, saved.scroll);
+      },
+      templateRequestDropsForm: function (elt, form) {
+        if (!elt || !form) return false;
+        var selector = elt.getAttribute("hx-target");
+        var target = elt;
+        if (selector && selector !== "this") {
+          if (selector === "closest form") target = elt.closest("form");
+          else if (/^(next|previous)\b/.test(selector)) return false;
+          else {
+            try { target = document.querySelector(selector); } catch (err) { return false; }
+          }
+        }
+        return !!(target && (target === form || target.contains(form)));
       },
       showModalLoading: function (label) {
         var root = window.ui3.ensureModalRoot();
@@ -774,9 +847,17 @@
         return "Loading…";
       },
       tokenList: function () {
-        var el = document.getElementById("ui3-tokens");
-        if (!el) return [];
-        try { return JSON.parse(el.textContent || "[]"); } catch (e) { return []; }
+        function read(id) {
+          var el = document.getElementById(id);
+          if (!el) return [];
+          try { return JSON.parse(el.textContent || "[]"); } catch (e) { return []; }
+        }
+        var seen = {};
+        return read("ui3-tokens").concat(read("ui3-template-tokens")).filter(function (token) {
+          if (!token || seen[token]) return false;
+          seen[token] = true;
+          return true;
+        });
       },
       hideTokenMenu: function () {
         var menu = document.getElementById("ui3-ac");
@@ -793,7 +874,7 @@
           var caret = el.selectionStart || 0;
           var head = (el.value || "").slice(0, caret);
           var tail = (el.value || "").slice(caret);
-          var m = head.match(/\{\{([A-Za-z0-9_]*)$/);
+          var m = head.match(/\{\{([A-Za-z0-9_.:]*)$/);
           if (!m) return;
           var start = caret - (m[1] ? m[1].length : 0) - 2;
           el.value = head.slice(0, start) + "{" + "{" + token + "}" + "}" + tail;
@@ -823,7 +904,7 @@
         function suggest() {
           var caret = el.selectionStart || 0;
           var head = (el.value || "").slice(0, caret);
-          var m = head.match(/\{\{([A-Za-z0-9_]*)$/);
+          var m = head.match(/\{\{([A-Za-z0-9_.:]*)$/);
           if (!m) { window.ui3.hideTokenMenu(); return; }
           var q = (m[1] || "").toLowerCase();
           items = tokens.filter(function (t) { return String(t).toLowerCase().indexOf(q) === 0; }).slice(0, 30);
@@ -844,6 +925,153 @@
       },
       bindAllTokenFields: function () {
         document.querySelectorAll("[data-ui3-complete]").forEach(window.ui3.bindTokenComplete);
+      },
+      addPairRow: function (button) {
+        var box = button && button.closest ? button.closest("[data-pairs]") : null;
+        if (!box) return;
+        var path = box.getAttribute("data-path") || "";
+        var index = box.querySelectorAll(".tpl-pair").length;
+        while (box.querySelector("[name='tp:" + path + ":" + index + ":k']")) index += 1;
+        var row = document.createElement("div");
+        row.className = "tpl-pair";
+        var nameInput = document.createElement("input");
+        nameInput.className = "ui-input";
+        nameInput.name = "tp:" + path + ":" + index + ":k";
+        nameInput.setAttribute("aria-label", "Name");
+        nameInput.placeholder = "Name";
+        var valueInput = document.createElement("input");
+        valueInput.className = "ui-input";
+        valueInput.name = "tp:" + path + ":" + index + ":v";
+        valueInput.setAttribute("aria-label", "Value");
+        valueInput.placeholder = "Value";
+        valueInput.setAttribute("data-ui3-complete", "");
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "ui-btn";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", function () { window.ui3.removePairRow(remove); });
+        row.appendChild(nameInput);
+        row.appendChild(valueInput);
+        row.appendChild(remove);
+        box.insertBefore(row, button);
+        window.ui3.bindTokenComplete(valueInput);
+        var form = box.closest("form");
+        if (form) form.dataset.tplDirty = "1";
+        nameInput.focus();
+      },
+      removePairRow: function (button) {
+        var row = button && button.closest ? button.closest(".tpl-pair") : null;
+        if (!row) return;
+        var form = row.closest("form");
+        row.remove();
+        if (form) form.dataset.tplDirty = "1";
+      },
+      templateKey: function (key) {
+        if (!key || key.charAt(0) !== "[") return key || "";
+        try { return JSON.stringify(JSON.parse(key)); } catch (e) { return key; }
+      },
+      adjustTemplateOpen: function (saved) {
+        var open = (saved.open || []).slice();
+        var action = saved.action || "";
+        var path = saved.path;
+        if (action === "add_block" && saved.openBlock) open.push(saved.openBlock);
+        if (!path || !path.length || (action !== "up" && action !== "down" && action !== "remove")) return open;
+        if (action === "remove" && path[0] === "blocks" && path.length === 2 && typeof path[1] === "string") {
+          return open.filter(function (key) { return key !== "block:" + path[1]; });
+        }
+        var parent = path.slice(0, -1);
+        var index = path[path.length - 1];
+        if (typeof index !== "number") return open;
+        var delta = action === "up" ? -1 : 1;
+        var neighbor = index + delta;
+        function same(left, right) {
+          if (left.length !== right.length) return false;
+          for (var i = 0; i < left.length; i++) if (left[i] !== right[i]) return false;
+          return true;
+        }
+        function hasIndex(all, at) {
+          return (all || []).some(function (key) {
+            var parsed = null;
+            try { parsed = JSON.parse(key); } catch (e) { return false; }
+            return parsed && parsed.length > parent.length && same(parsed.slice(0, parent.length), parent) && parsed[parent.length] === at;
+          });
+        }
+        if ((action === "up" || action === "down") && !hasIndex(saved.all, neighbor)) return open;
+        return open.map(function (key) {
+          var parsed = null;
+          try { parsed = JSON.parse(key); } catch (e) { return key; }
+          if (!parsed || parsed.length <= parent.length || !same(parsed.slice(0, parent.length), parent) || typeof parsed[parent.length] !== "number") return key;
+          if (action === "up" || action === "down") {
+            if (parsed[parent.length] === index) parsed[parent.length] = neighbor;
+            else if (parsed[parent.length] === neighbor) parsed[parent.length] = index;
+            return JSON.stringify(parsed);
+          }
+          if (parsed.length >= path.length && same(parsed.slice(0, path.length), path)) return null;
+          if (parsed[parent.length] > index) parsed[parent.length] -= 1;
+          return JSON.stringify(parsed);
+        }).filter(Boolean);
+      },
+      stepDragStart: function (event) {
+        var handle = event.currentTarget;
+        var row = handle && handle.closest("tr");
+        var tbody = row && row.parentNode;
+        if (!row || !tbody) return;
+        tbody._ui3DragRow = row;
+        tbody._ui3DragOrder = tbody.getAttribute("data-step-order") || "";
+        row.classList.add("is-dragging");
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", row.getAttribute("data-step-id") || "");
+          if (event.dataTransfer.setDragImage) event.dataTransfer.setDragImage(row, 24, 16);
+        }
+      },
+      stepDragOver: function (event) {
+        var tbody = event.currentTarget;
+        var row = tbody && tbody._ui3DragRow;
+        if (!row) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        var over = event.target && event.target.closest ? event.target.closest("tr[data-step-id]") : null;
+        if (!over || over === row || !tbody.contains(over)) return;
+        var rect = over.getBoundingClientRect();
+        var after = event.clientY > rect.top + rect.height / 2;
+        tbody.insertBefore(row, after ? over.nextSibling : over);
+      },
+      shortcutStorageKey: function (panel) {
+        return "ui3-shortcuts-open-" + ((panel && panel.getAttribute("data-protocol-id")) || "");
+      },
+      rememberShortcutPanel: function (panel) {
+        if (!panel || panel.id !== "protocol-shortcuts") return;
+        try { sessionStorage.setItem(window.ui3.shortcutStorageKey(panel), panel.open ? "1" : "0"); } catch (err) {}
+      },
+      restoreShortcutPanel: function () {
+        var panel = document.getElementById("protocol-shortcuts");
+        if (!panel) return;
+        try {
+          if (sessionStorage.getItem(window.ui3.shortcutStorageKey(panel)) === "1") panel.open = true;
+        } catch (err) {}
+      },
+      stepDragEnd: function (event) {
+        var handle = event.currentTarget;
+        var row = handle && handle.closest("tr");
+        var tbody = row && row.parentNode;
+        if (row) row.classList.remove("is-dragging");
+        if (!tbody) return;
+        tbody._ui3DragRow = null;
+        var ids = [];
+        tbody.querySelectorAll("tr[data-step-id]").forEach(function (item) {
+          ids.push(item.getAttribute("data-step-id"));
+        });
+        var next = ids.join(",");
+        if (!next || next === (tbody._ui3DragOrder || tbody.getAttribute("data-step-order") || "")) return;
+        var url = tbody.getAttribute("data-reorder-url");
+        if (!url || !window.htmx) return;
+        htmx.ajax("POST", url, {
+          target: "#protocol-detail",
+          swap: "innerHTML",
+          values: { order: next },
+          source: tbody,
+        });
       },
       moveDraftStep: function (btn, dir) {
         var row = btn && btn.closest(".draft-step");
@@ -948,6 +1176,23 @@
       if (e.target && e.target.classList && e.target.classList.contains("job-file-select")) {
         window.ui3.onFileSelectChange(e.target, e);
       }
+    });
+    document.body.addEventListener("htmx:configRequest", function (event) {
+      // Drop empty filter values so hx-push-url does not grow ?q=&q=&protocol=…
+      var params = event.detail && event.detail.parameters;
+      if (!params) return;
+      Object.keys(params).forEach(function (key) {
+        var value = params[key];
+        if (value === "" || value === null || value === undefined) {
+          delete params[key];
+          return;
+        }
+        if (Array.isArray(value)) {
+          var kept = value.filter(function (v) { return v !== "" && v !== null && v !== undefined; });
+          if (!kept.length) delete params[key];
+          else params[key] = kept.length === 1 ? kept[0] : kept;
+        }
+      });
     });
     document.body.addEventListener("htmx:beforeRequest", function (event) {
       var src = event.detail.elt;
@@ -1061,7 +1306,10 @@
       var status = xhr ? xhr.status : 0;
       var text = "";
       if (xhr && xhr.responseText) {
-        text = String(xhr.responseText).replace(/<[^>]+>/g, " ").trim().slice(0, 200);
+        text = String(xhr.responseText).replace(/<[^>]+>/g, " ").trim().slice(0, 400);
+        var decoded = document.createElement("textarea");
+        decoded.innerHTML = text;
+        text = decoded.value.trim().slice(0, 200);
       }
       if (!text) {
         text = event.type === "htmx:sendError"
@@ -1080,7 +1328,103 @@
     }
     document.body.addEventListener("htmx:afterSwap", ui3ArmToast);
     document.body.addEventListener("htmx:oobAfterSwap", ui3ArmToast);
+    document.body.addEventListener("toggle", function (event) {
+      window.ui3.rememberShortcutPanel(event.target);
+    }, true);
+    window.ui3.restoreShortcutPanel();
+    document.body.addEventListener("htmx:configRequest", function (evt) {
+      var elt = evt.detail && evt.detail.elt;
+      if (!elt || !elt.closest || !elt.closest("#template-editor")) return;
+      var root = document.getElementById("template-editor");
+      if (!root) return;
+      var open = [];
+      var all = [];
+      root.querySelectorAll("details[data-tpl-key]").forEach(function (node) {
+        var key = window.ui3.templateKey(node.getAttribute("data-tpl-key"));
+        all.push(key);
+        if (node.open) open.push(key);
+      });
+      var params = evt.detail.parameters || {};
+      var path = null;
+      if (params.editor_path) {
+        try { path = JSON.parse(params.editor_path); } catch (err) { path = null; }
+      }
+      window.ui3._tplOpen = {
+        open: open,
+        all: all,
+        action: params.editor_action || "",
+        path: path,
+        openBlock: params.editor_action === "add_block" ? "block:" + String(params.editor_block_name || "").trim() : "",
+        addUnder: (params.editor_action === "add_step" || params.editor_action === "add_call" || params.editor_action === "add_map") ? path : null,
+        scroll: window.scrollY,
+      };
+      var form = elt.closest("form");
+      if (form && form.hasAttribute("data-tpl-form") && params.editor_action && params.editor_action !== "show_forms") {
+        form.dataset.tplDirty = "1";
+      }
+    });
+    document.body.addEventListener("htmx:afterSwap", function (evt) {
+      var target = evt.detail && evt.detail.target;
+      var saved = window.ui3._tplOpen;
+      if (!target || target.id !== "template-editor" || !saved) return;
+      var root = document.getElementById("template-editor");
+      if (!root) return;
+      var open = window.ui3.adjustTemplateOpen(saved);
+      root.querySelectorAll("details[data-tpl-key]").forEach(function (node) {
+        node.open = open.indexOf(window.ui3.templateKey(node.getAttribute("data-tpl-key"))) !== -1;
+      });
+      var added = window.ui3.findAddedTemplateEntry(root, saved);
+      if (added) added.open = true;
+      window.ui3.placeTemplateEditor(root, saved);
+    });
+    document.body.addEventListener("htmx:afterSettle", function (evt) {
+      var target = evt.detail && evt.detail.target;
+      var saved = window.ui3._tplOpen;
+      if (!target || target.id !== "template-editor" || !saved) return;
+      window.requestAnimationFrame(function () {
+        var root = document.getElementById("template-editor");
+        window.ui3.placeTemplateEditor(root, saved);
+      });
+    });
+    document.body.addEventListener("htmx:confirm", function (evt) {
+      var form = document.querySelector("[data-tpl-form][data-tpl-dirty='1']");
+      if (!form) return;
+      var elt = evt.detail && evt.detail.elt;
+      if (!elt) return;
+      if (window.ui3.isQuietRequest(elt)) return;
+      if (elt.closest && elt.closest("#template-editor")) return;
+      if (elt === form || elt.id === "protocol-meta-form" || elt.id === "protocol-template-create-form") return;
+      if (!window.ui3.templateRequestDropsForm(elt, form)) return;
+      if (!window.confirm("This template has unsaved changes. Leave without saving?")) evt.preventDefault();
+    });
+    document.addEventListener("input", function (evt) {
+      var form = evt.target && evt.target.closest ? evt.target.closest("[data-tpl-form]") : null;
+      if (form) form.dataset.tplDirty = "1";
+    });
+    document.addEventListener("submit", function (evt) {
+      var form = evt.target;
+      if (form && form.hasAttribute && form.hasAttribute("data-tpl-form") && !form.hasAttribute("hx-post")) {
+        delete form.dataset.tplDirty;
+      }
+    }, true);
+    window.addEventListener("beforeunload", function (evt) {
+      if (!document.querySelector("[data-tpl-form][data-tpl-dirty='1']")) return;
+      evt.preventDefault();
+      evt.returnValue = "";
+    });
+    document.addEventListener("click", function (evt) {
+      if (!document.querySelector("[data-tpl-form][data-tpl-dirty='1']")) return;
+      var link = evt.target && evt.target.closest ? evt.target.closest("a[href]") : null;
+      if (!link || link.hasAttribute("hx-get") || link.hasAttribute("hx-post") || link.target === "_blank") return;
+      var href = link.getAttribute("href") || "";
+      if (!href || href.charAt(0) === "#") return;
+      if (!window.confirm("This template has unsaved changes. Leave without saving?")) {
+        evt.preventDefault();
+        evt.stopPropagation();
+      }
+    }, true);
     document.body.addEventListener("htmx:afterSwap", function (e) {
+      window.ui3.restoreShortcutPanel();
       window.ui3.updateBulkBar();
       var filesRoot = e.target && e.target.closest ? e.target.closest("[data-job-files-root]") : null;
       if (!filesRoot && e.target && e.target.getAttribute && e.target.getAttribute("data-job-files-root") != null) {

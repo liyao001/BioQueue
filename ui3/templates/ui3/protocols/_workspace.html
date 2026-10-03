@@ -43,6 +43,7 @@
                  hx-target="#protocol-workspace"
                  hx-swap="outerHTML"
                  hx-push-url="true">{{ p.name }}</a>
+              {% if p.template %}<span class="tpl-badge" title="Expands one template for each sample">Template</span>{% endif %}
             </td>
             <td class="text-right">
               {% if p|can_edit:request.user %}

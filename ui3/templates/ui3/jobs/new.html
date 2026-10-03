@@ -55,6 +55,12 @@
 {% if tab == 'single' or not tab %}
 <form method="post" action="{% url 'ui3:job_create' %}" class="card bg-base-100 shadow-sm p-5 w-full space-y-4">
   {% csrf_token %}
+  <div id="sample-scaffold-swap" class="hidden" aria-hidden="true"
+       hx-get="{% url 'ui3:sample_scaffold' %}"
+       hx-trigger="{% if selected_protocol %}load, {% endif %}change from:#id_protocol, input from:#id_input_file delay:400ms, change from:#id_input_file"
+       hx-include="#id_protocol, #id_input_file"
+       hx-on::config-request="var trigger = event.detail.triggeringEvent; event.detail.parameters.force = trigger && trigger.target.id === 'id_protocol' ? 1 : 0;"
+       hx-sync="this:replace" hx-swap="innerHTML"></div>
   <label class="form-control">
     <div class="label"><span class="label-text">Job name</span></div>
     <input class="ui-input w-full" name="job_name" id="id_job_name" required value="{{ form.job_name }}">
@@ -66,13 +72,14 @@
       <input type="hidden" class="combo-value" name="protocol" id="id_protocol" required
              value="{% if form.protocol %}{{ form.protocol }}{% endif %}"
              hx-get="{% url 'ui3:parameter_scaffold' %}"
-             hx-trigger="change"
-             hx-include="this"
-             hx-vals="js:{protocol: event.target.value, force: 1}"
+             hx-trigger="change, samples-ready, input from:#id_input_file delay:400ms, change from:#id_input_file, input from:#id_sample_sheet delay:400ms, change from:#id_sample_sheet"
+             hx-include="#id_protocol, #id_input_file, #id_sample_sheet"
+             hx-on::config-request="var trigger = event.detail.triggeringEvent; event.detail.parameters.force = trigger && trigger.target.id === 'id_protocol' ? 1 : 0;"
+             hx-sync="this:replace"
              hx-target="#parameter-scaffold-swap"
              hx-swap="innerHTML">
       <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
-        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% else %}Select protocol{% endif %}</span>
+        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% if selected_protocol.template %} (template){% endif %}{% else %}Select protocol{% endif %}</span>
       </button>
       <div class="ui-combo-panel" hx-disinherit="*">
         <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter protocols"
@@ -121,6 +128,8 @@
               data-ui3-complete
               placeholder="key=value;key2=value2">{{ form.parameter }}</textarea>
     <div class="label"><span class="label-text-alt opacity-70">semicolon-separated; keys are passed to the protocol. Cluster overrides: ClusterGpus, ClusterPartition, ClusterTime, ClusterMem, ClusterExclude, ClusterExtra, ClusterArray</span></div>
+    <p class="text-sm opacity-70">These are job-wide values. A template fills them from its defaults, including one key per sample when a value differs by sample. Edit a key here to change that default. To override a single sample, edit its row under Samples. Your edits are kept when the list refreshes.</p>
+    <p id="parameter-missing" class="text-sm" role="status"></p>
   </label>
 
   <label class="form-control">
@@ -128,7 +137,8 @@
     <textarea class="ui-input w-full font-mono" name="input_file" id="id_input_file" rows="3"
               data-ui3-complete
               placeholder="/path/to/file1;/path/to/file2 or {% verbatim %}{{History:123-output/file.txt}}{% endverbatim %}">{{ form.input_file }}</textarea>
-    <div class="label"><span class="label-text-alt opacity-70">use semicolons to separate multiple files; you can also insert results from other jobs</span></div>
+    <div class="label"><span class="label-text-alt opacity-70">use semicolons to separate multiple files; you can also insert results from other jobs. For a template, list each sample's files in order. Paired reads are file 1 and file 2 for sample 1, then file 3 and file 4 for sample 2.</span></div>
+    <p id="sample-file-error" class="text-sm text-error" role="alert"></p>
   </label>
   <div class="flex flex-wrap gap-2">
     <button type="button" class="ui-btn"
@@ -141,6 +151,22 @@
             hx-target="#modal-root" hx-swap="innerHTML">
       <i class="fa-regular fa-clone"></i> Insert from job results
     </button>
+  </div>
+
+  <div id="sample-fields"{% if not samples_active %} class="hidden"{% endif %}>
+  <label class="form-control">
+    <div class="label"><span class="label-text">Samples</span></div>
+    <p id="sample-run-summary" class="text-sm"></p>
+    <p id="sample-file-map" class="text-sm opacity-70"></p>
+    <textarea class="ui-input w-full font-mono" name="sample_sheet" id="id_sample_sheet" rows="8"
+              {% if not samples_active %}disabled{% endif %}
+              oninput="ui3.validateJsonField(this, 'samples')"
+              placeholder='[{"name": "rep1"}, {"name": "rep2", "umi_len": "8"}]'>{{ form.sample_sheet }}</textarea>
+    <span class="text-sm" role="status" aria-live="polite"></span>
+    <div class="label"><span class="label-text-alt opacity-70">Filled in for a template protocol. Clear it to let BioQueue name samples from the input files. Edit a row to rename one sample or replace one field. Put r1 and r2 on every row only when the files are not listed under Input files.</span></div>
+    <p class="text-sm opacity-70">{% verbatim %}A value like {{UMI_LEN1||6}} is not a second copy of Parameters. It reads UMI_LEN1 from Parameters and uses 6 when that key is empty. Replace the whole placeholder to set this sample yourself. Add or remove rows when the number of samples changes; rows you have edited are kept when the input files change.{% endverbatim %}</p>
+    <p id="sample-required" class="text-sm"></p>
+  </label>
   </div>
 
   <label class="form-control">
@@ -259,7 +285,7 @@
       <input type="hidden" class="combo-value" name="protocol" required
              value="{% if form.protocol %}{{ form.protocol }}{% endif %}">
       <button type="button" class="ui-combo-toggle w-full justify-between" onclick="ui3.comboToggle(this)">
-        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% else %}Select protocol{% endif %}</span>
+        <span class="combo-label">{% if selected_protocol %}{{ selected_protocol.id }} – {{ selected_protocol.name }}{% if selected_protocol.template %} (template){% endif %}{% else %}Select protocol{% endif %}</span>
       </button>
       <div class="ui-combo-panel" hx-disinherit="*">
         <input class="ui-input combo-filter w-full" type="search" name="combo_q" placeholder="filter protocols"
