@@ -39,7 +39,6 @@
         </select>
       </label>
       <div class="inline-flex items-center gap-2">
-        {% if job.ui3_can_write %}
         <span class="job-files-selected-count text-sm font-medium"></span>
         <button type="button" class="ui-btn icon-btn-danger job-files-delete-selected"
                 data-locked="{% if job.locked %}1{% else %}0{% endif %}"
@@ -53,7 +52,6 @@
                 hx-swap="outerHTML">
           <i class="fa-solid fa-trash"></i> Delete selected
         </button>
-        {% endif %}
         <span class="text-sm opacity-70">{{ total }} file{{ total|pluralize }}</span>
       </div>
     </div>
@@ -61,14 +59,12 @@
       <table class="table table-sm w-full job-files-table">
         <thead class="sticky top-0 bg-base-100 z-10">
           <tr>
-            {% if job.ui3_can_write %}
             <th class="job-files-check">
               <input type="checkbox" class="job-file-select-all checkbox checkbox-sm"
                      aria-label="Select all loaded files"
                      {% if job.locked %}disabled{% endif %}
                      onclick="ui3.toggleFileSelectAll(this)">
             </th>
-            {% endif %}
             <th>
               <button type="button" class="ui-sort-btn {% if sort == 'name' %}is-active{% endif %}"
                       title="Sort by name"
@@ -108,7 +104,7 @@
         <tbody id="job-files-tbody-{{ job.id }}">
           {% include "ui3/jobs/_files_rows.html" %}
           {% if not items %}
-          <tr><td colspan="{% if job.ui3_can_write %}5{% else %}4{% endif %}" class="opacity-70">No files found.</td></tr>
+          <tr><td colspan="5" class="opacity-70">No files found.</td></tr>
           {% endif %}
         </tbody>
       </table>

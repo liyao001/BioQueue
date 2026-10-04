@@ -1,12 +1,10 @@
 {% for f in items %}
 <tr>
-  {% if job.ui3_can_write %}
   <td class="job-files-check">
-    <input type="checkbox" class="checkbox checkbox-xs job-file-select" name="traces" value="{{ f.trace }}"
-           form="job-archive-form-{{ job.id }}" aria-label="Select {{ f.name }}"
+    <input type="checkbox" class="job-file-select checkbox checkbox-sm" name="trace" value="{{ f.trace }}"
+           aria-label="Select {{ f.name }}"
            {% if job.locked %}disabled{% endif %}>
   </td>
-  {% endif %}
   <td class="break-all">
     {% if f.is_link %}<i class="fa-solid fa-link opacity-70 mr-1" title="link"></i>{% endif %}
     <span class="job-files-name" data-ui3-select-name title="Preview"
