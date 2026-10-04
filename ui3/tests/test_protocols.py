@@ -571,3 +571,111 @@ class ProtocolTests(Ui3TestCase):
         self.assertEqual([s.software for s in dest_steps], ["cutadapt"])
         self.assertEqual(dest_steps[0].parameter, "-q 20")
         self.assertEqual(dest.description, "demo")
+
+    def test_export_and_import_environment_recipes(self):
+        import json
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from QueueDB.models import VirtualEnvironment
+
+        env = VirtualEnvironment.objects.create(
+            name="py310",
+            ve_type="conda",
+            value="bioqueue",
+            activation_command="source /opt/conda.sh",
+            recipe="name: bioqueue\ndependencies:\n  - python=3.10\n",
+            user=self.user,
+        )
+        for order, software in ((1, "bwa"), (2, "samtools")):
+            Step.objects.create(
+                parent=self.protocol,
+                software=software,
+                parameter="run",
+                step_order=order,
+                hash=compute_step_hash(software, "run"),
+                user=self.user,
+                env=env,
+            )
+        self.login()
+        exported = self.client.get(reverse("ui3:protocol_export", args=[self.protocol.id]))
+        data = json.loads(exported.content.decode())
+        self.assertEqual([step["env"] for step in data["step"]], ["py310", "py310"])
+        self.assertEqual(set(data["environment"]), {"py310"})
+        entry = data["environment"]["py310"]
+        self.assertEqual(entry["ve_type"], "conda")
+        self.assertEqual(entry["value"], "bioqueue")
+        self.assertIn("python=3.10", entry["recipe"])
+        self.assertNotIn("activation_command", entry)
+
+        data["name"] = "RNA-seq imported"
+        response = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("rna.json", json.dumps(data).encode(), content_type="application/json")},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        imported = ProtocolList.objects.get(name="RNA-seq imported", user=self.user)
+        steps = list(protocol_steps(imported))
+        self.assertEqual(steps[0].env_id, env.id)
+        self.assertEqual(steps[1].env_id, env.id)
+        env.refresh_from_db()
+        self.assertEqual(env.activation_command, "source /opt/conda.sh")
+        self.assertEqual(env.value, "bioqueue")
+
+    def test_import_creates_environment_rows_without_replacing_existing(self):
+        import json
+
+        from django.contrib.messages import get_messages
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from QueueDB.models import VirtualEnvironment
+
+        owned = VirtualEnvironment.objects.create(
+            name="py310", ve_type="conda", value="local-bioqueue", activation_command="source /mine.sh",
+            recipe="", user=self.user,
+        )
+        public = VirtualEnvironment.objects.create(
+            name="shared", ve_type="venv", value="/opt/shared", recipe="flask==1.0\n", user=None,
+        )
+        payload = {
+            "name": "with envs",
+            "step": [
+                {"software": "echo", "parameter": "a", "step_order": 1, "env": "newenv"},
+                {"software": "echo", "parameter": "b", "step_order": 2, "env": "py310"},
+                {"software": "echo", "parameter": "c", "step_order": 3, "env": "shared"},
+            ],
+            "environment": {
+                "newenv": {"ve_type": "venv", "recipe": "requests==2\n", "value": "/opt/new"},
+                "blank": {"ve_type": "conda", "recipe": "", "value": ""},
+                "py310": {"ve_type": "conda", "recipe": "name: other\n", "value": "other"},
+                "shared": {"ve_type": "conda", "recipe": "flask==2\n", "value": "/elsewhere"},
+            },
+        }
+        self.login()
+        response = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("envs.json", json.dumps(payload).encode(), content_type="application/json")},
+        )
+        self.assertEqual(response.status_code, 302)
+        created = VirtualEnvironment.objects.get(name="newenv", user=self.user)
+        self.assertEqual(created.ve_type, "venv")
+        self.assertEqual(created.value, "/opt/new")
+        self.assertEqual(created.recipe, "requests==2\n")
+        self.assertFalse(created.activation_command)
+        blank = VirtualEnvironment.objects.get(name="blank", user=self.user)
+        self.assertEqual(blank.value, "blank")
+        self.assertEqual(blank.recipe, "")
+        owned.refresh_from_db()
+        self.assertEqual(owned.value, "local-bioqueue")
+        self.assertEqual(owned.activation_command, "source /mine.sh")
+        self.assertEqual(owned.recipe, "name: other\n")
+        public.refresh_from_db()
+        self.assertEqual(public.value, "/opt/shared")
+        self.assertEqual(public.recipe, "flask==1.0\n")
+        self.assertFalse(VirtualEnvironment.objects.filter(name="shared", user=self.user).exists())
+        steps = list(protocol_steps(ProtocolList.objects.get(name="with envs", user=self.user)))
+        self.assertEqual(steps[0].env_id, created.id)
+        self.assertEqual(steps[1].env_id, owned.id)
+        self.assertEqual(steps[2].env_id, public.id)
+        notes = [str(message) for message in get_messages(response.wsgi_request)]
+        self.assertTrue(any("shared" in note and "left unchanged" in note for note in notes))
+        self.assertFalse(any("py310" in note and "left unchanged" in note for note in notes))
