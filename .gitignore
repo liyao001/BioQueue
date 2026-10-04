@@ -1,6 +1,12 @@
 .project
+*.egg-info/
+.venv/
+dist/
+build/
+.tools/
 *.log
 *.lock
+!uv.lock
 .pydevproject
 *.pyc
 workspace/*
@@ -21,10 +27,16 @@ ui/AGENTS.md
 !ui/plugins/local/README.md
 **/.ipynb_checkpoints/*
 QueueDB/migrations/*
+!QueueDB/migrations/__init__.py
+!QueueDB/migrations/0001_initial.py
 !QueueDB/migrations/0050_protocollist_template_job_sample_sheet.py
 !QueueDB/migrations/0051_notificationhook.py
 !QueueDB/migrations/0052_virtualenvironment_recipe.py
+!QueueDB/migrations/0053_sync_models.py
 .pixi/
 **/.pixi/
 worker3/.testdata/
 protocol_templates/
+# pixi environments
+.pixi/*
+!.pixi/config.toml

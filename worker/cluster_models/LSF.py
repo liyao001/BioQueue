@@ -121,7 +121,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     if not os.path.exists(workspace):
         try:
             os.makedirs(workspace)
-        except:
+        except OSError:
             pass
 
     job_name = str(job_id)+'-'+str(job_step)+'.xsd'
@@ -162,7 +162,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         status_m = re.search(re_pattern_for_lsf_id, stdout)
         try:
             os.remove(job_file_path)
-        except:
+        except OSError:
             pass
         if status_m:
             lsf_trace_id = status_m.group(1)

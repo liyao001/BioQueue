@@ -150,7 +150,7 @@ def query_job_status(job_id):
                 else:
                     exit_code = 0
                 return int(exit_code)
-            except:
+            except (ValueError, TypeError, AttributeError):
                 return 0
     else:
         return -3
@@ -194,7 +194,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     if not os.path.exists(workspace):
         try:
             os.makedirs(workspace)
-        except:
+        except OSError:
             pass
 
     job_name = str(job_id)+'-'+str(job_step)+'.pbs'
@@ -228,7 +228,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         pbs_trace_id = stdout.split('\n')[0]
         try:
             os.remove(job_file_path)
-        except:
+        except OSError:
             pass
         return pbs_trace_id
     except Exception as e:

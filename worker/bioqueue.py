@@ -14,13 +14,20 @@ import bases
 import subprocess
 import logging
 import numpy as np
-from bases import *
 from copy import copy
 from _step import _Step
+from configparser import ConfigParser
+from django.db import connections
+from django.db.utils import DatabaseError, InterfaceError, OperationalError
 from django.db.models import Q
 from QueueDB.models import Job, Step, Reference, Training, _JS_WAITING, _JS_RESOURCELOCK, _JS_RUNNING, _JS_FINISHED, _JS_WRONG
 
 DEFAULT_PREFIX = str(os.getpid())
+SCHEDULER_LOOP_INTERVAL = 5
+DEPENDENCY_WAIT_INTERVAL = 10
+TERMINATION_POLL_INTERVAL = 5
+VERSION_CHECK_TIMEOUT = 15
+MAX_MAIN_LOOP_BACKOFF = 60
 logging.basicConfig(format='%(name)s - %(asctime)s - %(levelname)s: %(message)s',
                     datefmt='%d-%b-%y %H:%M:%S',
                     level=logging.INFO,
@@ -46,30 +53,42 @@ class Protocol(object):
         return self._ver
 
     def customize_steps_by_user_dir(self, workspace_path, user_id):
-        step_list = []
-        for index, step in enumerate(self.raw_steps):
-            # priority for self-compiled tool
-            sp = step.software
+        return [self._to_step(step, workspace_path, user_id) for step in self.raw_steps]
 
-            if workspace_path is not None and os.path.exists(workspace_path):
-                if user_id is not None:
-                    software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(user_id)), "bin"),
-                                                 str(step.software))
-                    if os.path.exists(software_path) and os.path.isfile(software_path):
-                        sp = software_path
+    def materialize_expanded(self, expanded, workspace_path, user_id):
+        return [self._to_step(step, workspace_path, user_id) for step in expanded]
 
-            step_list.append(_Step(software=sp.rstrip(),
-                                   parameter=str(step.parameter),
-                                   specify_output=step.specify_output,
-                                   md5_hex=step.hash,
-                                   env=step.env,
-                                   version_check=step.version_check,
-                                   force_local=step.force_local,
-                                   settings=self._settings))
-        return step_list
+    def _to_step(self, step, workspace_path, user_id):
+        # priority for self-compiled tool
+        sp = step.software
+
+        if str(sp).strip() != _Step.SHELL_TAG and workspace_path is not None and os.path.exists(workspace_path):
+            if user_id is not None:
+                software_path = os.path.join(os.path.join(os.path.join(workspace_path, str(user_id)), "bin"),
+                                             str(step.software))
+                if os.path.exists(software_path) and os.path.isfile(software_path):
+                    sp = software_path
+
+        return _Step(software=sp.rstrip(),
+                     parameter=str(step.parameter),
+                     specify_output=step.specify_output,
+                     md5_hex=step.hash,
+                     env=step.env,
+                     version_check=step.version_check,
+                     force_local=step.force_local,
+                     settings=self._settings)
 
 
 class Task(object):
+    # Keys used in bases.save_output_dict / load_output_dict — must stay stable on disk.
+    _FILE_MAP_KEY_LAST_OUTPUT_STRING = "LAST_OUTPUT_STRING"
+    _FILE_MAP_KEY_OUTPUTS = "OUTPUTS"
+    _FILE_MAP_KEY_OUTPUT_DICT = "OUTPUT_DICT"
+    _FILE_MAP_KEY_OUTPUT_DICT_SUFFIX = "OUTPUT_DICT_SUFFIX"
+    _FILE_MAP_KEY_NEW_FILES = "NEW_FILES"
+    _FILE_MAP_KEY_LAST_OUTPUT = "LAST_OUTPUT"
+    _FILE_MAP_KEY_LAST_OUTPUT_SUFFIX = "LAST_OUTPUT_SUFFIX"
+
     def __init__(self, job_obj, protocol, settings):
         """
 
@@ -89,8 +108,8 @@ class Task(object):
         self._protocol = copy(protocol)
         self._work_dir = job_obj.run_dir
 
-        self.prev_step = None
-        self.current_step = None
+        self._previous_step = None
+        self._current_step = None
 
         self._parameter = job_obj.parameter
 
@@ -99,37 +118,37 @@ class Task(object):
         self._wait_for = job_obj.wait_for
 
         # for translating protocol
-        self._steps = self._protocol.customize_steps_by_user_dir(workspace_path=self._work_dir, user_id=self._user.id)
+        self._steps = self._load_steps()
         self._job_parameters = None
         self._job_input_files = self._job_input.split(";")
-        self._OUTPUTS = []
-        self._NEW_FILES = []
-        self._OUTPUT_DICT = dict()
-        self._OUTPUT_DICT_SUFFIX = dict()
-        self._LAST_OUTPUT = []
-        self._LAST_OUTPUT_STRING = ""
-        self._LAST_OUTPUT_SUFFIX = dict()
-        self._STEP_DEPENDENCIES = set()
+        self._outputs = []
+        self._new_files = []
+        self._output_dict = dict()
+        self._output_dict_suffix = dict()
+        self._last_output = []
+        self._last_output_string = ""
+        self._last_output_suffix = dict()
+        self._step_dependency_job_ids = set()
         self._lock = threading.Lock()
 
         # - if user's trying to resume a job, then load previous outputs for translating job's parameters
         if self._status == -1 and self._resume != 0:
             # skip and resume
             tmp_dict = bases.load_output_dict(self._job_id)
-            if "LAST_OUTPUT_STRING" in tmp_dict:
-                self._LAST_OUTPUT_STRING = tmp_dict["LAST_OUTPUT_STRING"]
-            if "OUTPUTS" in tmp_dict:
-                self._OUTPUTS = tmp_dict["OUTPUTS"]
-            if "OUTPUT_DICT" in tmp_dict:
-                self._OUTPUT_DICT = tmp_dict["OUTPUT_DICT"]
-            if "OUTPUT_DICT_SUFFIX" in tmp_dict:
-                self._OUTPUT_DICT_SUFFIX = tmp_dict["OUTPUT_DICT_SUFFIX"]
-            if "NEW_FILES" in tmp_dict:
-                self._NEW_FILES = tmp_dict["NEW_FILES"]
-            if "LAST_OUTPUT" in tmp_dict:
-                self._LAST_OUTPUT = tmp_dict["LAST_OUTPUT"]
-            if "LAST_OUTPUT_SUFFIX" in tmp_dict:
-                self._LAST_OUTPUT_SUFFIX = tmp_dict["LAST_OUTPUT_SUFFIX"]
+            if self._FILE_MAP_KEY_LAST_OUTPUT_STRING in tmp_dict:
+                self._last_output_string = tmp_dict[self._FILE_MAP_KEY_LAST_OUTPUT_STRING]
+            if self._FILE_MAP_KEY_OUTPUTS in tmp_dict:
+                self._outputs = tmp_dict[self._FILE_MAP_KEY_OUTPUTS]
+            if self._FILE_MAP_KEY_OUTPUT_DICT in tmp_dict:
+                self._output_dict = tmp_dict[self._FILE_MAP_KEY_OUTPUT_DICT]
+            if self._FILE_MAP_KEY_OUTPUT_DICT_SUFFIX in tmp_dict:
+                self._output_dict_suffix = tmp_dict[self._FILE_MAP_KEY_OUTPUT_DICT_SUFFIX]
+            if self._FILE_MAP_KEY_NEW_FILES in tmp_dict:
+                self._new_files = tmp_dict[self._FILE_MAP_KEY_NEW_FILES]
+            if self._FILE_MAP_KEY_LAST_OUTPUT in tmp_dict:
+                self._last_output = tmp_dict[self._FILE_MAP_KEY_LAST_OUTPUT]
+            if self._FILE_MAP_KEY_LAST_OUTPUT_SUFFIX in tmp_dict:
+                self._last_output_suffix = tmp_dict[self._FILE_MAP_KEY_LAST_OUTPUT_SUFFIX]
 
         # for predicting resources
         self._input_size = 0
@@ -144,6 +163,20 @@ class Task(object):
         self._settings = settings
         self._snapshot_file = ""
 
+    def _load_steps(self):
+        from QueueDB.protocol_template import expand_job
+
+        expanded = expand_job(
+            self._db_obj.protocol,
+            self._job_input or "",
+            getattr(self._db_obj, "sample_sheet", "") or "",
+        )
+        if expanded is None:
+            return self._protocol.customize_steps_by_user_dir(
+                workspace_path=self._work_dir, user_id=self._user.id
+            )
+        return self._protocol.materialize_expanded(expanded, self._work_dir, self._user.id)
+
     def __str__(self):
         return "{job_name} ({job_id})".format(job_name=self.job_name, job_id=self.job_id)
 
@@ -156,11 +189,11 @@ class Task(object):
 
     @property
     def newfiles(self):
-        return self._NEW_FILES
+        return self._new_files
 
     @newfiles.setter
     def newfiles(self, value):
-        self._NEW_FILES = value
+        self._new_files = value
 
     @property
     def outputs(self):
@@ -168,38 +201,38 @@ class Task(object):
 
         Returns
         -------
-        self._OUTPUTS : list
-
+        list
+            All output file paths accumulated for this job.
         """
-        return self._OUTPUTS
+        return self._outputs
 
     @property
     def output_dict(self):
-        return self._OUTPUT_DICT
+        return self._output_dict
 
     @property
     def output_dict_suffix(self):
-        return self._OUTPUT_DICT_SUFFIX
+        return self._output_dict_suffix
 
     @property
     def last_output(self):
-        return self._LAST_OUTPUT
+        return self._last_output
 
     @property
     def last_output_string(self):
-        return self._LAST_OUTPUT_STRING
+        return self._last_output_string
 
     @last_output_string.setter
     def last_output_string(self, value):
-        self._LAST_OUTPUT_STRING = value
+        self._last_output_string = value
 
     @property
     def last_output_suffix(self):
-        return self._LAST_OUTPUT_SUFFIX
+        return self._last_output_suffix
 
     @last_output_suffix.setter
     def last_output_suffix(self, value):
-        self._LAST_OUTPUT_SUFFIX = value
+        self._last_output_suffix = value
 
     @property
     def input_size(self):
@@ -279,15 +312,25 @@ class Task(object):
         return self._work_dir
 
     @property
+    def prev_step(self):
+        """Deprecated: use :attr:`_previous_step` (reserved for future step chaining)."""
+        return self._previous_step
+
+    @property
+    def current_step(self):
+        """Deprecated: use :attr:`_current_step` (reserved for future step chaining)."""
+        return self._current_step
+
+    @property
     def file_map(self):
         return {
-            "LAST_OUTPUT_STRING": self._LAST_OUTPUT_STRING,
-            "OUTPUTS": self._OUTPUTS,
-            "OUTPUT_DICT": self._OUTPUT_DICT,
-            "OUTPUT_DICT_SUFFIX": self._OUTPUT_DICT_SUFFIX,
-            "NEW_FILES": self._NEW_FILES,
-            "LAST_OUTPUT": self._LAST_OUTPUT,
-            "LAST_OUTPUT_SUFFIX": self._LAST_OUTPUT_SUFFIX
+            self._FILE_MAP_KEY_LAST_OUTPUT_STRING: self._last_output_string,
+            self._FILE_MAP_KEY_OUTPUTS: self._outputs,
+            self._FILE_MAP_KEY_OUTPUT_DICT: self._output_dict,
+            self._FILE_MAP_KEY_OUTPUT_DICT_SUFFIX: self._output_dict_suffix,
+            self._FILE_MAP_KEY_NEW_FILES: self._new_files,
+            self._FILE_MAP_KEY_LAST_OUTPUT: self._last_output,
+            self._FILE_MAP_KEY_LAST_OUTPUT_SUFFIX: self._last_output_suffix,
         }
 
     def get_prev_step(self):
@@ -321,7 +364,7 @@ class Task(object):
         :return: tuple, path to user folder and job folder
         """
         if self._result is None or self._resume == 0:
-            result_store = rand_sig() + str(self.job_id)
+            result_store = bases.rand_sig() + str(self.job_id)
             user_folder = os.path.join(self._work_dir, str(self._user.id))
             run_folder = os.path.join(user_folder, result_store)
             try:
@@ -489,24 +532,92 @@ class Task(object):
                 snapshot.write(configfile)
 
 
+class ProcessRunner(object):
+    def __init__(self, n_retries, kill_process_fn):
+        self._n_retries = n_retries
+        self._kill_process_fn = kill_process_fn
+
+    def record_version(self, step_obj, job):
+        if step_obj.version_check == "":
+            return
+        p = subprocess.Popen(step_obj.version_check, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            ver, _ = p.communicate(timeout=VERSION_CHECK_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            self._kill_process_fn(psutil.Process(p.pid))
+            logger.warning(f"Version check timed out for job {job.job_id}, step {job.resume}")
+            ver = b""
+        ver = ver.decode("utf-8", errors="replace")
+        job.update_snapshot("version", str(job.resume), ver)
+
+    @staticmethod
+    def spawn_step(step_obj, run_folder, log_file_handler, err_file_handler, step_index=0):
+        if getattr(step_obj, "is_shell", False):
+            import shutil
+            script_path = step_obj.write_shell_script(run_folder, step_index)
+            bash = shutil.which("bash") or "/bin/bash"
+            return subprocess.Popen(
+                [bash, script_path],
+                shell=False,
+                stdout=log_file_handler,
+                stderr=err_file_handler,
+                cwd=run_folder
+            )
+        true_shell = bases.check_shell_sig(step_obj.command)
+        if true_shell:
+            import shutil
+            bash = shutil.which("bash") or "/bin/bash"
+            return subprocess.Popen(
+                ' '.join(step_obj.command),
+                shell=True,
+                executable=bash,
+                stdout=log_file_handler,
+                stderr=err_file_handler,
+                cwd=run_folder
+            )
+        return subprocess.Popen(
+            step_obj.command,
+            shell=False,
+            stdout=log_file_handler,
+            stderr=err_file_handler,
+            cwd=run_folder
+        )
+
+    def wait_for_completion(self, step_process, job_id):
+        process_id = step_process.pid
+        while step_process.poll() is None:
+            if process_id in psutil.pids():
+                proc_info = psutil.Process(process_id)
+                if proc_info.is_running():
+                    terminate_requested = False
+                    for _ in range(self._n_retries):
+                        try:
+                            db_job = Job.objects.get(id=job_id)
+                            terminate_requested = bool(db_job.ter)
+                            break
+                        except Exception as e:
+                            logger.warning(f"Failed to retrieve job (id: {job_id}) status from the database")
+                            logger.exception(e)
+                            time.sleep(1)
+                    if terminate_requested:
+                        self._kill_process_fn(proc_info)
+                        return 2
+            time.sleep(TERMINATION_POLL_INTERVAL)
+        return step_process.returncode
+
+
 class JobQueue(object):
     def __init__(self, max_job, cpu_pool, memory_pool, disk_pool, work_dir, settings, n_retries=3):
-        self._CPU_POOL = cpu_pool
-        self._MEMORY_POOL = memory_pool
-        self._DISK_POOL = disk_pool
-        self.WORK_DIR = work_dir
-        self.MAX_JOB = int(max_job) if max_job != "" else 0
-        self._RUNNING_TABLE = set()
-        self._STEP_DEPENDENCIES = dict()
-        self._USER_REFERENCES = dict()
-        self.RUN_PARAMETERS = dict()
-        self.FOLDER_SIZE_BEFORE = dict()
-        self._RESOURCES = dict()
-        self.LATEST_JOB_ID = 0
-        self.LATEST_JOB_STEP = 0
-        self._RUNNING_STEPS = 0
-        self._QUEUE = dict()
-        self._PROTOCOL_CACHE = dict()
+        self._cpu_pool = cpu_pool
+        self._memory_pool = memory_pool
+        self._disk_pool = disk_pool
+        self._workspace_root = work_dir
+        self._max_concurrent_jobs = int(max_job) if max_job != "" else 0
+        self._running_step_keys = set()
+        self._job_resources = dict()
+        self._active_step_count = 0
+        self._queued_jobs = dict()
+        self._protocol_cache = dict()
         self._lock = threading.Lock()
         self._is_queue_locked = 0
         self._failed_tasks = set()
@@ -530,19 +641,16 @@ class JobQueue(object):
 
         """
         with self._lock:
-            for _ in range(self.n_retries):
-                try:
-                    if is_error:
-                        job.db_obj.status = _JS_WRONG
-                        job.db_obj.ter = 0
-                    else:
-                        job.db_obj.status = _JS_FINISHED
-                    job.db_obj.save()
-                    break
-                except Exception as e:
-                    self._failed_tasks.add((self.dequeue, job.job_id))
-                    logger.warning(self._db_fail_msg_tpl.format(job=job.job_id, operation="dequeue"))
-                    logger.warning(e)
+            if is_error:
+                job.db_obj.status = _JS_WRONG
+                job.db_obj.ter = 0
+            else:
+                job.db_obj.status = _JS_FINISHED
+            self._save_job_with_retries(
+                job.db_obj,
+                operation="dequeue",
+                on_failure=lambda: self._failed_tasks.add((self.dequeue, job.job_id))
+            )
             try:
                 self.remove_resources(job.job_id)
                 if not is_error:
@@ -551,7 +659,7 @@ class JobQueue(object):
             except Exception as e:
                 logger.exception(e)
             finally:
-                del self._QUEUE[job.job_id]
+                del self._queued_jobs[job.job_id]
 
     def enqueue(self, job):
         """
@@ -570,12 +678,29 @@ class JobQueue(object):
         -------
 
         """
-        # check
-        uf, rf, result = job.prepare_workspace()
+        job.prepare_workspace()
         job.initialize_job_parameters(ref_dict=self._get_user_references(job._user))
 
         with self._lock:
-            self._QUEUE[job.job_id] = job
+            self._queued_jobs[job.job_id] = job
+
+    def refresh_runtime_settings(self, settings):
+        """
+        Refresh hot-reloadable runtime options from config.
+        """
+        try:
+            new_max_job = int(settings["env"]["max_job"]) if settings["env"]["max_job"] != "" else 0
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Invalid env.max_job in settings, keeping previous value")
+            return
+
+        if new_max_job != self._max_concurrent_jobs:
+            logger.info(
+                "Updating max_job from %s to %s",
+                self._max_concurrent_jobs,
+                new_max_job,
+            )
+            self._max_concurrent_jobs = new_max_job
 
     @staticmethod
     def clean_dead_jobs():
@@ -589,32 +714,146 @@ class JobQueue(object):
         except Exception as e:
             logger.exception(e)
 
-    # @property
+    def queued_jobs_snapshot(self):
+        """Shallow copy of the in-memory job id -> Task map for one scheduler tick."""
+        return self._queued_jobs.copy()
+
     def get_queue(self):
-        return self._QUEUE.copy()
+        """Deprecated: use :meth:`queued_jobs_snapshot`."""
+        return self.queued_jobs_snapshot()
+
+    @property
+    def scheduled_resources_sorted(self):
+        """Per-job resource estimates for the scheduler, sorted for greedy dispatch."""
+        return sorted(
+            self._job_resources.items(),
+            key=lambda x: x[1]["cpu"] if x[1]["cpu"] is not None else 100,
+        )
 
     @property
     def get_resources(self):
-        return sorted(self._RESOURCES.items(), key=lambda x: x[1]["cpu"] if x[1]["cpu"] is not None else 100)
+        """Deprecated: use :attr:`scheduled_resources_sorted`."""
+        return self.scheduled_resources_sorted
+
+    @property
+    def max_concurrent_jobs(self):
+        """Maximum waiting jobs to pull from the DB per tick (from config ``env.max_job``)."""
+        return self._max_concurrent_jobs
+
+    @property
+    def MAX_JOB(self):
+        """Deprecated: use :attr:`max_concurrent_jobs`."""
+        return self._max_concurrent_jobs
+
+    @property
+    def WORK_DIR(self):
+        """Deprecated: worker workspace root path; prefer internal :attr:`_workspace_root` usage."""
+        return self._workspace_root
 
     def set_resources(self, job, value):
-        self._RESOURCES[job] = value
+        self._job_resources[job] = value
+
+    def collect_schedulable_resources(self, job_table):
+        sorted_jobs = {k: job_table[k] for k in sorted(job_table)}
+        for job_id, job_obj in sorted_jobs.items():
+            now_step = job_obj.get_current_step()
+            if now_step is None or now_step.is_running:
+                continue
+            self.set_resources(job_id, now_step.resources)
+
+    def _can_schedule_job(self, job_obj, resource, step_key):
+        return not (
+            job_obj.status > 0
+            or step_key in self.running_table
+            or resource["order"] > job_obj.resume
+            or job_obj.steps[job_obj.resume].is_running
+        )
+
+    def _launch_step_thread(self, job_obj):
+        new_thread = threading.Thread(target=self.run_step, args=(job_obj,), daemon=True)
+        new_thread.start()
+
+    def _checkpoint_reason_for_resource(
+        self,
+        resource,
+        host_cpu_available,
+        host_memory_available,
+        host_disk_free,
+        budget_cpu,
+        budget_memory,
+        budget_disk,
+    ):
+        if self._resource_exceeds(resource.get("cpu"), host_cpu_available, budget_cpu):
+            return CheckPoints.CPU
+        if self._resource_exceeds(resource.get("mem"), host_memory_available, budget_memory):
+            return CheckPoints.MEMORY
+        if "disk" in resource and self._resource_exceeds(
+            resource.get("disk"), host_disk_free, budget_disk
+        ):
+            return CheckPoints.DISK
+        return None
+
+    def pick_next_job(
+        self,
+        job_table,
+        host_cpu_available,
+        host_memory_available,
+        host_disk_free,
+        budget_cpu,
+        budget_memory,
+        budget_disk,
+    ):
+        biggest_cpu = None
+        biggest_job = None
+
+        for job_id, resource in self.scheduled_resources_sorted:
+            job_obj = job_table[job_id]
+            step_key = (job_id, job_obj.resume)
+
+            if not self._can_schedule_job(job_obj, resource, step_key):
+                continue
+
+            if resource['cpu'] is None and resource['mem'] is None and resource['disk'] is None:
+                if self.running_steps > 0:
+                    job_obj.set_checkpoint_info(CheckPoints.FORMER)
+                    continue
+                self.is_queue_locked = True
+                self._launch_step_thread(job_obj)
+                return None, True
+
+            checkpoint_reason = self._checkpoint_reason_for_resource(
+                resource=resource,
+                host_cpu_available=host_cpu_available,
+                host_memory_available=host_memory_available,
+                host_disk_free=host_disk_free,
+                budget_cpu=budget_cpu,
+                budget_memory=budget_memory,
+                budget_disk=budget_disk,
+            )
+            if checkpoint_reason is not None:
+                job_obj.set_checkpoint_info(checkpoint_reason)
+            else:
+                if biggest_cpu is None or biggest_cpu < resource['cpu']:
+                    biggest_cpu = resource['cpu']
+                    biggest_job = job_obj
+
+        return biggest_job, False
 
     def remove_resources(self, job):
-        if job in self._RESOURCES:
-            del self._RESOURCES[job]
+        if job in self._job_resources:
+            del self._job_resources[job]
 
     @property
     def running_jobs(self):
-        return len(self._QUEUE)
+        return len(self._queued_jobs)
 
     @property
     def running_steps(self):
-        return self._RUNNING_STEPS
+        return self._active_step_count
 
     @property
     def running_table(self):
-        return self._RUNNING_TABLE
+        return self._running_step_keys
 
     @property
     def is_queue_locked(self):
@@ -637,8 +876,21 @@ class JobQueue(object):
                 self._n_retries = int(value)
             else:
                 self._n_retries = 1
-        except:
+        except (TypeError, ValueError):
             self._n_retries = 1
+
+    def _save_job_with_retries(self, job_obj, operation, on_failure=None):
+        for _ in range(self.n_retries):
+            try:
+                job_obj.save()
+                return True
+            except Exception as e:
+                logger.warning(self._db_fail_msg_tpl.format(job=getattr(job_obj, "id", "unknown"), operation=operation))
+                logger.warning(e)
+                if on_failure is not None:
+                    on_failure()
+                time.sleep(1)
+        return False
 
     def _get_user_references(self, user):
         """
@@ -675,22 +927,22 @@ class JobQueue(object):
         """
         with self._lock:
             if resource_dict["cpu"] is not None:
-                self._CPU_POOL += resource_dict["cpu"] * direction
+                self._cpu_pool += resource_dict["cpu"] * direction
             if resource_dict["mem"] is not None:
-                self._MEMORY_POOL += resource_dict["mem"] * direction
+                self._memory_pool += resource_dict["mem"] * direction
             if resource_dict["disk"] is not None:
-                self._DISK_POOL += resource_dict["disk"] * direction
-        return self._CPU_POOL, self._MEMORY_POOL, self._DISK_POOL
+                self._disk_pool += resource_dict["disk"] * direction
+        return self._cpu_pool, self._memory_pool, self._disk_pool
 
     def _parse_api_job(self, job_db_obj):
-        protocol_cache_key = job_db_obj.protocol.ver
         pid = job_db_obj.protocol.id
         p_ver = job_db_obj.protocol_ver
-        if pid in self._PROTOCOL_CACHE and self._PROTOCOL_CACHE[pid]["ver"] == p_ver:
-            protocol = self._PROTOCOL_CACHE[pid]
+        protocol_cache_key = f"{pid}:{p_ver}"
+        if protocol_cache_key in self._protocol_cache:
+            protocol = self._protocol_cache[protocol_cache_key]
         else:
             protocol = Protocol(poj=job_db_obj.protocol, settings=self._settings)
-            self._PROTOCOL_CACHE[protocol_cache_key] = protocol
+            self._protocol_cache[protocol_cache_key] = protocol
 
         # if the two versions are different, throw out a warning
         if p_ver != protocol.ver:
@@ -704,7 +956,7 @@ class JobQueue(object):
 
     def fetch_jobs(self, n_jobs=None):
         if n_jobs is None:
-            n_jobs = self.MAX_JOB - self.running_jobs
+            n_jobs = self._max_concurrent_jobs - self.running_jobs
         try:
             jobs = Job.objects.filter(status=_JS_WAITING)[:n_jobs]
         except Exception as e:
@@ -714,14 +966,33 @@ class JobQueue(object):
 
         if jobs is not None and len(jobs) > 0:
             for job in jobs:
-                if job.id not in self._QUEUE:  # not in queue
-                    t_job = self._parse_api_job(job_db_obj=job)
+                if job.id not in self._queued_jobs:  # not in queue
+                    try:
+                        t_job = self._parse_api_job(job_db_obj=job)
+                    except Exception as exc:
+                        from QueueDB.protocol_template import ProtocolTemplateError
+
+                        if isinstance(exc, ProtocolTemplateError):
+                            logger.error("Job %s template expansion failed: %s", job.id, exc)
+                            try:
+                                Job.objects.filter(id=job.id).update(status=_JS_WRONG)
+                            except Exception:
+                                logger.exception("Failed to mark job %s failed after template error", job.id)
+                            continue
+                        raise
                     self.enqueue(t_job)
                 else:  # already in queue
                     continue
 
     def query_job_status(self, job_id):
-        return Job.objects.get(id=job_id).status
+        for _ in range(self.n_retries):
+            try:
+                return Job.objects.get(id=job_id).status
+            except Exception as e:
+                logger.warning(f"Failed to query dependent job status for job id {job_id}")
+                logger.warning(e)
+                time.sleep(1)
+        return None
 
     def forecast_step(self, step):
         """
@@ -761,14 +1032,24 @@ class JobQueue(object):
             for child in children:
                 try:
                     child.terminate()
-                except:
-                    pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
             gone, still_alive = psutil.wait_procs(children, timeout=3)
             for p in still_alive:
                 p.kill()
             proc.kill()
-        except:
-            pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return
+
+    @staticmethod
+    def _resource_exceeds(required, available, total):
+        """
+        Check if a required resource exceeds currently available/total values.
+        None means "unknown/unlimited" and should not block scheduling.
+        """
+        if required is None:
+            return False
+        return required > available or required > total
 
     def finish_step(self, job, is_error=0):
         """
@@ -827,7 +1108,7 @@ class JobQueue(object):
         import cluster_support
         step_obj = job.steps[job.resume]
         if step_obj.resources['cpu'] is None:
-            allocate_cpu = step_obj['cluster']['cpu']
+            allocate_cpu = self._settings['cluster']['cpu']
         else:
             from math import ceil
             predict_cpu = int(ceil(round(step_obj.resources['cpu']) / 100))
@@ -844,14 +1125,19 @@ class JobQueue(object):
         else:
             allocate_vrt = bases.bytes_to_readable(step_obj.resources['vrt_mem'])
 
+        if getattr(step_obj, "is_shell", False):
+            script_path = step_obj.write_shell_script(job.run_folder, job.resume)
+            cluster_cmd = "bash %s" % script_path
+        else:
+            cluster_cmd = " ".join(step_obj.command)
         if 'trace' in step_obj.resources:
             # learn
-            return_code = cluster_support.main(self._settings['cluster']['type'], ' '.join(step_obj.command),
+            return_code = cluster_support.main(self._settings['cluster']['type'], cluster_cmd,
                                                job.job_id, job.resume, allocate_cpu, allocate_mem, allocate_vrt,
                                                self._settings['cluster']['new_queue'], job.run_folder,
-                                               stdout_to, self._settings['cluster']['walltime'], 1, job.resources['trace'])
+                                               stdout_to, self._settings['cluster']['walltime'], 1, step_obj.resources['trace'])
         else:
-            return_code = cluster_support.main(self._settings['cluster']['type'], ' '.join(step_obj.command),
+            return_code = cluster_support.main(self._settings['cluster']['type'], cluster_cmd,
                                                job.job_id, job.resume, allocate_cpu, allocate_mem, allocate_vrt,
                                                self._settings['cluster']['new_queue'], job.run_folder,
                                                stdout_to, self._settings['cluster']['walltime'])
@@ -876,34 +1162,25 @@ class JobQueue(object):
         """
         # for local environment or cloud
         logger.info("Now run {job_id} - {step_id}".format(job_id=job.job_id, step_id=job.resume))
-        logger.info("Resource pool: CPU {cpu}, Memory {mem}, Disk {disk}".format(cpu=self._CPU_POOL,
-                                                                                 mem=self._MEMORY_POOL,
-                                                                                 disk=self._DISK_POOL))
+        logger.info("Resource pool: CPU {cpu}, Memory {mem}, Disk {disk}".format(cpu=self._cpu_pool,
+                                                                                 mem=self._memory_pool,
+                                                                                 disk=self._disk_pool))
+        runner = ProcessRunner(n_retries=self.n_retries, kill_process_fn=JobQueue.kill_proc)
 
         if os.path.exists(self._settings["env"]["log"]):
             with open(stdout_to, "a") as log_file_handler:
                 with open(stderr_to, "a") as err_file_handler:
                     try:
                         step_obj = job.steps[job.resume]
-                        true_shell = bases.check_shell_sig(step_obj.command)
                         logger.info(step_obj.command)
-                        # record software version
-                        if step_obj.version_check != "":
-                            p = subprocess.Popen(step_obj.version_check, shell=True,
-                                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            ver, _ = p.communicate()
-                            ver = ver.decode("utf-8")
-                            job.update_snapshot("version", str(job.resume), ver)
-                        if true_shell:
-                            step_process = subprocess.Popen(' '.join(step_obj.command), shell=True,
-                                                            stdout=log_file_handler,
-                                                            stderr=err_file_handler,
-                                                            cwd=job.run_folder)
-                        else:
-                            step_process = subprocess.Popen(step_obj.command, shell=False, stdout=log_file_handler,
-                                                            stderr=err_file_handler, cwd=job.run_folder)
-
-                        process_id = step_process.pid
+                        runner.record_version(step_obj=step_obj, job=job)
+                        step_process = runner.spawn_step(
+                            step_obj=step_obj,
+                            run_folder=job.run_folder,
+                            log_file_handler=log_file_handler,
+                            err_file_handler=err_file_handler,
+                            step_index=job.resume,
+                        )
                         if "learn" in step_obj.resources and step_obj.resources["learn"] == 1:
                             training = Training(step_hash=step_obj._md5_hex, input=job.input_size, lock=1)
                             training.save()
@@ -915,28 +1192,11 @@ class JobQueue(object):
                                                               "-j", str(trace_id)],
                                                              shell=False, stdout=None,
                                                              stderr=subprocess.STDOUT)
-                        # check if user requests for a termination
-                        while step_process.poll() is None:
-                            if process_id in psutil.pids():
-                                proc_info = psutil.Process(process_id)
-                                if proc_info.is_running():
-                                    for _ in range(self.n_retries):
-                                        try:
-                                            _j = Job.objects.get(id=job.job_id)
-                                            if _j.ter:
-                                                JobQueue.kill_proc(proc_info)
-                                                # self.finish_step(job, is_error=1)
-                                                return 2
-                                            break
-                                        except Exception as e:
-                                            logger.warning(f"Failed to retrieve job (id: {job.job_id}) status from the database")
-                                            logger.exception(e)
-
-                            time.sleep(30)
+                        rc = runner.wait_for_completion(step_process=step_process, job_id=job.job_id)
                         logger.info("Now job {job_id} - {step_id} finished ({rc})".format(job_id=job.job_id,
                                                                                           step_id=job.resume,
-                                                                                          rc=step_process.returncode))
-                        return step_process.returncode
+                                                                                          rc=rc))
+                        return rc
                     except Exception as e:
                         logger.info(
                             "Job {job_id} - {step_id} failed".format(job_id=job.job_id, step_id=job.resume))
@@ -948,9 +1208,10 @@ class JobQueue(object):
         current_job_id = job_obj.job_id
         step_obj = job_obj.steps[job_obj.resume]
         step_key = (current_job_id, job_obj.resume)
+        step_started = False
         with self._lock:
             step_obj.is_running = 1
-            self._RUNNING_TABLE.add(step_key)
+            self._running_step_keys.add(step_key)
 
         if os.path.exists(self._settings["env"]["log"]):
             try:
@@ -961,10 +1222,12 @@ class JobQueue(object):
 
                 if len(step_obj.dependent_jobs) > 0:
                     for sd in step_obj.dependent_jobs:
-                        while self.query_job_status(job_id=sd) != -1:
+                        dep_status = self.query_job_status(job_id=sd)
+                        while dep_status is not None and dep_status != -1:
                             # update checkpoint information for this job (waiting for dependent jobs)
                             job_obj.set_checkpoint_info(checkpoint=CheckPoints.DEPENDENCE)
-                            time.sleep(30)
+                            time.sleep(DEPENDENCY_WAIT_INTERVAL)
+                            dep_status = self.query_job_status(job_id=sd)
 
                 log_file = os.path.join(self._settings["env"]["log"], "{job_id}.log".format(job_id=job_obj.job_id))
                 errlog_file = os.path.join(self._settings["env"]["log"], "{job_id}.err".format(job_id=job_obj.job_id))
@@ -973,13 +1236,14 @@ class JobQueue(object):
                     return
 
                 with self._lock:
-                    self._RUNNING_STEPS += 1
+                    self._active_step_count += 1
+                    step_started = True
                 try:
                     job_obj.db_obj.status = _JS_RUNNING
                     job_obj.db_obj.resume = job_obj.resume
-                    job_obj.db_obj.save()
+                    self._save_job_with_retries(job_obj.db_obj, operation="update step status")
                 except Exception as e:
-                    logger.warning(self._db_fail_msg_tpl.format(job=current_job_id, operation="update step status"))
+                    logger.warning(f"Unexpected failure while preparing DB state for {current_job_id}")
                     logger.warning(e)
 
                 if self._settings['cluster']['type'] and not step_obj.force_local:
@@ -998,9 +1262,10 @@ class JobQueue(object):
                 logger.exception(e)
             finally:
                 with self._lock:
-                    if step_key in self._RUNNING_TABLE:
-                        self._RUNNING_TABLE.remove(step_key)
-                        self._RUNNING_STEPS -= 1
+                    if step_key in self._running_step_keys:
+                        self._running_step_keys.remove(step_key)
+                        if step_started and self._active_step_count > 0:
+                            self._active_step_count -= 1
                         step_obj.is_running = 0
         else:
             logger.error("Cannot access {path}".format(path=self._settings["env"]["log"]))
@@ -1024,105 +1289,85 @@ def maintenance():
 
 
 def check_settings(settings):
+    required_paths = [
+        ("env", "workspace"),
+        ("env", "log"),
+        ("env", "max_job"),
+        ("cluster", "type"),
+    ]
+    for section, key in required_paths:
+        if section not in settings or key not in settings[section]:
+            logger.error(f"Invalid settings: missing '{section}.{key}'")
+            return 0
     return 1
 
 
 def main(n_retries=3):
     logger.info("Initiating BioQueue worker")
-    settings = get_all_config()
+    settings = bases.get_all_config()
     assert check_settings(settings), "Settings is not valid"
     # check configuration
-    CPU_POOL, MEMORY_POOL, DISK_POOL, VRT_POOL = get_init_resource()
-    job_queue = JobQueue(max_job=settings["env"]["max_job"], cpu_pool=CPU_POOL,
-                         memory_pool=MEMORY_POOL, disk_pool=DISK_POOL, work_dir=settings["env"]["workspace"],
-                         settings=settings, n_retries=n_retries)
+    initial_cpu_budget, initial_memory_budget, initial_disk_budget, _initial_vrt_budget = bases.get_init_resource()
+    job_queue = JobQueue(
+        max_job=settings["env"]["max_job"],
+        cpu_pool=initial_cpu_budget,
+        memory_pool=initial_memory_budget,
+        disk_pool=initial_disk_budget,
+        work_dir=settings["env"]["workspace"],
+        settings=settings,
+        n_retries=n_retries,
+    )
     job_queue.clean_dead_jobs()
+    consecutive_failures = 0
 
     while True:
         try:
-            settings = get_all_config()
-            cpu_indeed = get_cpu_available()
-            mem_indeed, vrt_indeed = get_memo_usage_available()
-            disk_indeed = get_disk_free(settings["env"]["workspace"])
+            settings = bases.get_all_config()
+            job_queue.refresh_runtime_settings(settings)
+            host_cpu_available = bases.get_cpu_available()
+            host_memory_available, _host_vrt_available = bases.get_memo_usage_available()
+            host_disk_free = bases.get_disk_free(settings["env"]["workspace"])
 
             job_queue.fetch_jobs()
-            JOB_TABLE = job_queue.get_queue()
-            sorted_jobs = {k: JOB_TABLE[k] for k in sorted(JOB_TABLE)}
-
-            for job_id, job_obj in sorted_jobs.items():
-                # previous_step = job_obj.get_prev_step()
-                now_step = job_obj.get_current_step()
-
-                if now_step is None or now_step.is_running:
-                    continue
-
-                job_queue.set_resources(job_id, now_step.resources)
-
-            biggest_cpu = None
-            biggest_mem = None
-            biggest_job = None
+            job_table = job_queue.queued_jobs_snapshot()
+            job_queue.collect_schedulable_resources(job_table)
 
             if job_queue.is_queue_locked:
+                time.sleep(1)
                 continue
-            # greedy algorithm
-            for index, job_desc in enumerate(job_queue.get_resources):
-                # items = job_desc.split('_')
-                job_id = job_desc[0]
-                resource = job_desc[1]
-                # step_order = int(items[1])
-                job_obj = JOB_TABLE[job_id]
-                step_order = job_obj.resume
-                step_key = (job_id, job_obj.resume)
 
-                if job_obj.status > 0 or step_key in job_queue.running_table or resource["order"] > step_order or job_obj.steps[job_obj.resume].is_running:
-                    continue
-
-                if resource['cpu'] is None \
-                        and resource['mem'] is None \
-                        and resource['disk'] is None:
-                    if job_queue.running_steps > 0:
-                        job_obj.set_checkpoint_info(CheckPoints.FORMER)
-                    else:
-                        # lock the queue to prevent other jobs also get into the queue
-                        job_queue.is_queue_locked = True
-                        new_thread = threading.Thread(target=job_queue.run_step, args=(job_obj, ))
-                        new_thread.setDaemon(True)
-                        new_thread.start()
-                    break
-                else:
-                    if resource['cpu'] > cpu_indeed or resource['cpu'] > CPU_POOL:
-                        job_obj.set_checkpoint_info(CheckPoints.CPU)
-                    elif resource['mem'] > mem_indeed or resource['mem'] > MEMORY_POOL:
-                        job_obj.set_checkpoint_info(CheckPoints.MEMORY)
-                    elif "disk" in resource and (
-                            resource['disk'] > disk_indeed or resource['disk'] > DISK_POOL):
-                        job_obj.set_checkpoint_info(CheckPoints.DISK)
-                    else:
-                        if biggest_cpu is None:
-                            biggest_cpu = resource['cpu']
-                        if biggest_mem is None:
-                            biggest_mem = resource['mem']
-                        if biggest_job is None:
-                            biggest_job = job_obj
-
-                        if biggest_cpu < resource['cpu']:
-                            biggest_cpu = resource['cpu']
-                            biggest_mem = resource['mem']
-
-                            biggest_job = job_obj
+            biggest_job, queue_locked = job_queue.pick_next_job(
+                job_table=job_table,
+                host_cpu_available=host_cpu_available,
+                host_memory_available=host_memory_available,
+                host_disk_free=host_disk_free,
+                budget_cpu=initial_cpu_budget,
+                budget_memory=initial_memory_budget,
+                budget_disk=initial_disk_budget,
+            )
+            if queue_locked:
+                continue
             if biggest_job is not None:
-                new_thread = threading.Thread(target=job_queue.run_step, args=(biggest_job, ))
-                new_thread.setDaemon(True)
-                new_thread.start()
-            biggest_job = None
-            time.sleep(5)
+                job_queue._launch_step_thread(biggest_job)
+            consecutive_failures = 0
+            time.sleep(SCHEDULER_LOOP_INTERVAL)
         except Exception as e:
             logger.exception(e)
+            consecutive_failures += 1
+            backoff_seconds = min(MAX_MAIN_LOOP_BACKOFF, 2 ** min(consecutive_failures, 6))
+            if isinstance(e, (DatabaseError, OperationalError, InterfaceError)):
+                logger.warning("Database error detected, closing Django connections before retry")
+                try:
+                    connections.close_all()
+                except Exception:
+                    logger.exception("Failed to close Django DB connections cleanly")
+            logger.warning(f"Worker loop backing off for {backoff_seconds}s (failure #{consecutive_failures})")
+            time.sleep(backoff_seconds)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="BioQueue worker")
-    parser.add_argument("--n-retry", default=3,
+    parser.add_argument("--n-retry", type=int, default=3,
                         help="Number of retries allowed when a transaction to the database is failed")
     parser.add_argument("--concise", action="store_true", default=False,
                         help="Less verbose")

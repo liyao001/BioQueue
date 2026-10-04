@@ -7,10 +7,13 @@ try:
 except ImportError:
     from configparser import ConfigParser
 
+import logging
 import os
 import psutil
 import magic
 from multiprocessing import cpu_count
+
+logger = logging.getLogger("BioQueue.bases")
 
 
 def config_init(const=0):
@@ -22,10 +25,10 @@ def config_init(const=0):
     config = ConfigParser()
     if const == 1:
         path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
-    # elif const == 2:
-    #     path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/file_support.conf'
     else:
-        path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
+        path = os.environ.get("BIOQUEUE_CUSTOM_CONF") or (
+            os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
+        )
     config.read(path)
     return config
 
@@ -58,7 +61,8 @@ def get_config(section, key, const=0):
     try:
         config = config_init(const)
         return config.get(section, key)
-    except:
+    except Exception as e:
+        logger.debug("get_config(%r, %r): %s", section, key, e)
         return None
 
 
@@ -78,7 +82,20 @@ def set_config(section, key, value, const=0):
     else:
         file_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
 
-    config.write(open(file_path, "w"))
+    with open(file_path, "w") as fh:
+        config.write(fh)
+
+
+def os_to_int():
+    """Map platform.system() to BioQueue's historic OS codes: Linux=1, Windows=2, Darwin=3."""
+    import platform
+
+    system = platform.system()
+    if system == "Linux":
+        return 1
+    if system == "Darwin":
+        return 3
+    return 2
 
 
 def rand_sig():
@@ -99,13 +116,19 @@ def record_job(job_id, logs):
     :param logs: string
     :return: None
     """
-    file_name = os.path.join(get_config("env", "log"), str(job_id))
-    fo = open(file_name, "a")
-    if isinstance(logs, list):
-        fo.writelines(logs)
-    else:
-        fo.write(logs)
-    fo.close()
+    log_root = get_config("env", "log")
+    if not log_root:
+        logger.warning("record_job: env.log not configured, skipping")
+        return
+    file_name = os.path.join(log_root, str(job_id))
+    try:
+        with open(file_name, "a") as fo:
+            if isinstance(logs, list):
+                fo.writelines(logs)
+            else:
+                fo.write(logs)
+    except OSError as e:
+        logger.warning("record_job(%s): %s", job_id, e)
 
 
 def m_cpu_count():
@@ -157,9 +180,9 @@ def get_folder_size(folder):
             for fn in files:
                 file_name = os.path.join(path, fn)
                 folder_size += os.path.getsize(file_name)
-    except:
-        pass
-    
+    except OSError as e:
+        logger.warning("get_folder_size(%r): %s", folder, e)
+
     return folder_size
 
 
@@ -245,6 +268,40 @@ def get_bioqueue_version():
     return version
 
 
+# Pickle files are trusted only as far as local worker paths; still bound size to limit DoS / accidents.
+PICKLE_MAX_JOB_OUTPUT_BYTES = 50 * 1024 * 1024
+PICKLE_MAX_LEARNING_BYTES = 1 * 1024 * 1024
+
+
+def safe_pickle_load(path, max_bytes=PICKLE_MAX_JOB_OUTPUT_BYTES):
+    """
+    Load a pickle from disk with a maximum file size guard.
+
+    Note: pickle can execute arbitrary code if the file is hostile; only load
+    paths written by this worker under controlled directories.
+    """
+    import pickle
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        size = os.path.getsize(path)
+    except OSError as e:
+        logger.warning("safe_pickle_load: stat %r: %s", path, e)
+        return None
+    if size > max_bytes:
+        logger.warning(
+            "safe_pickle_load: file too large (%s > %s bytes): %r",
+            size, max_bytes, path,
+        )
+        return None
+    try:
+        with open(path, "rb") as fh:
+            return pickle.load(fh)
+    except Exception as e:
+        logger.warning("safe_pickle_load: failed %r: %s", path, e)
+        return None
+
+
 def get_remote_size_factory(url):
     url = url.strip()
     if len(url) <= 4:
@@ -262,38 +319,45 @@ def get_remote_size_factory(url):
 def save_output_dict(dic, job):
     try:
         import pickle
-        fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
-        ff = open(fp, mode='wb')
-        pickle.dump(dic, ff)
-        ff.close()
+        out_dir = get_config('env', 'outputs')
+        if not out_dir:
+            logger.warning("save_output_dict: env.outputs not configured")
+            return
+        fp = os.path.join(out_dir, 'output_' + str(job))
+        fp_tmp = fp + '.tmp'
+        with open(fp_tmp, mode='wb') as ff:
+            pickle.dump(dic, ff)
+        os.replace(fp_tmp, fp)
     except Exception as e:
-        print(e)
-        pass
+        logger.warning("save_output_dict(job=%s): %s", job, e)
 
 
 def load_output_dict(job):
-    import pickle
-    fp = os.path.join(get_config('env', 'outputs'), 'output_' + str(job))
-    if os.path.exists(fp):
-        try:
-            ff = open(fp, mode='rb')
-            dic = pickle.load(ff)
-            ff.close()
-            return dic
-        except Exception as e:
-            print(e)
-            return {}
-    else:
+    out_dir = get_config('env', 'outputs')
+    if not out_dir:
         return {}
+    fp = os.path.join(out_dir, 'output_' + str(job))
+    if not os.path.isfile(fp):
+        return {}
+    loaded = safe_pickle_load(fp, max_bytes=PICKLE_MAX_JOB_OUTPUT_BYTES)
+    if loaded is None:
+        return {}
+    if not isinstance(loaded, dict):
+        logger.warning("load_output_dict(job=%s): expected dict, got %s", job, type(loaded))
+        return {}
+    return loaded
 
 
 def del_output_dict(job):
-    fp = os.path.join(get_config('env', 'outputs'), str(job))
+    out_dir = get_config('env', 'outputs')
+    if not out_dir:
+        return
+    fp = os.path.join(out_dir, str(job))
     if os.path.exists(fp):
         try:
             os.remove(fp)
-        except Exception as e:
-            print(e)
+        except OSError as e:
+            logger.warning("del_output_dict(job=%s): %s", job, e)
 
 
 def build_upload_file_path(user_folder, file_name):
@@ -396,7 +460,9 @@ def check_shell_sig(command_tuple):
         if command_tuple[0] == "R":
             true_shell = 1
     except Exception as e:
-        print(e)
+        logger.debug("check_shell_sig: %s", e)
+    if command_tuple and command_tuple[0] == "__SHELL__":
+        true_shell = 1
 
     return true_shell
 

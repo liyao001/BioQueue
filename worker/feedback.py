@@ -6,9 +6,14 @@
 # @License: Apache
 # @Bitbutcket: https://bitbucket.org/li_yao/
 # @Github: https://github.com/liyao001
-import requests
 import base64
-from .bases import get_config, get_bioqueue_version
+import logging
+
+import requests
+
+from .bases import get_config, get_bioqueue_version, get_job_log, os_to_int
+
+logger = logging.getLogger("BioQueue.feedback")
 
 
 def feedback(software, parameter, mail):
@@ -30,8 +35,8 @@ def feedback(software, parameter, mail):
     try:
         fb_url = get_config('program', 'api', 1) + '/Gate/feedback'
         _ = requests.get(fb_url, params=get_data_dict, timeout=3)
-    except:
-        pass
+    except Exception as e:
+        logger.debug("feedback: %s", e)
 
 
 def get_error_log(file_path):
@@ -42,10 +47,9 @@ def get_error_log(file_path):
     """
     error_log = ''
     try:
-        from bases import get_job_log
         error_log = get_job_log(file_path)
-    except:
-        pass
+    except Exception as e:
+        logger.debug("get_error_log(%r): %s", file_path, e)
     return error_log
 
 
@@ -69,7 +73,7 @@ def feedback_protocol(user_mail, formatted_protocol):
         protocol_json = json.loads(data.text)
         return protocol_json
     except Exception as e:
-        print(e)
+        logger.warning("feedback_protocol: %s", e)
         return None
 
 
@@ -91,8 +95,8 @@ def feedback_error(software, parameter, error_message, mail=''):
     try:
         fb_url = get_config('program', 'api', 1) + '/Gate/error_feedback'
         _ = requests.post(fb_url, data=post_data_dict, timeout=3)
-    except:
-        pass
+    except Exception as e:
+        logger.debug("feedback_error: %s", e)
 
 
 def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, mem_b, mem_r, disk_a, disk_b, disk_r, mail=''):
@@ -112,7 +116,6 @@ def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, m
     :param disk_r: float, disk r
     :return:
     """
-    from ui.tools import os_to_int
     post_data_dict = dict()
     post_data_dict['cpu'] = get_config('env', 'cpu')
     post_data_dict['mem'] = get_config('env', 'memory')
@@ -136,5 +139,5 @@ def feedback_checkpoint(software, parameter, hash, cpu_a, cpu_b, cpu_r, mem_a, m
     try:
         fb_url = get_config('program', 'api', 1) + '/Gate/cb_feedback'
         t = requests.post(fb_url, data=post_data_dict, timeout=3)
-    except:
-        pass
+    except Exception as e:
+        logger.debug("feedback_checkpoint: %s", e)

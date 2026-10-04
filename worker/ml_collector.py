@@ -1,4 +1,4 @@
-#!/usr/local/bin python
+#!/usr/bin/env python
 from __future__ import print_function
 import psutil
 import time
@@ -126,8 +126,8 @@ def main():
             training_item.vrt_mem = vrt_mem_usage
             training_item.cpu = cpu_usage
             training_item.save()
-        except:
-            pass
+        except Exception as e:
+            print("ml_collector: failed to persist training %s: %s" % (job_id, e))
 
     else:
         sys.exit()

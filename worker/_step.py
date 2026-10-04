@@ -20,7 +20,8 @@ import html
 import logging
 from scipy.stats import linregress
 import numpy as np
-from QueueDB.models import Job, Training, Prediction, _JS_FINISHED, _JS_WRONG, _PD_DISK, _PD_MEM, _PD_CPU, _PD_VRTMEM
+from django.contrib.auth.models import User
+from QueueDB.models import Job, Training, Prediction, CrossAccess, _JS_FINISHED, _JS_WRONG, _PD_DISK, _PD_MEM, _PD_CPU, _PD_VRTMEM
 logger = logging.getLogger("BioQueue - Step")
 
 
@@ -28,7 +29,7 @@ class _Step(object):
     def _predict_resource(self):
         pass
 
-    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, version_check, settings):
+    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, version_check, settings, gpu_step: bool = False):
         self._software = software
         self._parameter = parameter
         self._command = html.unescape(str(self._software).rstrip() + " " + str(self._parameter))
@@ -43,9 +44,15 @@ class _Step(object):
         self._translated_command = ""
         self._resources = None
         self._is_running = False
+        self._gpu_step = gpu_step
         self._ver_check = version_check
         self._dependent_jobs = set()
         self._prev_error_jobs = set()
+        self._assigned_gpu = None
+        self._shell_script = ""
+        self.shell_tag = _Step.SHELL_TAG
+
+    SHELL_TAG = "__SHELL__"
 
     def __str__(self):
         if self._translated_command != "":
@@ -96,16 +103,72 @@ class _Step(object):
         return self._software
 
     @property
+    def is_shell(self):
+        return str(self._software or "").strip() == self.SHELL_TAG
+
+    def _strip_shell_tag(self, command):
+        body = command.lstrip()
+        tag = self.SHELL_TAG
+        if body.startswith(tag):
+            body = body[len(tag):]
+            if body.startswith(" ") or body.startswith("\t"):
+                body = body[1:]
+        return body.lstrip("\n")
+
+    @property
+    def shell_script(self):
+        return self._shell_script
+
+    def write_shell_script(self, run_folder, step_index=0):
+        """Write the translated shell body into the job folder for bash to run."""
+        name = ".bq_step_{}.sh".format(step_index)
+        path = os.path.join(run_folder, name)
+        body = self._shell_script if self._shell_script else self._strip_shell_tag(self._command)
+        if not body.endswith("\n"):
+            body += "\n"
+        with open(path, "w") as fh:
+            fh.write("#!/usr/bin/env bash\n")
+            fh.write(body)
+        try:
+            os.chmod(path, 0o755)
+        except OSError:
+            pass
+        return path
+
+    @property
     def parameter(self):
         return self._parameter
 
     @property
     def command(self):
+        if self.is_shell:
+            return self.shell_script
         return self._translated_command
 
     @property
     def md5_hex(self):
         return self._md5_hex
+    
+    @property
+    def run_as_shell(self):
+        if self.is_shell:
+            return 1
+        redirect_tags = ('>', '<', '|', ';', '*', '&&', '>>', '||', '$(')
+        true_shell = 0
+        try:
+            for rt in redirect_tags:
+                if rt in self._translated_command:
+                    true_shell = 1
+                    break
+            for c in self._translated_command:
+                if c.find("*") != -1 or c.startswith('"') or c.endswith('"') or c.find("$(") != -1:
+                    true_shell = 1
+                    break
+            if self._translated_command and self._translated_command[0] == "R":
+                true_shell = 1
+        except Exception as e:
+            logger.exception(e)
+        return true_shell
 
     @property
     def force_local(self):
@@ -114,17 +177,29 @@ class _Step(object):
     @property
     def is_running(self):
         return self._is_running
-
-    @property
-    def version_check(self):
-        return self._ver_check
-
+    
     @is_running.setter
     def is_running(self, value):
         try:
             self._is_running = bool(value)
         except:
             pass
+
+    @property
+    def version_check(self):
+        return self._ver_check
+    
+    @property
+    def gpu_step(self):
+        return self._gpu_step
+    
+    @property
+    def assigned_gpu(self) -> int:
+        return self._assigned_gpu
+    
+    @assigned_gpu.setter
+    def assigned_gpu(self, value):
+        self._assigned_gpu = value
 
     @staticmethod
     def _last_output_map(par, new_files):
@@ -239,6 +314,35 @@ class _Step(object):
         return par, need_to_wait, error_flag
 
     @staticmethod
+    def _cross_access_map(par, user):
+        need_to_wait = set()
+        error_flag = 0
+        ca_replacement = re.compile("\\{\\{CrossAccess:(\\d+)-(\\d+)-(.*?)\\}\\}", re.IGNORECASE | re.DOTALL)
+        for ca_item in re.findall(ca_replacement, par):
+            try:
+                grantor = User.objects.get(id=int(ca_item[0]))
+                access_record = CrossAccess.objects.get(user=grantor, grantee=user)
+                if access_record.allow_read:
+                    history_id = int(ca_item[1])
+                    history_file = ca_item[2]
+                    history_record = Job.objects.get(id=history_id, user=grantor)
+                    if history_record.status > _JS_FINISHED:  # dependent job is still running
+                        need_to_wait.add(history_id)
+                    elif history_record.status == _JS_WRONG:  # dependent job is malformed
+                        error_flag = 1
+                        need_to_wait.add(history_id)
+                    history_rep = os.path.join(history_record.run_dir, str(grantor.id), history_record.result)
+                    history_rep = os.path.join(history_rep, history_file)
+                    par = par.replace('{{CrossAccess:' + ca_item[0] + '-' + str(history_id) + '-' + history_file + '}}', history_rep)
+                else:
+                    logger.error("User {0} doesn't have read access for {1}'s jobs".format(user, grantor.id))
+            except CrossAccess.DoesNotExist:
+                logger.error("No CrossAccess record for {0} from {1}".format(user, grantor.id))
+            except Exception as e:
+                logger.exception(e)
+        return par, need_to_wait, error_flag
+
+    @staticmethod
     def _parameter_string_to_list(par):
         import shlex
         parameter_string = shlex.shlex(par)
@@ -254,7 +358,6 @@ class _Step(object):
         Parameters
         ----------
         job :
-        connector :
 
         Returns
         -------
@@ -265,7 +368,6 @@ class _Step(object):
 
         self._command = self._command.replace("{{Job}}", str(job.job_id))
         self._command = self._command.replace("{{JobName}}", str(job.job_name))
-
         self._command = self._command.replace("{{LastOutput}}", job.last_output_string)
         self._command = self._command.replace("{{AllOutputBefore}}", " ".join(job.outputs))
         self._command = _Step._last_output_map(self._command, job.newfiles)
@@ -274,9 +376,14 @@ class _Step(object):
         self._command = _Step._output_file_map(self._command, job.output_dict)
         self._command, outside_size = _Step._input_file_map(self._command, job.job_input_files, job.user_folder)
         self._command = _Step._suffix_map(self._command, job.output_dict_suffix, job.last_output_suffix)
-        self._command, waiting_parent, is_error = _Step._history_map(self._command, job.job_user)
+        self._command, waiting_parent_1, is_error_1 = _Step._history_map(self._command, job.job_user)
+        self._command, waiting_parent_2, is_error_2 = _Step._cross_access_map(self._command, job.job_user)
+        waiting_parent = waiting_parent_1.union(waiting_parent_2)
+        is_error = is_error_1 | is_error_2
+
         for waiting_job in waiting_parent:
-            self.add_dependent_jobs(waiting_job)
+            if waiting_job != job.job_id:  # avoid dead lock
+                self.add_dependent_jobs(waiting_job)
         self._command, outside_size_upload = _Step._upload_file_map(self._command, job.user_folder)
         outside_size += outside_size_upload
         self._command = self._command.replace("{{Workspace}}", job.run_folder)
@@ -295,23 +402,26 @@ class _Step(object):
         else:
             self._command = self._command.replace("{{ThreadN}}", str(self._settings["env"]["cpu"]))
 
-        # support for virtual envs
+        conda_activate = ""
         if self._env is not None and self._env.ve_type != "":
-            # for conda environment
             if self._env.ve_type == "conda":
+                conda_activate = "conda activate " + str(self._env.value).strip()
                 if self._env.activation_command is not None and self._env.activation_command != "":
-                    self._command = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._command
-                    if self._ver_check != "":
-                        self._ver_check = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._ver_check
-                else:
-                    self._command = "conda activate " + self._env.value + "&&" + self._command
-                    if self._ver_check != "":
-                        self._ver_check = self._env.activation_command + " && conda activate " + self._env.value + "&&" + self._ver_check
-                self._command += " && conda deactivate"
+                    conda_activate = str(self._env.activation_command).strip() + " && " + conda_activate
                 if self._ver_check != "":
-                    self._ver_check += " && conda deactivate"
+                    self._ver_check = conda_activate + " && " + self._ver_check + " && conda deactivate"
 
-        self._translated_command = _Step._parameter_string_to_list(self._command)
+        if self.is_shell:
+            body = self._strip_shell_tag(self._command)
+            if conda_activate:
+                self._shell_script = conda_activate + "\n" + body + "\nconda deactivate\n"
+            else:
+                self._shell_script = body
+            self._translated_command = [self.SHELL_TAG]
+        else:
+            if conda_activate:
+                self._command = conda_activate + " && " + self._command + " && conda deactivate"
+            self._translated_command = _Step._parameter_string_to_list(self._command)
 
     def get_training_items(self):
         """
@@ -339,20 +449,18 @@ class _Step(object):
         :return:
         """
         raw_trainings = Training.objects.filter(step_hash=self._md5_hex, lock=0)
-        tmp_x = []
         tmp_out = []
         tmp_mem = []
         tmp_vrt_mem = []
         tmp_cpu = []
         if raw_trainings is not None and len(raw_trainings) > 0:
             for t in raw_trainings:
-                tmp_x.append(float(t.input) if t.input is not None else np.nan)
                 tmp_out.append(float(t.output) if t.output is not None else np.nan)
                 tmp_mem.append(float(t.mem) if t.mem is not None else np.nan)
                 tmp_vrt_mem.append(float(t.vrt_mem) if t.vrt_mem is not None else np.nan)
                 tmp_cpu.append(float(t.cpu) if t.cpu is not None else np.nan)
 
-        return tmp_x, tmp_out, tmp_mem, tmp_cpu, tmp_vrt_mem
+        return tmp_out, tmp_mem, tmp_cpu, tmp_vrt_mem
 
     def _regression_factory(self, save=0):
         """
@@ -362,7 +470,7 @@ class _Step(object):
         """
         coefficients = dict()
         try:
-            x, out, mem, cpu, vrt_mem = self._load_train_frame()
+            out, mem, cpu, vrt_mem = self._load_train_frame()
             # o for output
             # m for memory
             # c for CPU
@@ -373,7 +481,10 @@ class _Step(object):
                     intercept = np.nanmean(y)
                     r = 1
                 else:
-                    slope, intercept, r, p, se = linregress(x, y)
+                    # slope, intercept, r, p, se = linregress(x, y)
+                    slope = 0
+                    intercept = np.nanmax(y)
+                    r = 1
                     coefficients["r_{l}".format(l=label)] = r
                 if np.isnan(slope) or np.isnan(intercept):
                     coefficients["slope_{l}".format(l=label)] = 0
@@ -414,25 +525,27 @@ class _Step(object):
         :param training_num: int, number of training records
         :return: dict, resource dict
         """
-        predict_need = {}
+        predict_need = {'cpu': 0, 'mem': 0, 'disk': 0, 'vrt_mem': 0}
         try:
             equations = Prediction.objects.filter(step_hash=self._md5_hex)
 
-            if len(equations) > 0 and in_size != -99999.0:
+            if len(equations) >= 3 and in_size != -99999.0:
+                # @todo: check if equations for all items exist
                 for equation in equations:
                     a = float(equation.a)
                     b = float(equation.b)
                     t = equation.type
                     if t == 1:
-                        predict_need['disk'] = (a * in_size + b) * float(self._settings['ml']['confidence_weight_disk'])
+                        predict_need['disk'] = b * float(self._settings['ml']['confidence_weight_disk'])
                     elif t == 2:
-                        predict_need['mem'] = (a * in_size + b) * float(self._settings['ml']['confidence_weight_mem'])
+                        predict_need['mem'] = b * float(self._settings['ml']['confidence_weight_mem'])
                     elif t == 3:
-                        predict_need['cpu'] = (a * in_size + b) * float(self._settings['ml']['confidence_weight_cpu'])
+                        predict_need['cpu'] = b * float(self._settings['ml']['confidence_weight_cpu'])
                     elif t == 4:
-                        predict_need['vrt_mem'] = (a * in_size + b) * float(
+                        predict_need['vrt_mem'] = b * float(
                             self._settings['ml']['confidence_weight_mem'])
             else:
+                print(training_num)
                 if training_num < 1:
                     predict_need['cpu'] = None
                     predict_need['mem'] = None
@@ -465,10 +578,11 @@ class _Step(object):
                             (av * in_size + bv) * float(self._settings['ml']['confidence_weight_mem']))
 
                     if any([pred is None for pred in predict_need.values()]):
-                        return {'cpu': None, 'mem': None, 'disk': None, 'vrt_mem': None}
+                        # return {'cpu': None, 'mem': None, 'disk': None, 'vrt_mem': None}
+                        return {'cpu': 0, 'mem': 0, 'disk': 0, 'vrt_mem': 0}
                     # in case the predicted value is negative (resources will be added to the pool)
                     if any([pred < -1 for pred in predict_need.values()]):
-                        x, out, mem, cpu, vrt_mem = self._load_train_frame()
+                        out, mem, cpu, vrt_mem = self._load_train_frame()
                         for pred_l, trainings in zip(("disk", "mem", "cpu", "vrt_mem"), (out, mem, cpu, vrt_mem)):
                             pred = predict_need[pred_l]
                             if pred <= 0:
@@ -476,7 +590,10 @@ class _Step(object):
 
         except Exception as e:
             logger.exception(e)
-            return {'cpu': None, 'mem': None, 'disk': None, 'vrt_mem': None}
+            # return {'cpu': None, 'mem': None, 'disk': None, 'vrt_mem': None}
+            return {'cpu': 0, 'mem': 0, 'disk': 0, 'vrt_mem': 0}
+        # predict_need["cpu"] = 0
+        # predict_need = {'cpu': 0, 'mem': 0, 'disk': 0, 'vrt_mem': 0}
         return predict_need
 
     def predict_resources_needed(self, job):
@@ -514,15 +631,15 @@ class _Step(object):
             resource_needed['cpu'] = int(self._settings['env']['cpu']) * 95
 
         no_new_learn = 0 if training_num < 10 else 1
-        # if no_new_learn == 0:
-        #     try:
-        #         training = Training(step_hash=self._md5_hex, input=job.input_size, lock=1)
-        #         training.save()
-        #         trace_id = training.id
-        #     except Exception as e:
-        #         logger.exception(e)
-        #         trace_id = None
-        #     # resource_needed['trace'] = trace_id
-        resource_needed['learn'] = 1 if training_num < 10 else 0
+        if no_new_learn == 0:
+            try:
+                training = Training(step_hash=self._md5_hex, input=job.input_size, lock=1)
+                training.save()
+                trace_id = training.id
+            except Exception as e:
+                logger.exception(e)
+                trace_id = None
+            resource_needed["trace"] = trace_id
+        resource_needed["learn"] = 1 if training_num < 10 else 0
 
         return resource_needed

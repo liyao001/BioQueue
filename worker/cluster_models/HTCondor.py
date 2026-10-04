@@ -85,7 +85,7 @@ def build_executable_file(job_id, job_step, protocol, workspace):
     :param workspace: str
     :return: str, file path
     """
-    from ui.tools import os_to_int
+    from worker.bases import os_to_int
     import os
     if os_to_int() == 2:
         job_name = str(job_id) + '-' + str(job_step) + '.bat'
@@ -132,7 +132,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     if not os.path.exists(workspace):
         try:
             os.makedirs(workspace)
-        except:
+        except OSError:
             pass
 
     job_name = str(job_id)+'-'+str(job_step)+'.sub'
@@ -177,7 +177,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
             condor_trace_id = status_m.group(1)
         try:
             os.remove(job_file_path)
-        except:
+        except OSError:
             pass
         return condor_trace_id
     except Exception as e:

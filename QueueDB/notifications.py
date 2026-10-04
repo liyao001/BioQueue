@@ -381,11 +381,11 @@ def deliver(hook, notice, mail_settings=None):
 
 def load_site_mail():
     """``[mail]`` from custom.conf. Missing file or section yields ``{}``."""
-    path = os.environ.get("BIOQUEUE_CUSTOM_CONF") or os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "config",
-        "custom.conf",
-    )
+    path = os.environ.get("BIOQUEUE_CUSTOM_CONF")
+    if not path:
+        from BioQueue.paths import config_file
+
+        path = config_file()
     try:
         from configparser import ConfigParser
 

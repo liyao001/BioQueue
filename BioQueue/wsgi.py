@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/2.2/howto/deployment/wsgi/
 
 import os
 
-from django.core.wsgi import get_wsgi_application
+from BioQueue.paths import django_settings_module
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'BioQueue.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", django_settings_module())
+
+from django.core.wsgi import get_wsgi_application
 
 application = get_wsgi_application()

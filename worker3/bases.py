@@ -26,9 +26,9 @@ def config_init(const=0):
     if const == 1:
         path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
     else:
-        path = os.environ.get("BIOQUEUE_CUSTOM_CONF") or (
-            os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
-        )
+        from BioQueue.paths import config_file
+
+        path = config_file()
     config.read(path)
     return config
 
@@ -80,7 +80,9 @@ def set_config(section, key, value, const=0):
     if const:
         file_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/bioqueue.conf'
     else:
-        file_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/config/custom.conf'
+        from BioQueue.paths import config_file
+
+        file_path = config_file()
 
     with open(file_path, "w") as fh:
         config.write(fh)

@@ -1,64 +1,121 @@
 # BioQueue
-[![document](https://readthedocs.org/projects/bioqueue/badge/?version=latest "document")](https://bioqueue.readthedocs.io/en/latest/?badge=latest)
 
-BioQueue is a researcher-facing bioinformatic platform preferentially to improve the efficiency and robustness of analysis in bioinformatics research by estimating the system resources required by a particular job. At the same time, BioQueue also aims to promote the accessibility and reproducibility of data analysis in biomedical research. Implemented by Python **3.x**, BioQueue can work in both POSIX compatible systems (Linux, Solaris, OS X, etc.) and Windows.
+**Run every analysis in your project, and never lose track of one again.**
+
+BioQueue is a job queue and a project record in one browser app. You write an analysis once as a *protocol*, launch it as *jobs* on your own machine or a cluster, and BioQueue keeps every run's parameters, inputs, logs, and results — plus how the runs feed into each other — organized by project and workspace.
+
+You install it in your own account, the way you would install JupyterLab. No root access, no cluster administrator, no separate database server required.
+
+## Why BioQueue
+
+Most analysis projects end up tracked in a spreadsheet of job IDs, a pile of `nohup.out` and `slurm-1234.out` files, and folder names like `align_v3_final_fixed`. Six months later, nobody can say which parameters produced the figure.
+
+BioQueue replaces that with one place where:
+
+- **Jobs run themselves.** Queue fifty jobs and walk away. BioQueue runs as many at once as your CPU, memory, and disk allow, or submits them to Slurm, LSF, PBS, or HTCondor.
+- **Every run is on the record.** Each job keeps its protocol version, parameters, inputs, notes, stdout/stderr, and results folder. Clone it, rerun it, or resume it from the step that failed.
+- **The project is a graph, not a folder.** Jobs can take another job's outputs as inputs. BioQueue tracks those links, so you can see what a result was built from and what depends on it.
+- **You hear about it when it's done.** Get a message on Slack, Discord, Telegram, email, and others when a job finishes or fails.
+
+## How it fits together
+
+A BioQueue **account is a project**. Everything the project needs lives inside it, and its own folder on disk holds the uploads, results, and archives:
+
+```text
+Project (account)            e.g. liver-regeneration
+├── Protocols                the methods: trim → align → count
+├── References               named paths such as {{hg38}}
+├── Environments             conda / venv activations for steps
+└── Workspaces               parts of the project: RNA-seq, ATAC-seq, Figure 3
+    └── Jobs                 runs: liver_rep1, 8 threads, protocol v3
+        └── Results, logs, notes, links to upstream and downstream jobs
+```
+
+Protocols, references, and environments are defined once per project and reused by every workspace. Workspaces split the project's jobs into the pieces you think in: an assay, a sub-study, or a figure. Each job is one run of a protocol with its own inputs and parameters.
+
+Separate projects stay separate: each account has its own protocols, jobs, and folder, so starting a new project means starting from a clean slate rather than a longer list.
+
+## Highlights
+
+**Write the pipeline once, run it on every sample.** A protocol template describes the per-sample steps once, then the steps that combine all samples. Give a job eight paired-end FASTQ files and BioQueue expands the template into the right commands for four samples, then merges. See [Protocol templates](docs/protocol-templates.md).
+
+**Launch many jobs at a time.** Create a single job, paste a table of jobs, upload a job file, or create an array job with one child per input.
+
+**Chain analyses.** Pick a previous job's output when you create a job, or reference it with a `{{History:…}}` token. BioQueue waits for the upstream job, and the DAG explorer shows the whole chain: what a job depends on and everything built from it.
+
+**Catch problems before they cost hours.** Before the first step runs, the worker checks that the input files exist and that upstream jobs did not fail.
+
+**Recover without starting over.** Resume from the failed step or any step you choose, rerun in place or from a clean folder, and compare a job's parameters with another job or its protocol with the current version.
+
+**Browse results in the browser.** Open a job's results folder to preview, download, rename, or delete files, read its stdout and stderr, or archive the folder when the project is done.
+
+**Size jobs from history.** BioQueue learns how much CPU, memory, and disk each step used before and estimates what the next run needs, so it can pack concurrent jobs without overcommitting the machine.
+
+**Scale when you need to.** The same protocols run locally or on Slurm, LSF, Torque/PBS, or HTCondor. Slurm jobs can also be submitted over SSH from another machine. Named runners let you send specific jobs to specific machines.
+
+**Many projects, one install.** One BioQueue instance can hold several projects, one account each, sharing the same worker and cluster settings. Within a project, each job can be hidden, visible, or shown only in its workspace.
+
 ## Get started
 
-`pip` is the default package manager for BioQueue, so before installing BioQueue, please make sure that you have [pip](https://pip.pypa.io/en/stable/) installed.
+You need Python 3.9 or newer.
 
-### Prerequisites
-
-BioQueue can store data on SQLite, which means users can set up BioQueue without an extra database software. However, to achieve a higher performance, **we suggest users to install MySQL or PostgreSQL**. If you want to set up MySQL or PostgreSQL on your machine, you can visit the wiki page. 
-### 1. Download and setup the BioQueue project
-
-First of all, you will need to clone the project from Github (Or you can download BioQueue by open [this link](https://github.com/liyao001/BioQueue/zipball/master)).
+```bash
+pip install bioqueue
+bioqueue init
+bioqueue
 ```
+
+Or with conda:
+
+```bash
+conda install -c conda-forge bioqueue
+bioqueue init
+bioqueue
+```
+
+A pip install also needs the `libmagic` library (`brew install libmagic` on macOS, or the `libmagic` package on Linux). The conda package includes it.
+
+`bioqueue init` asks for an account name and password, and nothing else. That account is your first project. It creates a data folder at `~/BioQueue` (pass `--data` for another path), uses SQLite, and sizes the worker to this machine's CPU, memory, and disk. The site and the worker share that database file. BioQueue uses WAL mode and waits up to 30 seconds when the other process is writing, so a personal install does not hit the old "database is locked" errors. `bioqueue` with no arguments does the same setup on first run, then starts the web app and the worker together.
+
+For PostgreSQL or MySQL, install the database driver and set `BIOQUEUE_DB_ENGINE` plus the other `BIOQUEUE_DB_*` variables before `bioqueue init`:
+
+```bash
+pip install "bioqueue[postgres]"
+# or: pip install "bioqueue[mysql]"
+# or: conda install -c conda-forge bioqueue psycopg2
+```
+
+To work on the code instead of installing a release:
+
+```bash
 git clone https://github.com/liyao001/BioQueue.git
-Or
-wget https://github.com/liyao001/BioQueue/zipball/master
-```
-Then navigate to the project's directory, and run `install.py` script (All dependent python packages will be automatically installed):
-```
 cd BioQueue
-python install.py
-```
-When running `install.py`, this script will ask you a few questions include:
- 1. CPU cores: The amount of CPU to use. Default value: all cores on that machine.
- 2. Memory (Gb): The amount of memory to use. Default value: all physical memory on that machine.
- 3. Disk quota for each user(Gb, default value: all disk space on that machine).
-
-If you decide to run BioQueue with MySQL or PostgreSQL, the script will ask a few more questions:
- 1. Database host: If you install MySQL server on your own machine, enter `localhost` or `127.0.0.1`.
- 2. Database user: user name of the database.
- 3. Database password: password of the database.
- 4. Database name: Name of the data table.
- 5. Database port: `3306` by default for MySQL
-
-Then the script will interact with you and create a super user account for the platform.
-
-### 2. Start the queue
-
-Run the `bioqueue.py` script in the `BioQueue/worker` folder
-```
-python worker/bioqueue.py
+uv sync
+uv run bioqueue init
+uv run bioqueue
 ```
 
-### 3. Start webserver
+Open <http://127.0.0.1:8000/> and sign in. Create a workspace and a protocol, then a job, and watch it run on the dashboard.
 
-```
-python manage.py runserver 0.0.0.0:8000
-```
-This will start up the server on `0.0.0.0` and port `8000`, so BioQueue can be accessed over the network. If you want access BioQueue only in local environment, remove `0.0.0.0:8000`.
+To start another project, add an account under **Users** in the user menu and sign in as it.
 
-## Useful information
+`Ctrl-C` stops both processes. `bioqueue worker` and `bioqueue serve` start them separately. `python install.py` is the same as `bioqueue init`.
 
-* To stop the queue, the webserver or the ftp server, just hit `Ctrl-c` in the terminal from which BioQueue is running.
-* To get a better performance, moving the webserver to [Apache](http://bioqueue.readthedocs.io/en/latest/faq.html#use-bioqueue-with-apache-in-production-environment) or [nginx](https://nginx.org) is a good idea.
+## Going further
 
-## Screenshot
+- **Cluster submission**: set the cluster type and resources in `config/custom.conf`; the worker then submits steps to the scheduler instead of running them locally.
+- **Worker options**: `python -m worker3 --help` covers scheduling policy (`--schedule greedy|fifo`), resource estimation, and binding a worker to a named runner (`--runner`).
+- **Notifications**: [set up job alerts](docs/notifications.md).
+- **Lab use**: `bioqueue --host 0.0.0.0` or Apache/nginx, and PostgreSQL or MySQL instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Set `BIOQUEUE_DB_ENGINE` (for example `django.db.backends.postgresql`) and `BIOQUEUE_DB_NAME`, `BIOQUEUE_DB_USER`, `BIOQUEUE_DB_PASSWORD`, `BIOQUEUE_DB_HOST`, and `BIOQUEUE_DB_PORT` before `bioqueue init`. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
 
- ![](status_page.png)
+All documentation is in [`docs/`](docs/README.md).
 
 ## Citation
 
-1. Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* 33, 3286–3288 (2017). [doi:10.1093/bioinformatics/btx403](https://doi.org/doi:10.1093/bioinformatics/btx403)
+If BioQueue helps your research, please cite:
+
+Yao, L., Wang, H., Song, Y. & Sui, G. BioQueue: a novel pipeline framework to accelerate bioinformatics analysis. *Bioinformatics* 33, 3286–3288 (2017). [doi:10.1093/bioinformatics/btx403](https://doi.org/10.1093/bioinformatics/btx403)
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

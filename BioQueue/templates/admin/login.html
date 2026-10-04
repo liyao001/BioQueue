@@ -1,0 +1,32 @@
+  {% extends "ui/single.html" %}
+{% block title %}Sign In | BioQueue{% endblock %}
+{% block content %}
+    <style>label{display: none;}</style>
+    <div class="container-fluid" style="margin: 50px 0;">
+        <div class="row-fluid text-center">
+            <h1>Login</h1>
+            <div class="login-form">
+                <form action="." method="post" id="login-form" class="text-left" novalidate="novalidate">
+                    <div class="Validform_checktip alert" style="display: none;"></div>
+                    <div class="main-login-form">
+                        <div class="login-group">
+                            {{ form.as_p }}
+                        </div>
+                        <input type="hidden" name="next" value="{{ next }}" />
+                        {% csrf_token %}
+                        <button type="submit" class="login-button"><i class="glyphicon glyphicon-chevron-right"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+$(document)
+    .ajaxStart(function(){
+        $("button:submit").addClass("log-in").attr("disabled", true);
+    })
+    .ajaxStop(function(){
+        $("button:submit").removeClass("log-in").attr("disabled", false);
+    });
+{% endblock %}
