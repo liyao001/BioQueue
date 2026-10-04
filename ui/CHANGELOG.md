@@ -1,5 +1,9 @@
 # ui3 changelog
 
+## 2026-10-04 — Share a protocol with another account
+
+On an editable protocol, **Share** copies the protocol and its steps onto another account or project. Enter that account's username. The original stays put, and shortcuts are not copied. References and environments the other account does not already have are created there; an existing name is left as it is. This is the old `/ui/share-with-peer/` action.
+
 ## 2026-10-02 — Notification hooks
 
 Account menu → Notifications. Each user can add Discord, Telegram, Slack, Teams, Mattermost, ntfy, Gotify, Pushover, email, or a generic webhook. The worker sends them when a job starts, finishes, fails, or is interrupted. See `docs/notifications.md`.
@@ -55,6 +59,5 @@ The old Bootstrap `ui` package has been removed. Accounts login JSON helpers liv
 | --- | --- | --- |
 | **Samples** | `/ui/register-sample/`, `/ui/query-job-sample/` | Register experiment files as `Sample` rows |
 | **Learning** | `/ui/show-learning/`, `/ui/fetch-learning/` | Browse/import `Prediction` resource models |
-| **Share** | `/ui/share-with-peer/` | Clone a protocol + steps onto another account |
 
-Job **scope=shared** (CrossAccess) is in ui3; that is not share-with-peer.
+Job **scope=shared** (CrossAccess) is read access to another account's jobs. Sharing a protocol copies it onto another account (see above).

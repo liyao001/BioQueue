@@ -61,4 +61,4 @@ Included now:
 Deferred (see `TODO.md` and [`CHANGELOG.md`](CHANGELOG.md)):
 
 - Optional table view and keyboard shortcuts
-- Samples, learning/predictions UI, and share-with-peer (still on `/ui/` only)
+- Samples and learning/predictions UI

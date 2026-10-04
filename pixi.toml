@@ -1,31 +1,14 @@
 [workspace]
-authors = ["Li Yao <17058337+liyao001@users.noreply.github.com>"]
+authors = ["Li Yao <regulatorygenome@gmail.com>"]
 channels = ["conda-forge"]
-name = "BioQueueV2"
-platforms = ["osx-arm64"]
-version = "0.1.0"
+name = "bioqueue"
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+version = "2.0.0"
 
 [dependencies]
 python = "3.11.*"
-django = "3.2.*"
-psycopg2 = "*"
-celery = "*"
-numpy = "*"
-scipy = "*"
-psutil = "*"
-python-magic = "*"
 libmagic = "*"
-pytz = "*"
-sqlparse = "*"
-djangorestframework = "*"
-django-filter = "*"
-django-celery-results = "*"
-django-extensions = "*"
-redis-py = "*"
+psycopg2 = ">=2.9.12,<3"
 
 [pypi-dependencies]
-django-json-widget = "*"
-
-# Nextcloud often strips +x from .pixi binaries; restore before running.
-[tasks.serve]
-cmd = "chmod +x \"$CONDA_PREFIX/bin/python3.11\" && \"$CONDA_PREFIX/bin/python3.11\" manage.py runserver 127.0.0.1:8766"
+bioqueue = { path = ".", editable = true }

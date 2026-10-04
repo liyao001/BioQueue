@@ -94,6 +94,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "BioQueue.wsgi.application"
 
 _engine = os.environ.get("BIOQUEUE_DB_ENGINE", "").strip()
+if _engine == "django.db.backends.mysql":
+    # Django imports MySQLdb. PyMySQL provides that module name.
+    import pymysql
+
+    pymysql.install_as_MySQLdb()
 if _engine:
     DATABASES = {
         "default": {

@@ -77,23 +77,18 @@ A pip install also needs the `libmagic` library (`brew install libmagic` on macO
 
 `bioqueue init` asks for an account name and password, and nothing else. That account is your first project. It creates a data folder at `~/BioQueue` (pass `--data` for another path), uses SQLite, and sizes the worker to this machine's CPU, memory, and disk. The site and the worker share that database file. BioQueue uses WAL mode and waits up to 30 seconds when the other process is writing, so a personal install does not hit the old "database is locked" errors. `bioqueue` with no arguments does the same setup on first run, then starts the web app and the worker together.
 
-For PostgreSQL or MySQL, install the database driver and set `BIOQUEUE_DB_ENGINE` plus the other `BIOQUEUE_DB_*` variables before `bioqueue init`:
+For PostgreSQL or MySQL, see [PostgreSQL and MySQL](docs/databases.md). Install `bioqueue[postgres]` or `bioqueue[mysql]`, create an empty database, and export `BIOQUEUE_DB_ENGINE` and the other `BIOQUEUE_DB_*` variables before `bioqueue init`.
 
-```bash
-pip install "bioqueue[postgres]"
-# or: pip install "bioqueue[mysql]"
-# or: conda install -c conda-forge bioqueue psycopg2
-```
-
-To work on the code instead of installing a release:
+To run from a checkout, install [Pixi](https://pixi.sh), then:
 
 ```bash
 git clone https://github.com/liyao001/BioQueue.git
 cd BioQueue
-uv sync
-uv run bioqueue init
-uv run bioqueue
+pixi run bioqueue init
+pixi run bioqueue
 ```
+
+Pixi creates the environment and installs `libmagic` with it.
 
 Open <http://127.0.0.1:8000/> and sign in. Create a workspace and a protocol, then a job, and watch it run on the dashboard.
 
@@ -106,7 +101,7 @@ To start another project, add an account under **Users** in the user menu and si
 - **Cluster submission**: set the cluster type and resources in `config/custom.conf`; the worker then submits steps to the scheduler instead of running them locally.
 - **Worker options**: `python -m worker --help` covers scheduling policy (`--schedule greedy|fifo`), resource estimation, and binding a worker to a named runner (`--runner`).
 - **Notifications**: [set up job alerts](docs/notifications.md).
-- **Lab use**: `bioqueue --host 0.0.0.0` or Apache/nginx, and PostgreSQL or MySQL instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Set `BIOQUEUE_DB_ENGINE` (for example `django.db.backends.postgresql`) and `BIOQUEUE_DB_NAME`, `BIOQUEUE_DB_USER`, `BIOQUEUE_DB_PASSWORD`, `BIOQUEUE_DB_HOST`, and `BIOQUEUE_DB_PORT` before `bioqueue init`. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
+- **Lab use**: `bioqueue --host 0.0.0.0` or Apache/nginx, and [PostgreSQL or MySQL](docs/databases.md) instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
 
 All documentation is in [`docs/`](docs/README.md).
 

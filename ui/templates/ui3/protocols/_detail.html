@@ -13,6 +13,7 @@
         <span class="opacity-50 font-normal text-base">#{{ selected.id }}</span>
       </h2>
       <p class="text-sm opacity-70 mt-0.5 whitespace-pre-wrap">{{ selected.description|default:"No description" }}</p>
+      <p class="text-sm mt-2"><span class="opacity-70">Version</span> <span class="font-mono break-all">{{ selected.ver|default:"Not computed yet" }}</span></p>
     </div>
     {% endif %}
     <div class="flex gap-2 flex-wrap">
@@ -23,6 +24,12 @@
               onclick="document.getElementById('clone-form').classList.toggle('hidden')">
         <i class="fa-regular fa-copy"></i> Clone
       </button>
+      {% if can_edit_selected %}
+      <button type="button" class="ui-btn"
+              onclick="document.getElementById('share-form').classList.toggle('hidden')">
+        <i class="fa-solid fa-share-nodes"></i> Share
+      </button>
+      {% endif %}
       {% if can_edit_selected %}
       <form method="post" action="{% url 'ui3:protocol_delete' selected.id %}"
             hx-post="{% url 'ui3:protocol_delete' selected.id %}"
@@ -56,6 +63,22 @@
   </form>
 
   {% if can_edit_selected %}
+  <form id="share-form" class="hidden border border-base-300 rounded-md p-3 space-y-3 bg-base-200/40"
+        method="post" action="{% url 'ui3:protocol_share' selected.id %}"
+        hx-post="{% url 'ui3:protocol_share' selected.id %}"
+        hx-target="#protocol-workspace" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Account or project username</span></div>
+      <input class="ui-input w-full" name="peer" maxlength="150" required
+             placeholder="Enter a username" autocomplete="off">
+    </label>
+    <p class="text-sm opacity-70">Copies this protocol and its steps onto that account, including references and environments that account does not already have. One account at a time.</p>
+    <button class="ui-btn ui-btn-primary" type="submit">Share with a peer</button>
+  </form>
+  {% endif %}
+
+  {% if can_edit_selected %}
   <form id="protocol-meta-form" {% if editor %}data-tpl-form{% endif %} class="space-y-3" method="post" action="{% url 'ui3:protocol_update' selected.id %}"
         hx-post="{% url 'ui3:protocol_update' selected.id %}"
         hx-target="#protocol-workspace" hx-swap="outerHTML">
@@ -69,6 +92,10 @@
       <textarea class="ui-input w-full" name="description" rows="6"
                 placeholder="optional description">{{ selected.description|default:'' }}</textarea>
     </label>
+    <div>
+      <div class="label"><span class="label-text">Version</span></div>
+      <p class="font-mono text-sm break-all">{{ selected.ver|default:"Not computed yet" }}</p>
+    </div>
     {% if template_active %}
     {% if editor %}
     {{ token_list|json_script:"ui3-tokens" }}

@@ -33,7 +33,7 @@ Documentation = "https://github.com/liyao001/BioQueue/tree/master/docs"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["BioQueue*", "QueueDB*", "accounts*", "ui*", "worker", "worker.*"]
-exclude = ["worker2*", "ui.plugins.local*"]
+exclude = ["ui.plugins.local*"]
 
 [tool.setuptools]
 include-package-data = true
@@ -45,6 +45,3 @@ accounts = ["templates/**/*"]
 
 [tool.setuptools.exclude-package-data]
 ui = ["node_modules/**", "static_src/**", "plugins/local/**"]
-
-[tool.uv]
-package = true

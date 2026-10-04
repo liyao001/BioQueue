@@ -285,7 +285,14 @@ def cmd_init(args):
         force_data=force,
     )
     print("Data folder: %s" % info["data_dir"])
-    if info["using_packaged_settings"] or info["created_settings"]:
+    packaged = info["using_packaged_settings"] or info["created_settings"]
+    engine = os.environ.get("BIOQUEUE_DB_ENGINE", "").strip()
+    if packaged and engine:
+        print(
+            "Database: %s via %s"
+            % (os.environ.get("BIOQUEUE_DB_NAME", ""), engine)
+        )
+    elif packaged:
         print("Database: SQLite at %s" % info["database"])
     else:
         print("Keeping existing %s (database was not changed)." % info["settings_py"])

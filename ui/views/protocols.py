@@ -367,6 +367,44 @@ def protocol_clone(request, pk):
     return redirect(reverse("ui3:protocols") + "?select={}".format(dest.id))
 
 
+def _share_error(request, message, pk=None):
+    if is_htmx(request):
+        return htmx_error(message)
+    messages.error(request, message)
+    if pk:
+        return redirect(reverse("ui3:protocols") + "?select={}".format(pk))
+    return redirect("ui3:protocols")
+
+
+@ui3_login_required
+@require_POST
+def protocol_share(request, pk):
+    proto = services.get_owned_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    try:
+        recipient = services.find_share_recipient(request.POST.get("peer") or "")
+    except services.ShareProtocolError as exc:
+        return _share_error(request, str(exc), pk)
+    if recipient.id == proto.user_id:
+        return _share_error(request, "You can not share a protocol with yourself.", pk)
+    _dest, added_envs, added_refs = services.share_protocol(proto, recipient)
+    msg = "Shared '{}' with {}.".format(proto.name, recipient.username)
+    added = []
+    if added_envs:
+        added.append("environments {}".format(", ".join(added_envs)))
+    if added_refs:
+        added.append("references {}".format(", ".join(added_refs)))
+    if added:
+        msg += " Added {}.".format(" and ".join(added))
+    if is_htmx(request):
+        ctx = _protocol_page_context(request, selected=proto)
+        response = render(request, "ui3/protocols/_workspace.html", ctx)
+        return with_toast(response, msg)
+    messages.success(request, msg)
+    return redirect(reverse("ui3:protocols") + "?select={}".format(proto.id))
+
+
 def _import_error(request, message):
     if is_htmx(request):
         return htmx_error(message)

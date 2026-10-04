@@ -955,6 +955,74 @@ def reorder_protocol_steps(protocol, ordered_ids):
             step.save(update_fields=["step_order"])
     return [by_id[pk] for pk in final]
 
+class ShareProtocolError(ValueError):
+    """User-facing failure while copying a protocol onto another account."""
+
+
+def find_share_recipient(username):
+    """Django user named by the share form. Projects are accounts, looked up the same way."""
+    from django.contrib.auth.models import User
+
+    name = (username or "").strip()
+    if not name:
+        raise ShareProtocolError("Enter the username of the account or project to share with.")
+    if len(name) > 150:
+        raise ShareProtocolError("That username is too long.")
+    try:
+        return User.objects.get(username=name)
+    except User.DoesNotExist:
+        raise ShareProtocolError("The person you want to share with doesn't exist.")
+
+
+def _copy_step(step, protocol, user, env):
+    return Step.objects.create(
+        parent=protocol,
+        software=step.software,
+        parameter=step.parameter or "",
+        specify_output=step.specify_output,
+        hash=step.hash or compute_step_hash(step.software, step.parameter),
+        step_order=step.step_order,
+        env=env,
+        force_local=step.force_local,
+        version_check=step.version_check or "",
+        cpu_prior=step.cpu_prior,
+        mem_prior=step.mem_prior,
+        disk_prior=step.disk_prior,
+        gpu_step=step.gpu_step,
+        step_comment=step.step_comment,
+        user=user,
+    )
+
+
+@transaction.atomic
+def share_protocol(src, recipient):
+    """
+    Copy a protocol and its steps onto another account.
+
+    The copy keeps the same name. Shortcuts stay on the original. The recipient
+    is the account named in the form, not that account's profile delegate.
+    Missing references and environments are created on that account. A name
+    that already resolves there is left unchanged.
+
+    Returns (protocol, created environment names, created reference names).
+    """
+    added_envs = _share_missing_environments(src, recipient)
+    added_refs = _share_missing_references(src, recipient)
+    dest = ProtocolList.objects.create(
+        name=src.name,
+        description=src.description,
+        user=recipient,
+        template=getattr(src, "template", "") or "",
+    )
+    for step in protocol_steps(src):
+        env = None
+        if step.env_id:
+            env = _recipient_environment(step.env.name, recipient.id) or step.env
+        _copy_step(step, dest, recipient, env)
+    _recompute_protocol_ver(dest)
+    return dest, added_envs, added_refs
+
+
 def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False):
     dest = ProtocolList.objects.create(
         name=name,
@@ -996,16 +1064,123 @@ def protocol_json_filename(name):
 
 _ENV_TYPES = ("conda", "venv")
 
-def _pick_environment(name, owner_id):
-    """The environment runtime resolution would use, or None when that is not unique."""
-    available = list(
-        VirtualEnvironment.objects.filter(Q(user_id=owner_id) | Q(user_id=None), name=name)
-    )
-    own = [env for env in available if env.user_id == owner_id]
-    choices = own or [env for env in available if env.user_id is None]
+def _resolved_named_row(model, owner_id, name):
+    """The owned row for this name, or the single public row. None when missing or ambiguous."""
+    rows = list(model.objects.filter(Q(user_id=owner_id) | Q(user_id=None), name=name))
+    own = [row for row in rows if row.user_id == owner_id]
+    choices = own or [row for row in rows if row.user_id is None]
     if len(choices) == 1:
         return choices[0]
     return None
+
+
+def _pick_environment(name, owner_id):
+    """The environment runtime resolution would use, or None when that is not unique."""
+    return _resolved_named_row(VirtualEnvironment, owner_id, name)
+
+
+def _needs_owned_named_copy(model, owner_id, name):
+    """True when this account has no owned row and no single public row for the name."""
+    if model.objects.filter(user_id=owner_id, name=name).exists():
+        return False
+    return _resolved_named_row(model, owner_id, name) is None
+
+
+def _reference_token_names(text):
+    names = []
+    seen = set()
+    for token in PROTOCOL_WILDCARD_RE.findall(text or ""):
+        ref_name = (token or "").split(":")[0].split("||")[0].strip()
+        root = ref_name.split(".")[0]
+        if not ref_name or root in ("sample", "samples", "shared", "index"):
+            continue
+        if ref_name not in seen:
+            seen.add(ref_name)
+            names.append(ref_name)
+    return names
+
+
+def _clone_environment(src, recipient):
+    ve_type = src.ve_type if src.ve_type in _ENV_TYPES else "conda"
+    return VirtualEnvironment.objects.create(
+        name=src.name,
+        ve_type=ve_type,
+        value=(src.value or "").strip() or src.name,
+        recipe=src.recipe or "",
+        activation_command=src.activation_command,
+        user=recipient,
+    )
+
+
+def _source_named_row(model, owner_id, name):
+    resolved = _resolved_named_row(model, owner_id, name)
+    if resolved is not None:
+        return resolved
+    return model.objects.filter(user_id=owner_id, name=name).order_by("id").first()
+
+
+def _environments_to_share(protocol):
+    raw = (getattr(protocol, "template", None) or "").strip()
+    if raw:
+        rows = []
+        seen = set()
+        for name in _protocol_environment_names(protocol):
+            row = _source_named_row(VirtualEnvironment, protocol.user_id, name)
+            if row is not None and row.pk not in seen:
+                seen.add(row.pk)
+                rows.append(row)
+        return rows
+    rows = []
+    seen = set()
+    for step in protocol_steps(protocol):
+        env = step.env
+        if env is not None and env.pk not in seen:
+            seen.add(env.pk)
+            rows.append(env)
+    return rows
+
+
+def _share_missing_environments(src, recipient):
+    created = []
+    seen_names = set()
+    for env in _environments_to_share(src):
+        if env.name in seen_names:
+            continue
+        seen_names.add(env.name)
+        if env.user_id is None or not _needs_owned_named_copy(VirtualEnvironment, recipient.id, env.name):
+            continue
+        _clone_environment(env, recipient)
+        created.append(env.name)
+    return created
+
+
+def _recipient_environment(name, recipient_id):
+    resolved = _resolved_named_row(VirtualEnvironment, recipient_id, name)
+    if resolved is not None:
+        return resolved
+    return VirtualEnvironment.objects.filter(user_id=recipient_id, name=name).order_by("id").first()
+
+
+def _share_missing_references(src, recipient):
+    text = "\n".join(
+        [getattr(src, "template", None) or "", getattr(src, "description", None) or ""]
+        + [step.parameter or "" for step in protocol_steps(src)]
+    )
+    created = []
+    for name in _reference_token_names(text):
+        if not _needs_owned_named_copy(Reference, recipient.id, name):
+            continue
+        source = _source_named_row(Reference, src.user_id, name)
+        if source is None or source.user_id is None:
+            continue
+        Reference.objects.create(
+            name=source.name,
+            path=source.path,
+            description=source.description or "",
+            user=recipient,
+        )
+        created.append(source.name)
+    return created
 
 def _environment_export_entry(name, owner_id):
     env = _pick_environment(name, owner_id)
@@ -1952,7 +2127,6 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
 
     Current rendering writes Key=default. Legacy rendering writes Key||default=
     with an empty value, which is what the old create-job form filled in.
-
     Expand templates first so sample indices and block arguments use the same
     bindings as execution. Before inputs are entered, preview one sample.
     Incomplete inputs raise ProtocolTemplateError; callers can keep the current
