@@ -704,6 +704,35 @@ class JobTests(Ui3TestCase):
         # page size control should not appear in the top filter toolbar
         filters_chunk = body[filters_idx:body.find('id="job-results"')]
         self.assertNotIn("page size", filters_chunk)
+        # Multi-page pager must not bake filters into hx-get (that duplicated q=/protocol=).
+        for i in range(20):
+            self.make_job(job_name="page-job-{}".format(i))
+        multi = self.client.get(reverse("ui3:jobs"), {"page_size": "12"})
+        self.assertContains(multi, 'hx-vals=\'{"page": "2"}\'')
+        self.assertContains(multi, 'hx-include="#job-filters"')
+        # Pager page links must use bare list URL + hx-vals (not a baked-in query string).
+        self.assertRegex(
+            multi.content.decode(),
+            r'hx-get="%s"\s+hx-vals=\'\{"page": "2"\}\'' % reverse("ui3:jobs"),
+        )
+        self.assertContains(multi, "htmx:configRequest")
+
+    def test_list_params_compacts_duplicate_empty_query(self):
+        from ui3.http import compact_querydict, list_params
+        from django.http import QueryDict
+        from django.test import RequestFactory
+
+        bloated = QueryDict("q=&q=&q=&protocol=&protocol=&page=2")
+        cleaned = compact_querydict(bloated)
+        self.assertEqual(list(cleaned.keys()), ["page"])
+        self.assertEqual(cleaned.get("page"), "2")
+        rf = RequestFactory()
+        request = rf.get("/ui/jobs/?q=&q=&protocol=&protocol=&q=alpha&page=3")
+        params = list_params(request)
+        self.assertEqual(params.get("q"), "alpha")
+        self.assertEqual(params.get("page"), "3")
+        self.assertNotIn("protocol", params)
+
     def test_logs_no_typeerror(self):
         job = self.make_job()
         self.login()

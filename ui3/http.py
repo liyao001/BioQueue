@@ -73,6 +73,9 @@ def list_params(request):
     On POST (e.g. HTMX action refresh), GET is empty — recover filters from
     HX-Current-URL query string, then fall back to filter-like POST fields.
     Always merge any present GET params (GET wins on key conflict).
+
+    Empty values and duplicated keys (from older push-url bugs) are compacted
+    so each key keeps at most one non-empty value.
     """
     params = QueryDict(mutable=True)
     if request.method == "POST":
@@ -88,18 +91,31 @@ def list_params(request):
     if request.GET:
         for key in request.GET:
             params.setlist(key, request.GET.getlist(key))
-    return params
+    return compact_querydict(params)
+
+
+def compact_querydict(params):
+    """Drop empty values; keep the last non-empty value per key."""
+    out = QueryDict(mutable=True)
+    if not params:
+        return out
+    for key in params.keys():
+        values = [v for v in params.getlist(key) if v not in (None, "")]
+        if not values:
+            continue
+        out[key] = values[-1]
+    return out
 
 
 def querystring(request, **updates):
-    """Copy list params and overlay updates. Pass None to drop a key."""
+    """Copy list params and overlay updates. Pass None or '' to drop a key."""
     q = list_params(request).copy()
     for key, value in updates.items():
         if value is None or value == "":
             q.pop(key, None)
         else:
             q[key] = value
-    return q.urlencode()
+    return compact_querydict(q).urlencode()
 
 
 def render_htmx(request, full_template, partial_template, context, **kwargs):

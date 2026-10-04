@@ -1,5 +1,25 @@
 # ui3 changelog
 
+## 2026-10-02 — Notification hooks
+
+Account menu → Notifications. Each user can add Discord, Telegram, Slack, Teams, Mattermost, ntfy, Gotify, Pushover, email, or a generic webhook. worker3 sends them when a job starts, finishes, fails, or is interrupted. See `docs/notifications.md`.
+
+## 2026-09-30 — Collapse protocol shortcuts by default
+
+The shortcuts section on the protocol editor starts closed. Opening it stays open for that protocol while you keep editing the page.
+
+## 2026-09-30 — Drag protocol steps to reorder
+
+On an editable protocol, the grip at the left of a step row can be dragged to a new position. The new order is saved in one request, and the step editor stays in place so another step can be added without reloading. The up and down buttons still work.
+
+## 2026-09-29 — Stop filter query params from multiplying in the URL
+
+Pager links used to put the current query string into `hx-get` *and* `hx-include` the filter form. Each page click duplicated empty `q=` / `protocol=` values until the address bar ballooned. Pager navigation now sends `page` via `hx-vals` only; empty and duplicate query keys are compacted server-side and stripped before HTMX pushes the URL.
+
+## 2026-09-29 — Restore `/ui/mark-finished`
+
+The old Bootstrap UI exposed `GET /ui/mark-finished?job_id=…` (JSON). After ui3 took `/ui/`, that path 404’d. It is back as a compatibility endpoint: marks the job finished via `set_done()`, writes `.snapshot.ini` when a results folder exists, and returns the same success JSON shape for API clients. Protocol shortcuts that point at mark-finished are rendered as HTMX posts (same as the job-card button) so the menu no longer opens a JSON tab. Browser navigations to the legacy URL redirect back to the job list; HTMX requests refresh the list in place.
+
 ## 2026-09-20 — Wide edit modals
 
 Job field edits (parameter, input, comments), protocol step edits, shortcuts, environments, workspaces, and references use `ui-modal-lg ui-modal-editor`. Mono textareas fill the dialog (min 16rem tall) so long commands and paths are easier to edit. Rename/resume stay small.

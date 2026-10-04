@@ -4,7 +4,7 @@
      hx-disinherit="hx-swap hx-target hx-push-url"
      data-ui3-quiet
      {% if auto_refresh %}
-     hx-get="{{ job_list_url }}?{{ qs }}"
+     hx-get="{{ job_list_url }}{% if qs %}?{{ qs }}{% endif %}"
      hx-trigger="every 8s[window.ui3 && !window.ui3.shouldPauseAutoRefresh()]"
      hx-swap="outerHTML"
      {% endif %}>

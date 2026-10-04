@@ -21,7 +21,7 @@ STATUS_ICONS = {
 
 @register.simple_tag(takes_context=True)
 def qs_url(context, **updates):
-    from ui3.http import list_params
+    from ui3.http import compact_querydict, list_params
 
     request = context["request"]
     q = list_params(request).copy()
@@ -30,7 +30,7 @@ def qs_url(context, **updates):
             q.pop(key, None)
         else:
             q[key] = value
-    encoded = q.urlencode()
+    encoded = compact_querydict(q).urlencode()
     return "?" + encoded if encoded else "?"
 
 

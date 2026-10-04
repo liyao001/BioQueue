@@ -6,11 +6,15 @@
   {% endif %}
   {% if page_obj.has_previous %}
     <a class="ui-btn" href="{% qs_url page=1 %}"
-       hx-get="{{ list_url }}{% qs_url page=1 %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       hx-get="{{ list_url }}"
+       hx-vals='{"page": "1"}'
+       hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
        {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}
        aria-label="First page">&laquo;</a>
     <a class="ui-btn" href="{% qs_url page=page_obj.previous_page_number %}"
-       hx-get="{{ list_url }}{% qs_url page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       hx-get="{{ list_url }}"
+       hx-vals='{"page": "{{ page_obj.previous_page_number }}"}'
+       hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
        {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}
        aria-label="Previous page">&lsaquo;</a>
   {% else %}
@@ -41,11 +45,15 @@
   </form>
   {% if page_obj.has_next %}
     <a class="ui-btn" href="{% qs_url page=page_obj.next_page_number %}"
-       hx-get="{{ list_url }}{% qs_url page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       hx-get="{{ list_url }}"
+       hx-vals='{"page": "{{ page_obj.next_page_number }}"}'
+       hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
        {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}
        aria-label="Next page">&rsaquo;</a>
     <a class="ui-btn" href="{% qs_url page=paginator.num_pages %}"
-       hx-get="{{ list_url }}{% qs_url page=paginator.num_pages %}" hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
+       hx-get="{{ list_url }}"
+       hx-vals='{"page": "{{ paginator.num_pages }}"}'
+       hx-target="{{ hx_target }}" hx-swap="outerHTML" hx-push-url="true"
        {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}
        aria-label="Last page">&raquo;</a>
   {% else %}
