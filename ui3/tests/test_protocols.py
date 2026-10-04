@@ -14,6 +14,12 @@ class ProtocolTests(Ui3TestCase):
         self.assertContains(response, "page-head")
         self.assertContains(response, "Import JSON")
         self.assertContains(response, reverse("ui3:protocol_import"))
+        self.assertContains(response, reverse("ui3:protocol_template_create"))
+        self.assertContains(response, "New Template")
+        self.assertContains(response, "protocol-list-toggle")
+        self.assertContains(response, "Collapse list")
+        self.assertContains(response, "Expand list")
+        self.assertContains(response, 'id="protocol-list-body"')
 
     def test_create_protocol_with_steps(self):
         self.login()

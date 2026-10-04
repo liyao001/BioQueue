@@ -20,3 +20,31 @@
 </div>
 {% include "ui3/protocols/_workspace.html" %}
 {% endblock %}
+{% block extra_js %}
+<script>
+  (function () {
+    var KEY = "ui3.protocolListCollapsed";
+    function collapsed() {
+      try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; }
+    }
+    function syncProtocolList() {
+      var on = collapsed();
+      document.documentElement.classList.toggle("protocol-list-collapsed", on);
+      var btn = document.querySelector(".protocol-list-toggle");
+      if (!btn) return;
+      var label = on ? "Expand list" : "Collapse list";
+      btn.setAttribute("aria-expanded", on ? "false" : "true");
+      btn.title = label;
+      btn.setAttribute("aria-label", label);
+    }
+    document.addEventListener("click", function (event) {
+      var btn = event.target.closest && event.target.closest(".protocol-list-toggle");
+      if (!btn) return;
+      try { localStorage.setItem(KEY, collapsed() ? "0" : "1"); } catch (e) {}
+      syncProtocolList();
+    });
+    document.body.addEventListener("htmx:afterSettle", syncProtocolList);
+    syncProtocolList();
+  })();
+</script>
+{% endblock %}

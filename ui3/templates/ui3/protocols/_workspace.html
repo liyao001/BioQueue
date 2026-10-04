@@ -1,7 +1,14 @@
 {% load ui3_tags %}
 <div id="protocol-workspace" class="grid grid-cols-1 lg:grid-cols-2 gap-4"
      hx-disinherit="hx-swap hx-target hx-push-url">
-  <div class="card bg-base-100 shadow-sm p-4">
+  <div class="card bg-base-100 shadow-sm protocol-list">
+    <div class="protocol-list-bar">
+      <button type="button" class="protocol-list-toggle" aria-expanded="true" aria-controls="protocol-list-body" title="Collapse list">
+        <span data-when-open>Collapse list</span>
+        <span data-when-closed>Expand list</span>
+      </button>
+    </div>
+    <div id="protocol-list-body">
     <form id="protocol-filters" class="ui-toolbar mb-3"
           hx-get="{% url 'ui3:protocols' %}"
           hx-target="#protocol-workspace"
@@ -68,6 +75,7 @@
     </div>
     {% url 'ui3:protocols' as list_url %}
     {% include "ui3/partials/pager.html" with hx_target="#protocol-workspace" hx_include="#protocol-filters" item_label="protocol" %}
+    </div>
   </div>
   <div id="protocol-detail">
     {% include "ui3/protocols/_detail.html" %}
