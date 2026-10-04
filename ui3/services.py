@@ -339,6 +339,13 @@ def job_history(job):
     )
 
 
+def _job_reference_q(needle):
+    return (
+        Q(parameter__icontains=needle)
+        | Q(input_file__icontains=needle)
+        | Q(sample_sheet__icontains=needle)
+    )
+
 def find_dependents(user, job, depth=1):
     """Jobs that reference this job via History/CrossAccess tags (ui2 port)."""
     depth = max(1, min(int(depth or 1), 10))
@@ -353,9 +360,9 @@ def find_dependents(user, job, depth=1):
         or_q = None
         for jid, uid in frontier_info.items():
             needle_h = "{{{{History:{}-".format(jid)
-            piece = Q(parameter__icontains=needle_h) | Q(input_file__icontains=needle_h)
+            piece = _job_reference_q(needle_h)
             needle_ca = "{{{{CrossAccess:{}-{}-".format(uid, jid)
-            piece |= Q(parameter__icontains=needle_ca) | Q(input_file__icontains=needle_ca)
+            piece |= _job_reference_q(needle_ca)
             or_q = piece if or_q is None else (or_q | piece)
         if or_q is None:
             break
@@ -378,7 +385,7 @@ def find_dependents(user, job, depth=1):
 
 def parent_job_ids(job):
     """Parent job IDs from {{History:JID-…}} and {{CrossAccess:UID-JID-…}} tags."""
-    text = "{} {}".format(job.parameter or "", job.input_file or "")
+    text = "{} {} {}".format(job.parameter or "", job.input_file or "", getattr(job, "sample_sheet", "") or "")
     ids = set()
     try:
         for m in re.finditer(r"\{\{History:(\d+)-.*?\}\}", text, flags=re.IGNORECASE | re.DOTALL):
@@ -468,11 +475,11 @@ def build_job_dag(user, root_id, up=1, down=1, max_nodes=300):
             or_q = None
             for jid in frontier_down:
                 needle_h = "{{{{History:{}-".format(jid)
-                piece = Q(parameter__icontains=needle_h) | Q(input_file__icontains=needle_h)
+                piece = _job_reference_q(needle_h)
                 uid = frontier_uid_map.get(jid)
                 if uid is not None:
                     needle_ca = "{{{{CrossAccess:{}-{}-".format(uid, jid)
-                    piece |= Q(parameter__icontains=needle_ca) | Q(input_file__icontains=needle_ca)
+                    piece |= _job_reference_q(needle_ca)
                 or_q = piece if or_q is None else (or_q | piece)
             if or_q is None:
                 break
@@ -1418,10 +1425,7 @@ def _migrate_history_peers(job, from_user, moving_ids):
         Job.objects.filter(user=from_user)
         .exclude(pk__in=list(moving_ids) + [job.id])
         .filter(
-            Q(parameter__icontains=needle_h)
-            | Q(input_file__icontains=needle_h)
-            | Q(parameter__icontains=needle_ca)
-            | Q(input_file__icontains=needle_ca)
+            _job_reference_q(needle_h) | _job_reference_q(needle_ca)
         )
         .values_list("id", flat=True)[:8]
     )

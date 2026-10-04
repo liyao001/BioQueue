@@ -6,6 +6,36 @@ from ui3.tests import Ui3TestCase
 
 
 class DagExplorerTests(Ui3TestCase):
+    def test_sample_sheet_dependencies_walk_both_directions(self):
+        from ui3.services import build_job_dag, find_dependencies, find_dependents
+
+        parent = self.make_job(job_name="sheet-parent")
+        child = self.make_job(sample_sheet=json.dumps([{"r1": "{{{{History:{}-a.fq}}}}".format(parent.id)}]))
+        self.assertEqual(list(find_dependencies(self.user, child)), [parent])
+        self.assertEqual(list(find_dependents(self.user, parent)), [child])
+        for root, up, down in [(child, 1, 0), (parent, 0, 1)]:
+            graph = build_job_dag(self.user, root.id, up=up, down=down)
+            self.assertIn({"from": parent.id, "to": child.id}, graph["edges"])
+
+    def test_sample_sheet_cross_access_keeps_permission_checks(self):
+        from QueueDB.models import CrossAccess
+        from ui3.services import build_job_dag, find_dependencies, find_dependents
+
+        parent = self.make_job(user=self.other, protocol=self.other_protocol)
+        child = self.make_job(sample_sheet=json.dumps([{
+            "r1": "{{{{CrossAccess:{}-{}-a.fq}}}}".format(self.other.id, parent.id)
+        }]))
+        self.assertFalse(find_dependencies(self.user, child).exists())
+        self.assertEqual(build_job_dag(self.user, child.id)["edges"], [])
+        self.assertFalse(find_dependents(self.other, parent).exists())
+        CrossAccess.objects.create(user=self.other, grantee=self.user, allow_read=1)
+        self.assertEqual(list(find_dependencies(self.user, child)), [parent])
+        self.assertEqual(list(find_dependents(self.user, parent)), [child])
+        self.assertIn(
+            {"from": parent.id, "to": child.id},
+            build_job_dag(self.user, parent.id, up=0, down=1)["edges"],
+        )
+
     def test_login_required(self):
         response = self.client.get(reverse("ui3:dag"))
         self.assertEqual(response.status_code, 302)
