@@ -738,7 +738,7 @@ def resume_job_from(job, rollback_to=None):
     """Queue the job from a step index. None keeps the current (failed) step."""
     if job.locked:
         raise JobActionError("This job is locked, please unlock first.")
-    n_steps = protocol_steps(job.protocol).count()
+    n_steps = len(runnable_steps(job))
     max_step = max(0, n_steps - 1) if n_steps else 0
     current = job.resume or 0
     if rollback_to is None:
@@ -2368,6 +2368,8 @@ def load_protocol_dump(protocol_id, ver):
 def protocol_live_text(protocol):
     if protocol is None:
         return ""
+    if (getattr(protocol, "template", None) or "").strip():
+        return json.dumps(protocol_json_payload(protocol), indent=2, sort_keys=True, default=str)
     steps = []
     for step in protocol_steps(protocol):
         steps.append(

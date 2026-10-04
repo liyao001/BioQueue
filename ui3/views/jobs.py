@@ -746,7 +746,7 @@ def job_resume(request, pk):
     job, err = _require_writable_job(request, pk)
     if err:
         return err
-    n_steps = services.protocol_steps(job.protocol).count()
+    n_steps = len(services.runnable_steps(job))
     max_step = max(0, n_steps - 1) if n_steps else 0
     if request.method == "GET":
         return render(
