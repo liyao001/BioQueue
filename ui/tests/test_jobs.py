@@ -1100,6 +1100,8 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, reverse("ui3:workspace_options"))
         self.assertContains(response, 'id="ui3-tokens"')
         self.assertContains(response, "data-ui3-complete")
+        self.assertContains(response, 'id="id_parameter_legacy"')
+        self.assertContains(response, "Legacy keys")
         self.assertContains(response, "InputFile")
         # Django would eat "{{" + token + "}}" as a string literal, inserting
         # " + token + " instead of {{Token}}. Split the braces in JS instead.
@@ -1198,6 +1200,14 @@ class JobTests(Ui3TestCase):
         self.assertNotIn("ThreadN=", body)
         self.assertNotIn("InputFile=", body)
         self.assertIn("UMI_LEN=6;MODE=per_read;ZERO=0;EXPR=a=b;", body)
+        legacy = self.client.get(
+            reverse("ui3:parameter_scaffold"),
+            {"protocol": self.protocol.id, "format": "text", "legacy": "1"},
+        )
+        self.assertEqual(
+            legacy.content.decode(),
+            "Genome=;MyKey=;UMI_LEN||6=;MODE||per_read=;ZERO||0=;EXPR||a=b=;",
+        )
         html = self.client.get(reverse("ui3:parameter_scaffold"), {"protocol": self.protocol.id})
         self.assertTemplateUsed(html, "ui3/jobs/_parameter_scaffold.html")
         self.assertNotContains(html, "<html")
@@ -1211,6 +1221,10 @@ class JobTests(Ui3TestCase):
             parameter="{{SAME}} {{SAME||6}} {{SAME||6}} {{DIFFERENT||6}} {{DIFFERENT||8}} {{LIST||a;b}}",
         )
         self.assertEqual(parameter_scaffold(self.protocol, self.user), "SAME=6;DIFFERENT=;LIST=;")
+        self.assertEqual(
+            parameter_scaffold(self.protocol, self.user, legacy=True),
+            "SAME=;SAME||6=;DIFFERENT||6=;DIFFERENT||8=;",
+        )
 
     def test_workspace_uploads_list(self):
         import os

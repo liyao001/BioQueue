@@ -1946,9 +1946,12 @@ def runnable_steps(job):
     except ProtocolTemplateError:
         return []
 
-def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet=""):
+def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", legacy=False):
     """
-    Build Key=default; entries from protocol step {{Key||default}} tokens.
+    Build parameter entries from protocol step {{Key||default}} tokens.
+
+    Current rendering writes Key=default. Legacy rendering writes Key||default=
+    with an empty value, which is what the old create-job form filled in.
 
     Expand templates first so sample indices and block arguments use the same
     bindings as execution. Before inputs are entered, preview one sample.
@@ -1992,30 +1995,45 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet=""):
     else:
         for step in protocol_steps(protocol):
             texts.append(step.parameter or "")
+    entries = []
+    seen = set()
     for text in texts:
         for match in PROTOCOL_WILDCARD_RE.finditer(text):
             raw = match.group(1) or ""
-            token, separator, default = raw.partition("||")
-            name = token.split(":")[0].strip()
-            root = name.split(".")[0]
+            if legacy:
+                name = raw.split(":")[0].strip()
+                if "{{" in name and "}}" not in name:
+                    name += "}}"
+            else:
+                token, separator, default = raw.partition("||")
+                name = token.split(":")[0].strip()
+            root = name.split("||", 1)[0].split(".")[0]
             if root in ("sample", "samples", "shared", "index"):
                 continue
             if not name or ";" in name or "{" in name or "}" in name:
                 continue
-            if name in predef:
+            if name.split("||", 1)[0] in predef:
+                continue
+            if legacy:
+                if name in seen:
+                    continue
+                seen.add(name)
+                entries.append("{}=;".format(name))
                 continue
             values = defaults.setdefault(name, set())
             if separator:
                 values.add(default)
-    entries = []
+    if legacy:
+        return "".join(entries)
+    rendered = []
     for name, values in defaults.items():
         # Conflicting per-step defaults must stay local to their tokens. A
         # semicolon cannot be represented in the job parameter field either.
         default = next(iter(values)) if len(values) == 1 else ""
         if any(char in default for char in ";{}"):
             default = ""
-        entries.append("{}={};".format(name, default))
-    return "".join(entries)
+        rendered.append("{}={};".format(name, default))
+    return "".join(rendered)
 
 
 def create_job(

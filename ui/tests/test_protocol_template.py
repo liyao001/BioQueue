@@ -514,7 +514,8 @@ class TemplateUiTests(Ui3TestCase):
         page = self.client.get(reverse("ui3:job_create"))
         self.assertContains(page, "input from:#id_input_file delay:400ms")
         self.assertContains(page, "input from:#id_sample_sheet delay:400ms")
-        self.assertContains(page, 'hx-include="#id_protocol, #id_input_file, #id_sample_sheet"')
+        self.assertContains(page, 'hx-include="#id_protocol, #id_input_file, #id_sample_sheet, #id_parameter_legacy"')
+        self.assertContains(page, "change from:#id_parameter_legacy")
         response = self.client.get(reverse("ui3:parameter_scaffold"), {
             "protocol": proto.id, "input_file": "a;b;c;d",
         }, HTTP_HX_REQUEST="true")

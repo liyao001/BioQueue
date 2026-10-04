@@ -544,6 +544,7 @@ def parameter_scaffold(request):
             protocol, request.user,
             input_file=request.GET.get("input_file", ""),
             sample_sheet=request.GET.get("sample_sheet", ""),
+            legacy=(request.GET.get("legacy") or "").lower() in ("1", "true", "yes"),
         )
     except services.ProtocolTemplateError:
         # Input groups and JSON are often incomplete while the user types.

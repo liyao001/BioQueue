@@ -72,9 +72,9 @@
       <input type="hidden" class="combo-value" name="protocol" id="id_protocol" required
              value="{% if form.protocol %}{{ form.protocol }}{% endif %}"
              hx-get="{% url 'ui3:parameter_scaffold' %}"
-             hx-trigger="change, samples-ready, input from:#id_input_file delay:400ms, change from:#id_input_file, input from:#id_sample_sheet delay:400ms, change from:#id_sample_sheet"
-             hx-include="#id_protocol, #id_input_file, #id_sample_sheet"
-             hx-on::config-request="var trigger = event.detail.triggeringEvent; event.detail.parameters.force = trigger && trigger.target.id === 'id_protocol' ? 1 : 0;"
+             hx-trigger="change, samples-ready, change from:#id_parameter_legacy, input from:#id_input_file delay:400ms, change from:#id_input_file, input from:#id_sample_sheet delay:400ms, change from:#id_sample_sheet"
+             hx-include="#id_protocol, #id_input_file, #id_sample_sheet, #id_parameter_legacy"
+             hx-on::config-request="var trigger = event.detail.triggeringEvent; var id = trigger && trigger.target && trigger.target.id; event.detail.parameters.force = (id === 'id_protocol' || id === 'id_parameter_legacy') ? 1 : 0;"
              hx-sync="this:replace"
              hx-target="#parameter-scaffold-swap"
              hx-swap="innerHTML">
@@ -121,16 +121,23 @@
   </div>
 
   <div id="parameter-scaffold-swap" class="hidden" aria-hidden="true"></div>
-  <label class="form-control">
-    <div class="label"><span class="label-text">Parameters</span></div>
+  <div class="form-control">
+    <div class="label">
+      <label class="label-text" for="id_parameter">Parameters</label>
+      <label class="label-text-alt flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" class="checkbox checkbox-sm" name="legacy" id="id_parameter_legacy" value="1"
+               {% if form.legacy %}checked{% endif %}>
+        Legacy keys
+      </label>
+    </div>
     {{ token_list|json_script:"ui3-tokens" }}
     <textarea class="ui-input w-full font-mono" name="parameter" id="id_parameter" rows="4"
               data-ui3-complete
               placeholder="key=value;key2=value2">{{ form.parameter }}</textarea>
     <div class="label"><span class="label-text-alt opacity-70">semicolon-separated; keys are passed to the protocol. Cluster overrides: ClusterGpus, ClusterPartition, ClusterTime, ClusterMem, ClusterExclude, ClusterExtra, ClusterArray</span></div>
-    <p class="text-sm opacity-70">These are job-wide values. A template fills them from its defaults, including one key per sample when a value differs by sample. Edit a key here to change that default. To override a single sample, edit its row under Samples. Your edits are kept when the list refreshes.</p>
+    <p class="text-sm opacity-70">These are job-wide values. A template fills them from its defaults, including one key per sample when a value differs by sample. Edit a key here to change that default. To override a single sample, edit its row under Samples. Your edits are kept when the list refreshes. Legacy keys writes <span class="font-mono">Key||default=</span> and leaves the value empty; otherwise the box shows <span class="font-mono">Key=default</span>.</p>
     <p id="parameter-missing" class="text-sm" role="status"></p>
-  </label>
+  </div>
 
   <label class="form-control">
     <div class="label"><span class="label-text">Input files</span></div>
