@@ -30,19 +30,17 @@
         hx-swap="outerHTML"
         hx-on::after-request="if(event.detail.successful) this.reset()">
     {% csrf_token %}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <label class="form-control">
-        <div class="label"><span class="label-text">Name</span></div>
-        <input class="ui-input w-full" name="name" maxlength="255" placeholder="RNA-seq 2026" required autocomplete="off">
-      </label>
-      <label class="form-control lg:col-span-2">
-        <div class="label">
-          <span class="label-text">Description</span>
-          <span class="label-text-alt">optional</span>
-        </div>
-        <textarea class="ui-input w-full" name="description" rows="3" placeholder="Primary analysis workspace for this project"></textarea>
-      </label>
-    </div>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Name</span></div>
+      <input class="ui-input w-full" name="name" maxlength="255" placeholder="RNA-seq 2026" required autocomplete="off">
+    </label>
+    <label class="form-control mt-4">
+      <div class="label">
+        <span class="label-text">Description</span>
+        <span class="label-text-alt">optional</span>
+      </div>
+      <textarea class="ui-input w-full" name="description" rows="3" placeholder="Primary analysis workspace for this project"></textarea>
+    </label>
     <div class="mt-4 flex justify-end">
       <button class="ui-btn ui-btn-primary" type="submit">Create workspace</button>
     </div>

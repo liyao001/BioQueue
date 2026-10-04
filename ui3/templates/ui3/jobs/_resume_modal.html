@@ -9,7 +9,10 @@
           hx-swap="outerHTML"
           hx-include="#job-filters">
       {% csrf_token %}
-      <input class="ui-input w-full" type="number" name="rollback_to" min="0" max="{{ max_step }}" value="{{ current }}">
+      <label class="form-control w-full">
+        <div class="label"><span class="label-text">Step index</span></div>
+        <input class="ui-input w-full" type="number" name="rollback_to" min="0" max="{{ max_step }}" value="{{ current }}">
+      </label>
       <div class="mt-3 flex justify-end gap-2">
         <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
         <button class="ui-btn ui-btn-primary" type="submit">Resume</button>

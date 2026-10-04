@@ -302,6 +302,7 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, "ui-modal-editor")
         self.assertContains(response, 'rows="16"')
         self.assertContains(response, "data-ui3-close")
+        self.assertContains(response, "Comments")
         self.assertNotContains(response, "modal-open")
         self.assertNotContains(response, "Insert from job results")
 
@@ -777,6 +778,7 @@ class JobTests(Ui3TestCase):
         self.login()
         response = self.client.get(reverse("ui3:job_resume", args=[job.id]))
         self.assertContains(response, "0–2")
+        self.assertContains(response, "Step index")
         self.assertContains(response, 'max="2"')
         self.assertNotContains(response, 'max="3"')
 

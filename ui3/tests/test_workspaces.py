@@ -35,6 +35,8 @@ class WorkspaceTests(Ui3TestCase):
         modal = self.client.get(reverse("ui3:workspace_edit", args=[self.workspace.id]), HTTP_HX_REQUEST="true")
         self.assertContains(modal, "ui-modal-lg")
         self.assertContains(modal, "ui-modal-editor")
+        self.assertContains(modal, "Name")
+        self.assertContains(modal, "Description")
         response = self.client.post(
             reverse("ui3:workspace_edit", args=[self.workspace.id]),
             {"name": "ws1-renamed", "description": "updated"},

@@ -7,9 +7,21 @@
           hx-target="#reference-table"
           hx-swap="outerHTML">
       {% csrf_token %}
-      <input class="ui-input w-full" name="name" value="{{ ref.name }}" maxlength="255" required>
-      <textarea class="ui-input w-full font-mono" name="path" rows="3" maxlength="500" required>{{ ref.path }}</textarea>
-      <textarea class="ui-input w-full" name="description" rows="6">{{ ref.description }}</textarea>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Name</span></div>
+        <input class="ui-input w-full" name="name" value="{{ ref.name }}" maxlength="255" required>
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Path</span></div>
+        <textarea class="ui-input w-full font-mono" name="path" rows="3" maxlength="500" required>{{ ref.path }}</textarea>
+      </label>
+      <label class="form-control">
+        <div class="label">
+          <span class="label-text">Description</span>
+          <span class="label-text-alt">optional</span>
+        </div>
+        <textarea class="ui-input w-full" name="description" rows="6">{{ ref.description }}</textarea>
+      </label>
       <div class="mt-3 flex justify-end gap-2">
         <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
         <button class="ui-btn" type="button"

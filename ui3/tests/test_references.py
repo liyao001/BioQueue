@@ -47,6 +47,9 @@ class ReferenceTests(Ui3TestCase):
         self.assertContains(modal, "ui-modal-lg")
         self.assertContains(modal, "ui-modal-editor")
         self.assertContains(modal, 'name="path"')
+        self.assertContains(modal, "Name")
+        self.assertContains(modal, "Path")
+        self.assertContains(modal, "Description")
         response = self.client.post(
             reverse("ui3:reference_edit", args=[self.ref.id]),
             {"name": "hg38.p14", "path": "/refs/hg38.p14.fa", "description": "updated"},
