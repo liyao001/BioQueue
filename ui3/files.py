@@ -420,6 +420,62 @@ def delete_job_file_tree(job):
     return False
 
 
+def write_job_snapshot(job):
+    """Write ``.snapshot.ini`` under the job result folder (legacy mark-finished).
+
+    Records output file mtimes/sizes and resolved input paths when possible.
+    Returns True when a snapshot file was written.
+    """
+    from configparser import ConfigParser
+
+    folder = (job.result or "").strip()
+    if not folder:
+        return False
+    user_dir = os.path.join(job.run_dir or "", str(job.user_id))
+    run_folder = os.path.join(user_dir, folder)
+    if not os.path.isdir(run_folder):
+        return False
+
+    snapshot = ConfigParser()
+    snapshot.optionxform = str
+    snapshot["input"] = {}
+    snapshot["output"] = {}
+
+    for name in os.listdir(run_folder):
+        if name == ".snapshot.ini":
+            continue
+        full_path = os.path.join(run_folder, name)
+        if not os.path.isfile(full_path):
+            continue
+        snapshot["output"][name] = "%d;%d;%d" % (
+            os.path.getctime(full_path),
+            os.path.getmtime(full_path),
+            os.path.getsize(full_path),
+        )
+
+    input_blob = job.input_file or ""
+    try:
+        from worker3.step import _Step
+
+        parsed, _ = _Step._upload_file_map(input_blob, user_dir)
+        parsed, _, _ = _Step._history_map(parsed, job.user)
+        input_paths = [p for p in (parsed or "").split(";") if p]
+    except Exception:
+        input_paths = [p for p in input_blob.replace("\n", ";").split(";") if p]
+
+    for input_file in input_paths:
+        if os.path.isfile(input_file):
+            snapshot["input"][input_file] = "%d;%d;%d" % (
+                os.path.getctime(input_file),
+                os.path.getmtime(input_file),
+                os.path.getsize(input_file),
+            )
+
+    with open(os.path.join(run_folder, ".snapshot.ini"), "w") as configfile:
+        snapshot.write(configfile)
+    return True
+
+
 def job_result_relpath(job):
     folder = (job.result or "").replace("\\", "/").strip("/")
     if not folder or folder in (".", ".."):

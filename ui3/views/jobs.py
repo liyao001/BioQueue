@@ -5,7 +5,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbid
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from QueueDB.models import JobStatus
 
@@ -533,6 +533,7 @@ def sample_scaffold(request):
     context["force"] = request.GET.get("force") == "1"
     return render(request, "ui3/jobs/_sample_scaffold.html", context)
 
+
 @ui3_login_required
 @require_http_methods(["GET"])
 def parameter_scaffold(request):
@@ -717,11 +718,68 @@ def job_mark_finished(request, pk):
     job, err = _require_writable_job(request, pk)
     if err:
         return err
-    if job.locked:
-        return _bad(request, "This job is locked, please unlock first.")
-    job.set_status(JobStatus.FINISHED)
+    try:
+        services.mark_job_finished(job)
+    except services.JobActionError as exc:
+        return _bad(request, str(exc))
     job.refresh_from_db()
     return _refresh_or_row(request, job, "Job #{} marked finished.".format(job.id))
+
+
+@ui3_login_required
+@require_GET
+def mark_finished_compat(request):
+    """Legacy ``/ui/mark-finished?job_id=``.
+
+    Scripts still get the old JSON body. HTMX / browser navigations refresh or
+    redirect like other job-card actions instead of dumping JSON in a tab.
+    """
+    job_id = int_or_none(request.GET.get("job_id") or request.GET.get("job"))
+    wants_json = "application/json" in (request.headers.get("Accept") or "").lower()
+
+    def _json(payload, status=200):
+        return JsonResponse(payload, status=status)
+
+    if job_id is None:
+        if is_htmx(request):
+            return _bad(request, "job_id is required.")
+        if not wants_json and "text/html" in (request.headers.get("Accept") or "").lower():
+            messages.error(request, "job_id is required.")
+            return redirect("ui3:jobs")
+        return _json(
+            {"msg_title": "error", "info": "job_id is required.", "url": ".", "status": 0, "wait_second": 3},
+            status=400,
+        )
+    job = services.get_writable_job(request.user, job_id)
+    if job is None:
+        if is_htmx(request):
+            return _bad(request, "Job not found or not accessible.", status=403)
+        if not wants_json and "text/html" in (request.headers.get("Accept") or "").lower():
+            messages.error(request, "Job not found or not accessible.")
+            return redirect("ui3:jobs")
+        return _json(
+            {"msg_title": "error", "info": "Job not found or not accessible.", "url": ".", "status": 0, "wait_second": 3},
+            status=403,
+        )
+    try:
+        services.mark_job_finished(job)
+    except services.JobActionError as exc:
+        if is_htmx(request):
+            return _bad(request, str(exc))
+        if not wants_json and "text/html" in (request.headers.get("Accept") or "").lower():
+            messages.error(request, str(exc))
+            return redirect("ui3:jobs")
+        return _json(
+            {"msg_title": "error", "info": str(exc), "url": ".", "status": 0, "wait_second": 3},
+            status=400,
+        )
+    job.refresh_from_db()
+    if is_htmx(request):
+        return _refresh_or_row(request, job, "Job #{} marked finished.".format(job.id))
+    if not wants_json and "text/html" in (request.headers.get("Accept") or "").lower():
+        messages.success(request, "Job #{} marked finished.".format(job.id))
+        return redirect("ui3:jobs")
+    return _json({"msg_title": "success", "info": "Marked", "url": ".", "status": 1, "wait_second": 1})
 
 
 @ui3_login_required

@@ -134,6 +134,33 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, "/eval/{}".format(job.id))
         self.assertContains(response, "tab=out")
 
+    def test_mark_finished_shortcut_uses_htmx_not_new_tab(self):
+        from QueueDB.models import ProtocolShortcut
+
+        ProtocolShortcut.objects.create(
+            user=self.user,
+            protocol=self.protocol,
+            label="Mark finished",
+            href_template="/ui/mark-finished?job_id={id}",
+            active=1,
+        )
+        job = self.make_job(job_name="mf-shortcut", status=JobStatus.RUNNING)
+        self.login()
+        page = self.client.get(reverse("ui3:jobs"), {"q": "mf-shortcut"})
+        self.assertContains(page, "Mark finished")
+        self.assertContains(page, reverse("ui3:job_mark_finished", args=[job.id]))
+        self.assertContains(page, 'hx-post="{}"'.format(reverse("ui3:job_mark_finished", args=[job.id])))
+        self.assertNotContains(page, 'href="/ui/mark-finished?job_id={}"'.format(job.id))
+        response = self.client.post(
+            reverse("ui3:job_mark_finished", args=[job.id]),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="job-results"')
+        self.assertNotContains(response, "<html")
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.FINISHED)
+
     def test_search_jobs_helper_filters_status(self):
         running = self.make_job(job_name="run", status=JobStatus.RUNNING)
         self.make_job(job_name="wait", status=JobStatus.WAITING)
@@ -871,6 +898,59 @@ class JobTests(Ui3TestCase):
         self.assertEqual(response.status_code, 400)
         job.refresh_from_db()
         self.assertEqual(job.status, JobStatus.WRONG)
+
+    def test_legacy_mark_finished_url(self):
+        import os
+        import tempfile
+        from QueueDB.models import Audition
+
+        tmp = tempfile.mkdtemp()
+        job = self.make_job(status=JobStatus.RUNNING, result="out", run_dir=tmp)
+        os.makedirs(os.path.join(tmp, str(job.user_id), "out"), exist_ok=True)
+        with open(os.path.join(tmp, str(job.user_id), "out", "a.txt"), "w") as fh:
+            fh.write("x")
+        self.login()
+        missing = self.client.get(reverse("ui3:mark_finished_compat"))
+        self.assertEqual(missing.status_code, 400)
+        response = self.client.get(reverse("ui3:mark_finished_compat"), {"job_id": job.id})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload.get("status"), 1)
+        self.assertEqual(payload.get("info"), "Marked")
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.FINISHED)
+        self.assertTrue(
+            Audition.objects.filter(related_job=job, operation="Done").exists()
+            or Audition.objects.filter(job_name=job.job_name, operation="Done").exists()
+        )
+        self.assertTrue(os.path.exists(os.path.join(tmp, str(job.user_id), "out", ".snapshot.ini")))
+        htmx_job = self.make_job(status=JobStatus.RUNNING, result="out2", run_dir=tmp)
+        os.makedirs(os.path.join(tmp, str(htmx_job.user_id), "out2"), exist_ok=True)
+        htmx = self.client.get(
+            reverse("ui3:mark_finished_compat"),
+            {"job_id": htmx_job.id},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(htmx.status_code, 200)
+        self.assertContains(htmx, 'id="job-results"')
+        htmx_job.refresh_from_db()
+        self.assertEqual(htmx_job.status, JobStatus.FINISHED)
+        browser = self.client.get(
+            reverse("ui3:mark_finished_compat"),
+            {"job_id": job.id},
+            HTTP_ACCEPT="text/html",
+        )
+        self.assertEqual(browser.status_code, 302)
+        self.assertIn("/ui/", browser["Location"])
+        card = self.client.post(reverse("ui3:job_mark_finished", args=[job.id]))
+        # already finished + unlocked is fine; locked path tested separately
+        self.assertIn(card.status_code, (200, 302))
+        locked = self.make_job(status=JobStatus.RUNNING, locked=1)
+        blocked = self.client.get(reverse("ui3:mark_finished_compat"), {"job_id": locked.id})
+        self.assertEqual(blocked.status_code, 400)
+        foreign = self.make_job(user=self.other, protocol=self.other_protocol, status=JobStatus.RUNNING)
+        forbidden = self.client.get(reverse("ui3:mark_finished_compat"), {"job_id": foreign.id})
+        self.assertEqual(forbidden.status_code, 403)
 
     def test_crossaccess_read_cannot_rerun(self):
         from QueueDB.models import CrossAccess

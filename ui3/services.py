@@ -724,6 +724,20 @@ class JobActionError(ValueError):
     """User-facing job mutation failure."""
 
 
+def mark_job_finished(job, *, snapshot=True):
+    """Mark a job finished (audit + optional ``.snapshot.ini``), matching legacy mark-finished."""
+    if job.locked:
+        raise JobActionError("This job is locked, please unlock first.")
+    job.set_done()
+    if snapshot:
+        try:
+            from .files import write_job_snapshot
+
+            write_job_snapshot(job)
+        except Exception:
+            pass
+    return job
+
 def mark_job_wrong(job):
     if job.locked:
         raise JobActionError("This job is locked, please unlock first.")
@@ -811,11 +825,34 @@ def resolve_shortcut_href(sc, job):
     return href
 
 
+def shortcut_is_mark_finished(href):
+    """True when a resolved shortcut targets the mark-finished API or job action."""
+    from urllib.parse import urlparse
+
+    path = (urlparse(href).path or "").rstrip("/").lower()
+    return path.endswith("mark-finished")
+
+def shortcut_card_entry(sc, job):
+    """Shape a shortcut for the job card menu (external link or in-app HTMX action)."""
+    from django.urls import reverse
+
+    href = resolve_shortcut_href(sc, job)
+    label = sc.label or "Shortcut"
+    if shortcut_is_mark_finished(href):
+        return {
+            "kind": "htmx-post",
+            "label": label,
+            "url": reverse("ui3:job_mark_finished", args=[job.id]),
+            "href": href,
+        }
+    return {"kind": "link", "label": label, "href": href}
+
 def shortcuts_for_jobs(user, jobs):
     """
-    Attach a list of {label, href} on each job from shared + protocol shortcuts.
+    Attach a list of card shortcut entries on each job from shared + protocol shortcuts.
 
     Protocol-specific entries win on the same label+href (ui2 mergeShortcutsForJob).
+    Mark-finished shortcuts become HTMX posts so the menu does not open JSON in a new tab.
     """
     jobs = list(jobs or [])
     proto_ids = {j.protocol_id for j in jobs if getattr(j, "protocol_id", None)}
@@ -840,7 +877,7 @@ def shortcuts_for_jobs(user, jobs):
         for sc in by_proto.get(job.protocol_id, []):
             merged[(sc.label, sc.href_template)] = sc
         items = sorted(merged.values(), key=lambda s: (s.order or 0, s.label or ""))
-        job.ui3_shortcuts = [{"label": sc.label, "href": resolve_shortcut_href(sc, job)} for sc in items]
+        job.ui3_shortcuts = [shortcut_card_entry(sc, job) for sc in items]
     return jobs
 
 

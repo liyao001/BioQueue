@@ -73,9 +73,18 @@
               <i class="fa-solid fa-ellipsis"></i>
             </button>
             <div class="ui-combo-panel" style="min-width: 12rem;">
-              <div class="ui-combo-list">
+              <div class="ui-combo-list ui-combo-menu">
                 {% for sc in job.ui3_shortcuts %}
-                <a class="block px-2 py-1 text-sm hover:bg-base-200 rounded" href="{{ sc.href }}" target="_blank" rel="noopener noreferrer">{{ sc.label }}</a>
+                {% if sc.kind == "htmx-post" %}
+                <button type="button" class="ui-combo-item whitespace-nowrap"
+                        onclick="ui3.closeCombos()"
+                        hx-post="{{ sc.url }}"
+                        hx-include="#job-filters"
+                        hx-target="#job-results"
+                        hx-swap="outerHTML">{{ sc.label }}</button>
+                {% else %}
+                <a class="ui-combo-item whitespace-nowrap" href="{{ sc.href }}" target="_blank" rel="noopener noreferrer">{{ sc.label }}</a>
+                {% endif %}
                 {% endfor %}
               </div>
             </div>

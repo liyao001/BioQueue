@@ -45,6 +45,9 @@ urlpatterns = [
     path("jobs/<int:pk>/gpu/", jobs.job_gpu, name="job_gpu"),
     path("jobs/<int:pk>/mark-wrong/", jobs.job_mark_wrong, name="job_mark_wrong"),
     path("jobs/<int:pk>/mark-finished/", jobs.job_mark_finished, name="job_mark_finished"),
+    # Legacy flat path from the old Bootstrap UI (GET ?job_id=).
+    path("mark-finished/", jobs.mark_finished_compat, name="mark_finished_compat"),
+    path("mark-finished", jobs.mark_finished_compat),
     path("jobs/<int:pk>/resume/", jobs.job_resume, name="job_resume"),
     path("jobs/<int:pk>/delete/", jobs.job_delete, name="job_delete"),
     path("jobs/<int:pk>/purge/", jobs.job_purge, name="job_purge"),
