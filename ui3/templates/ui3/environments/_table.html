@@ -2,7 +2,7 @@
 <div id="environment-table" class="card bg-base-100 shadow-sm overflow-x-auto">
   <table class="table table-sm">
     <thead>
-      <tr><th>ID</th><th>Name</th><th>Type</th><th>Value</th><th>Activation</th><th></th></tr>
+      <tr><th>ID</th><th>Name</th><th>Type</th><th>Value</th><th>Activation</th><th>Recipe</th><th></th></tr>
     </thead>
     <tbody>
       {% for e in environments %}
@@ -12,6 +12,7 @@
         <td>{{ e.ve_type }}</td>
         <td class="font-mono text-xs max-w-md truncate" title="{{ e.value }}">{{ e.value }}</td>
         <td class="font-mono text-xs max-w-xs truncate" title="{{ e.activation_command|default:'' }}">{{ e.activation_command|default:"" }}</td>
+        <td>{% if e.recipe %}yes{% endif %}</td>
         <td class="whitespace-nowrap">
           {% if e|can_edit:request.user %}
           <button class="btn btn-xs" hx-get="{% url 'ui3:environment_edit' e.id %}" hx-target="#modal-root" hx-swap="innerHTML">Edit</button>
@@ -28,7 +29,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="opacity-70">No virtual environments</td></tr>
+      <tr><td colspan="7" class="opacity-70">No virtual environments</td></tr>
       {% endfor %}
     </tbody>
   </table>

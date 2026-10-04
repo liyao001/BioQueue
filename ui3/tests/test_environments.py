@@ -56,6 +56,11 @@ class EnvironmentTests(Ui3TestCase):
         self.assertContains(modal, "ui-modal-lg")
         self.assertContains(modal, "ui-modal-editor")
         self.assertContains(modal, 'name="value"')
+        self.assertContains(modal, "Name")
+        self.assertContains(modal, "Type")
+        self.assertContains(modal, "Value")
+        self.assertContains(modal, "Activation command")
+        self.assertContains(modal, "Recipe")
         response = self.client.post(
             reverse("ui3:environment_edit", args=[self.env.id]),
             {"name": "py311", "ve_type": "conda", "value": "bioqueue2", "activation_command": ""},
@@ -142,3 +147,36 @@ class EnvironmentTests(Ui3TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "py310")
         self.assertNotContains(response, "<html")
+
+    def test_create_and_edit_recipe(self):
+        self.login()
+        created = self.client.post(
+            reverse("ui3:environment_create"),
+            {
+                "name": "analysis",
+                "ve_type": "conda",
+                "value": "analysis",
+                "recipe": "name: analysis\ndependencies:\n  - python=3.10\n",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(created.status_code, 200)
+        env = VirtualEnvironment.objects.get(name="analysis", user=self.user)
+        self.assertIn("python=3.10", env.recipe)
+        self.assertContains(created, ">yes<")
+        edited = self.client.post(
+            reverse("ui3:environment_edit", args=[env.id]),
+            {
+                "name": "analysis",
+                "ve_type": "conda",
+                "value": "analysis",
+                "activation_command": "",
+                "recipe": "python==3.11\n",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(edited.status_code, 200)
+        env.refresh_from_db()
+        self.assertEqual(env.recipe, "python==3.11\n")
+        found = self.client.get(reverse("ui3:environments"), {"q": "python==3.11"}, HTTP_HX_REQUEST="true")
+        self.assertContains(found, "analysis")

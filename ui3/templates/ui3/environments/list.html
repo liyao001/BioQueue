@@ -15,7 +15,7 @@
       hx-push-url="true"
       hx-include="#page-size-select"
       hx-trigger="submit, input delay:400ms from:input">
-  <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, type, value, or id">
+  <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, type, value, recipe, or id">
   <button class="btn btn-sm" type="submit">Search</button>
 </form>
 
@@ -54,6 +54,13 @@
         <span class="label-text-alt">optional</span>
       </div>
       <input class="ui-input w-full font-mono" name="activation_command" placeholder="conda activate bioqueue" autocomplete="off">
+    </label>
+    <label class="form-control mt-4">
+      <div class="label">
+        <span class="label-text">Recipe</span>
+        <span class="label-text-alt">optional, stored only</span>
+      </div>
+      <textarea class="ui-input w-full font-mono" name="recipe" rows="6" placeholder="Conda environment YAML or pip requirements.txt. BioQueue stores this and does not run it."></textarea>
     </label>
     <div class="mt-4 flex justify-end">
       <button class="ui-btn ui-btn-primary" type="submit">Create environment</button>

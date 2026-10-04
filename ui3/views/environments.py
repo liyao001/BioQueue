@@ -47,7 +47,8 @@ def _ve_fields(request):
     if ve_type not in VE_TYPES:
         ve_type = "conda"
     activation = (request.POST.get("activation_command") or "").strip()
-    return name, value, ve_type, activation
+    recipe = request.POST.get("recipe") or ""
+    return name, value, ve_type, activation, recipe
 
 
 @ui3_login_required
@@ -60,7 +61,7 @@ def environment_list(request):
 @ui3_login_required
 @require_POST
 def environment_create(request):
-    name, value, ve_type, activation = _ve_fields(request)
+    name, value, ve_type, activation, recipe = _ve_fields(request)
     if not name or not value:
         if is_htmx(request):
             return htmx_error("Name and value are required.")
@@ -77,6 +78,7 @@ def environment_create(request):
             ve_type=ve_type,
             value=value,
             activation_command=activation or None,
+            recipe=recipe,
             user=delegate_for(request.user),
         )
     except IntegrityError:
@@ -100,7 +102,7 @@ def environment_edit(request, pk):
         return _forbidden(request)
     if request.method == "GET":
         return render(request, "ui3/environments/_edit_modal.html", {"env": env, "ve_types": VE_TYPES})
-    name, value, ve_type, activation = _ve_fields(request)
+    name, value, ve_type, activation, recipe = _ve_fields(request)
     if not name or not value:
         if is_htmx(request):
             return htmx_error("Name and value are required.")
@@ -113,6 +115,7 @@ def environment_edit(request, pk):
     env.ve_type = ve_type
     env.value = value
     env.activation_command = activation or None
+    env.recipe = recipe
     try:
         env.save()
     except IntegrityError:

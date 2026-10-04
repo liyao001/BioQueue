@@ -617,10 +617,19 @@ def search_environments(user, q):
     if q:
         try:
             qs = qs.filter(
-                Q(name__icontains=q) | Q(ve_type__icontains=q) | Q(value__icontains=q) | Q(id=int(q))
+                Q(name__icontains=q)
+                | Q(ve_type__icontains=q)
+                | Q(value__icontains=q)
+                | Q(recipe__icontains=q)
+                | Q(id=int(q))
             )
         except ValueError:
-            qs = qs.filter(Q(name__icontains=q) | Q(ve_type__icontains=q) | Q(value__icontains=q))
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(ve_type__icontains=q)
+                | Q(value__icontains=q)
+                | Q(recipe__icontains=q)
+            )
     return qs.order_by("-id")
 
 
