@@ -62,6 +62,42 @@ class ProtocolTests(Ui3TestCase):
         steps = list(protocol_steps(self.protocol))
         self.assertEqual([s.software for s in steps], ["second", "first"])
 
+    def test_drag_reorder_steps(self):
+        self.login()
+        created = []
+        for index, name in enumerate(("alpha", "beta", "gamma"), start=1):
+            created.append(Step.objects.create(
+                parent=self.protocol,
+                software=name,
+                parameter="p",
+                step_order=index,
+                hash=compute_step_hash(name, "p"),
+                user=self.user,
+            ))
+        page = self.client.get(reverse("ui3:protocol_detail", args=[self.protocol.id]))
+        self.assertContains(page, "step-drag")
+        self.assertContains(page, "step-table")
+        self.assertContains(page, reverse("ui3:step_reorder", args=[self.protocol.id]))
+        self.assertContains(page, "stepDragStart")
+        self.assertContains(page, 'swap: "innerHTML"')
+        order = "{},{},{}".format(created[2].id, created[0].id, created[1].id)
+        response = self.client.post(
+            reverse("ui3:step_reorder", args=[self.protocol.id]),
+            {"order": order},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "<html")
+        steps = list(protocol_steps(self.protocol))
+        self.assertEqual([s.software for s in steps], ["gamma", "alpha", "beta"])
+        self.assertEqual([s.step_order for s in steps], [1, 2, 3])
+        foreign = self.client.post(
+            reverse("ui3:step_reorder", args=[self.other_protocol.id]),
+            {"order": str(created[0].id)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(foreign.status_code, 403)
+
     def test_clone_protocol(self):
         Step.objects.create(
             parent=self.protocol,

@@ -890,6 +890,26 @@ def swap_step_order(step, direction):
     return True
 
 
+def reorder_protocol_steps(protocol, ordered_ids):
+    """Set step_order from a drag-and-drop id list. Unknown ids are ignored."""
+    steps = list(protocol_steps(protocol))
+    by_id = {step.id: step for step in steps}
+    seen = []
+    for raw in ordered_ids or []:
+        try:
+            pk = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if pk in by_id and pk not in seen:
+            seen.append(pk)
+    final = seen + [step.id for step in steps if step.id not in seen]
+    for index, pk in enumerate(final, start=1):
+        step = by_id[pk]
+        if step.step_order != index:
+            step.step_order = index
+            step.save(update_fields=["step_order"])
+    return [by_id[pk] for pk in final]
+
 def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False):
     dest = ProtocolList.objects.create(
         name=name,

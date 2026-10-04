@@ -81,6 +81,7 @@ urlpatterns = [
     path("protocols/<int:pk>/delete/", protocols.protocol_delete, name="protocol_delete"),
     path("protocols/<int:pk>/clone/", protocols.protocol_clone, name="protocol_clone"),
     path("protocols/<int:pk>/steps/", protocols.step_create, name="step_create"),
+    path("protocols/<int:pk>/steps/reorder/", protocols.step_reorder, name="step_reorder"),
     path("steps/<int:pk>/edit/", protocols.step_edit, name="step_edit"),
     path("steps/<int:pk>/delete/", protocols.step_delete, name="step_delete"),
     path("steps/<int:pk>/move/", protocols.step_move, name="step_move"),

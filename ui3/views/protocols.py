@@ -19,6 +19,30 @@ def _forbidden(request, message="Protocol not found or not accessible."):
     return HttpResponseForbidden(message)
 
 
+def _editor_chrome(selected=None):
+    if selected is None:
+        return {
+            "editor_url": reverse("ui3:protocol_template_create_edit"),
+            "editor_form": "#protocol-template-create-form",
+            "editor_submit_label": "Create protocol",
+            "editor_hint": (
+                "Draft changes stay on this page until you create the protocol. "
+                "Environments use their names so exported templates can use matching "
+                "environments on another installation."
+            ),
+        }
+    return {
+        "editor_url": reverse("ui3:protocol_template_edit", args=[selected.id]),
+        "editor_form": "#protocol-meta-form",
+        "editor_submit_label": "Save protocol",
+        "editor_hint": (
+            "Changes are saved only when you select Save protocol. "
+            "Environments use their names so exported templates can use matching "
+            "environments on another installation."
+        ),
+    }
+
+
 def _protocol_page_context(request, selected=None):
     params = list_params(request)
     q = params.get("q") or ""
@@ -62,35 +86,13 @@ def _protocol_page_context(request, selected=None):
     return ctx
 
 
-def _editor_chrome(selected=None):
-    if selected is None:
-        return {
-            "editor_url": reverse("ui3:protocol_template_create_edit"),
-            "editor_form": "#protocol-template-create-form",
-            "editor_submit_label": "Create protocol",
-            "editor_hint": (
-                "Draft changes stay on this page until you create the protocol. "
-                "Environments use their names so exported templates can use matching "
-                "environments on another installation."
-            ),
-        }
-    return {
-        "editor_url": reverse("ui3:protocol_template_edit", args=[selected.id]),
-        "editor_form": "#protocol-meta-form",
-        "editor_submit_label": "Save protocol",
-        "editor_hint": (
-            "Changes are saved only when you select Save protocol. "
-            "Environments use their names so exported templates can use matching "
-            "environments on another installation."
-        ),
-    }
-
 def _preview_count(request):
     raw = request.POST.get("preview_samples") or request.GET.get("preview_samples") or 2
     try:
         return int(raw)
     except (TypeError, ValueError):
         return 2
+
 
 def _template_create_context(request, document, form=None, error=None, mode="visual"):
     environments = services.visible_environments(request.user)
@@ -108,6 +110,7 @@ def _template_create_context(request, document, form=None, error=None, mode="vis
     ctx["editor_open"] = True
     return ctx
 
+
 def _posted_rename(request):
     try:
         path = json.loads(request.POST.get("editor_path") or "[]")
@@ -116,6 +119,7 @@ def _posted_rename(request):
     if not isinstance(path, list) or len(path) < 2 or not isinstance(path[1], str):
         return ""
     return request.POST.get("br:{}".format(path[1]), "")
+
 
 def _create_error_page(request, raw, error, document=None):
     """Redisplay the create form without dropping a draft that cannot be drawn."""
@@ -129,6 +133,7 @@ def _create_error_page(request, raw, error, document=None):
         )
         ctx["editor"]["source"] = raw or ""
     return render(request, "ui3/protocols/new_template.html", ctx, status=400)
+
 
 @ui3_login_required
 @require_http_methods(["GET"])
@@ -236,6 +241,7 @@ def protocol_template_create(request):
     messages.success(request, "Template protocol '{}' created.".format(proto.name))
     return redirect(reverse("ui3:protocols") + "?select={}".format(proto.id))
 
+
 @ui3_login_required
 @require_POST
 def protocol_template_create_edit(request):
@@ -251,6 +257,7 @@ def protocol_template_create_edit(request):
     except (ValueError, TypeError, KeyError, IndexError, services.ProtocolTemplateError) as exc:
         return htmx_error("Cannot update template draft: {}".format(exc))
     return render(request, "ui3/protocols/_template_editor.html", context)
+
 
 @ui3_login_required
 @require_POST
@@ -316,6 +323,7 @@ def protocol_template_edit(request, pk):
         return htmx_error("Cannot update template draft: {}".format(exc))
     context["selected"] = proto
     return render(request, "ui3/protocols/_template_editor.html", context)
+
 
 @ui3_login_required
 @require_POST
@@ -530,6 +538,25 @@ def step_move(request, pk):
         return _forbidden(request)
     direction = request.POST.get("direction") or "up"
     services.swap_step_order(step, direction)
+    ctx = _protocol_page_context(request, selected=proto)
+    if is_htmx(request):
+        return render(request, "ui3/protocols/_detail.html", ctx)
+    return redirect("ui3:protocol_detail", pk=proto.id)
+
+
+@ui3_login_required
+@require_POST
+def step_reorder(request, pk):
+    proto = services.get_owned_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    raw = (request.POST.get("order") or "").replace(" ", ",")
+    ordered_ids = [part for part in raw.split(",") if part.strip()]
+    if not ordered_ids:
+        if is_htmx(request):
+            return htmx_error("Step order is required.")
+        return HttpResponseBadRequest("Step order is required.")
+    services.reorder_protocol_steps(proto, ordered_ids)
     ctx = _protocol_page_context(request, selected=proto)
     if is_htmx(request):
         return render(request, "ui3/protocols/_detail.html", ctx)

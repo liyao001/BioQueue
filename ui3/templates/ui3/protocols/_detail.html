@@ -152,6 +152,7 @@
       <table class="table table-sm w-full step-table">
         <thead>
           <tr class="bg-base-200/60">
+            {% if can_edit_selected %}<th class="w-8"></th>{% endif %}
             <th class="w-12">#</th>
             <th>Software</th>
             <th>Parameter</th>
@@ -159,9 +160,26 @@
             <th class="w-36 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="protocol-steps"
+               {% if can_edit_selected and steps|length > 1 %}
+               data-reorder-url="{% url 'ui3:step_reorder' selected.id %}"
+               data-step-order="{% for st in steps %}{{ st.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+               ondragover="ui3.stepDragOver(event)"
+               {% endif %}>
           {% for st in steps %}
-          <tr>
+          <tr data-step-id="{{ st.id }}">
+            {% if can_edit_selected %}
+            <td class="align-top">
+              {% if steps|length > 1 %}
+              <button type="button" class="icon-btn step-drag" draggable="true" title="Drag to reorder"
+                      aria-label="Drag step {{ st.step_order }}"
+                      ondragstart="ui3.stepDragStart(event)"
+                      ondragend="ui3.stepDragEnd(event)">
+                <i class="fa-solid fa-grip-vertical"></i>
+              </button>
+              {% endif %}
+            </td>
+            {% endif %}
             <td class="align-top opacity-70">{{ st.step_order }}</td>
             <td class="align-top font-medium">
               {% if st.software|is_shell_step %}
@@ -203,7 +221,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="5" class="text-center text-sm opacity-60 py-6">No steps yet</td></tr>
+          <tr><td colspan="{% if can_edit_selected %}6{% else %}5{% endif %}" class="text-center text-sm opacity-60 py-6">No steps yet</td></tr>
           {% endfor %}
         </tbody>
       </table>
