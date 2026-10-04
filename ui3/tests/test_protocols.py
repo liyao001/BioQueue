@@ -142,6 +142,9 @@ class ProtocolTests(Ui3TestCase):
         detail = self.client.get(reverse("ui3:protocol_detail", args=[public.id]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, "Clone it to make your own")
+        self.assertContains(detail, "shared-public")
+        self.assertContains(detail, "No description")
+        self.assertNotContains(detail, 'name="description"')
         update = self.client.post(
             reverse("ui3:protocol_update", args=[public.id]),
             {"name": "hacked-public"},
@@ -194,6 +197,8 @@ class ProtocolTests(Ui3TestCase):
         self.assertEqual(sc.user, self.user)
         self.assertEqual(sc.href_template, "/ui/eval/{id}")
         listed = self.client.get(reverse("ui3:protocol_detail", args=[self.protocol.id]))
+        self.assertContains(listed, 'id="protocol-shortcuts"')
+        self.assertNotContains(listed, 'id="protocol-shortcuts" open')
         self.assertContains(listed, "Evaluate")
         self.assertContains(listed, "/ui/eval/{id}")
         toggle = self.client.post(reverse("ui3:shortcut_toggle", args=[sc.id]))
@@ -249,6 +254,9 @@ class ProtocolTests(Ui3TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "RNA-seq")
+        self.assertContains(response, 'name="description"')
+        self.assertNotContains(response, "No description")
+        self.assertNotContains(response, 'class="text-lg font-semibold truncate"')
         self.assertContains(response, "ui-combo")
         self.assertContains(response, reverse("ui3:environment_options"))
         self.assertNotContains(response, "<html")
