@@ -720,6 +720,55 @@ class Notification(_OwnerModel):
     msg = models.CharField(max_length=500)
 
 
+class NotificationHook(models.Model):
+    """Per-user outbound notification (Discord, Telegram, email, and similar).
+
+    ``events`` is a comma-separated list of ``started``, ``finished``, ``failed``,
+    and ``interrupted``. ``config`` is JSON with provider-specific secrets.
+    The worker reads these rows when a job changes status.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notification_hooks",
+    )
+    name = models.CharField(max_length=80)
+    provider = models.CharField(max_length=32)
+    enabled = models.SmallIntegerField(default=1, choices=YES_OR_NO)
+    events = models.CharField(max_length=120, default="finished,failed,interrupted")
+    config = models.TextField(blank=True, default="")
+    create_time = models.DateTimeField(auto_now_add=True)
+    update_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(fields=["user", "enabled"], name="notifhook_user_enabled"),
+        ]
+
+    def __str__(self):
+        return "{} ({})".format(self.name, self.provider)
+
+    def event_keys(self):
+        return [part for part in (self.events or "").split(",") if part]
+
+    def event_label_text(self):
+        from QueueDB.notifications import event_labels
+
+        return event_labels(self.events)
+
+    def provider_label(self):
+        from QueueDB.notifications import provider_label
+
+        return provider_label(self.provider)
+
+    def destination_summary(self):
+        from QueueDB.notifications import destination_summary
+
+        return destination_summary(self.provider, self.config)
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

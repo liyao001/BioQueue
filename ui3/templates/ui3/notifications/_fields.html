@@ -1,0 +1,26 @@
+<p class="text-sm opacity-70">{{ provider_help }}</p>
+{% for field in fields %}
+<label class="form-control">
+  <div class="label">
+    <span class="label-text">{{ field.label }}</span>
+    {% if not field.required %}<span class="label-text-alt">optional</span>{% endif %}
+  </div>
+  {% if field.choices %}
+  <select class="ui-select w-full" name="{{ field.name }}">
+    {% for value, label in field.choices %}
+    <option value="{{ value }}" {% if field.value == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <input class="ui-input w-full {% if field.mono %}font-mono{% endif %}"
+         type="{{ field.input }}"
+         name="{{ field.name }}"
+         maxlength="2000"
+         value="{{ field.value }}"
+         {% if field.keep %}placeholder="Saved — leave blank to keep"{% elif field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+         {% if field.required and not field.keep %}required{% endif %}
+         autocomplete="off"
+         spellcheck="false">
+  {% endif %}
+</label>
+{% endfor %}

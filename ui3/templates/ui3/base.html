@@ -66,6 +66,7 @@
         <summary><i class="fas fa-user"></i> <span class="bq-user-name">{{ user.username }}</span></summary>
         <ul>
           <li><a href="{% url 'ui3:account' %}">Account</a></li>
+          <li><a href="{% url 'ui3:notifications' %}">Notifications</a></li>
           <li><a href="{% url 'ui3:archives' %}">Archives</a></li>
           {% if user.is_staff %}
           <li><a href="{% url 'ui3:users' %}">Users</a></li>

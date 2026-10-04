@@ -1,0 +1,45 @@
+{% extends "ui3/base.html" %}
+{% block title %}Notifications – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Notifications</h1>
+  <p class="text-sm opacity-70 page-head-sub">The worker messages you when your jobs start, finish, fail, or are interrupted. Tokens are stored with your account and sent only from the worker machine.</p>
+</div>
+
+{% include "ui3/notifications/_table.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Add a hook</h2>
+  <form class="mt-3 space-y-2" method="post" action="{% url 'ui3:notification_create' %}"
+        hx-post="{% url 'ui3:notification_create' %}"
+        hx-target="#notification-table"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful && event.detail.elt===this){ this.reset(); htmx.ajax('GET', '{% url 'ui3:notification_fields' %}?provider=discord', {target: '#notification-fields', swap: 'innerHTML'}); }">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Name</span></div>
+      <input class="ui-input w-full" name="name" maxlength="80" placeholder="Lab Discord" required autocomplete="off">
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Service</span></div>
+      <select class="ui-select w-full" name="provider"
+              hx-get="{% url 'ui3:notification_fields' %}"
+              hx-target="#notification-fields"
+              hx-swap="innerHTML"
+              hx-params="provider"
+              hx-trigger="change">
+        {% for item in providers %}
+        <option value="{{ item.key }}" {% if item.key == provider_key %}selected{% endif %}>{{ item.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div id="notification-fields" class="space-y-2">
+      {% include "ui3/notifications/_fields.html" %}
+    </div>
+    {% include "ui3/notifications/_events.html" %}
+    <div class="mt-4 flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Save hook</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

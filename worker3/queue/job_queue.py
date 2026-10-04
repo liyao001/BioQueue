@@ -24,6 +24,7 @@ from QueueDB.models import (
     _JS_WRONG,
     _JS_INTERRUPTED,
 )
+from QueueDB.notifications import notify_job
 
 from worker3 import bases
 from worker3 import cluster_support
@@ -191,16 +192,20 @@ class JobQueue(object):
         -------
 
         """
+        outcome = None
         with self._lock:
             if is_error == 2:
                 job.db_obj.status = _JS_INTERRUPTED
                 job.db_obj.ter = 0
+                outcome = "interrupted"
             elif is_error:
                 job.db_obj.status = _JS_WRONG
                 job.db_obj.ter = 0
+                outcome = "failed"
             else:
                 job.db_obj.status = _JS_FINISHED
-            self._save_job_with_retries(
+                outcome = "finished"
+            saved = self._save_job_with_retries(
                 job.db_obj,
                 operation="dequeue",
                 on_failure=lambda: self._record_failed_task(self.dequeue, job, is_error),
@@ -214,6 +219,12 @@ class JobQueue(object):
                 logger.exception(e)
             finally:
                 self._queued_jobs.pop(job.job_id, None)
+        if saved and outcome:
+            notify_job(
+                job.db_obj,
+                outcome,
+                mail_settings=(self._settings or {}).get("mail"),
+            )
 
     def enqueue(self, job):
         """
@@ -335,6 +346,7 @@ class JobQueue(object):
                 )
                 j.status = _JS_WRONG
                 j.save()
+                notify_job(j, "failed", mail_settings=(self._settings or {}).get("mail"))
         except Exception as e:
             logger.exception(e)
 
@@ -764,6 +776,7 @@ class JobQueue(object):
                     # sync the ORM instance so later save() calls do not revert the claim.
                     job.status = _JS_RUNNING
                     self.enqueue(t_job)
+                    notify_job(job, "started", mail_settings=(self._settings or {}).get("mail"))
                 except Exception as exc:
                     from QueueDB.protocol_template import ProtocolTemplateError
 
@@ -771,6 +784,7 @@ class JobQueue(object):
                         logger.error("Job %s template expansion failed: %s", job.id, exc)
                         try:
                             Job.objects.filter(id=job.id).update(status=_JS_WRONG)
+                            notify_job(job, "failed", mail_settings=(self._settings or {}).get("mail"))
                         except Exception:
                             logger.exception("Failed to mark job %s failed after template error", job.id)
                         continue

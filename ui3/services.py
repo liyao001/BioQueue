@@ -19,6 +19,7 @@ from QueueDB.models import (
     FileArchive,
     Job,
     JobStatus,
+    NotificationHook,
     ProtocolList,
     ProtocolShortcut,
     Reference,
@@ -2743,3 +2744,31 @@ def create_managed_user(actor, *, username, password, password_2, email="", firs
     except IntegrityError:
         raise UserManageError("That username is already taken.")
     return user
+
+
+def notification_hooks_for(user):
+    """Hooks owned by the signed-in account (the profile delegate)."""
+    return NotificationHook.objects.filter(user=delegate_for(user)).order_by("id")
+
+
+def get_owned_notification_hook(user, pk):
+    return notification_hooks_for(user).filter(pk=pk).first()
+
+
+def create_notification_hook(user, post):
+    from QueueDB.notifications import MAX_HOOKS, NotificationError, save_hook_fields
+
+    owner = delegate_for(user)
+    if NotificationHook.objects.filter(user=owner).count() >= MAX_HOOKS:
+        raise NotificationError("You can save up to {} notification hooks.".format(MAX_HOOKS))
+    return NotificationHook.objects.create(user=owner, **save_hook_fields(post))
+
+
+def update_notification_hook(hook, post):
+    from QueueDB.notifications import save_hook_fields
+
+    fields = save_hook_fields(post, existing=hook)
+    for key, value in fields.items():
+        setattr(hook, key, value)
+    hook.save()
+    return hook

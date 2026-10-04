@@ -1,0 +1,18 @@
+<fieldset class="mt-2">
+  <legend class="label-text">Events</legend>
+  <div class="flex flex-wrap gap-4 mt-1">
+    {% for key, label in event_choices %}
+    <label class="inline-flex items-center gap-2 text-sm">
+      <input type="checkbox" class="checkbox checkbox-sm" name="events" value="{{ key }}"
+             {% if key in selected_events %}checked{% endif %}>
+      {{ label }}
+    </label>
+    {% endfor %}
+  </div>
+  <p class="text-sm opacity-70 mt-1">Started is off unless you check it. The worker sends the others when a job ends.</p>
+</fieldset>
+<label class="inline-flex items-center gap-2 text-sm mt-3">
+  <input type="hidden" name="enabled" value="0">
+  <input type="checkbox" class="checkbox checkbox-sm" name="enabled" value="1" {% if enabled %}checked{% endif %}>
+  Enabled
+</label>

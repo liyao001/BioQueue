@@ -1,0 +1,50 @@
+<div id="notification-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Service</th>
+        <th>Destination</th>
+        <th>Events</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for hook in hooks %}
+      <tr>
+        <td>{{ hook.name }}</td>
+        <td>{{ hook.provider_label }}</td>
+        <td class="text-sm">{{ hook.destination_summary }}</td>
+        <td class="text-sm">{{ hook.event_label_text }}</td>
+        <td class="text-sm">{% if hook.enabled %}On{% else %}Off{% endif %}</td>
+        <td class="whitespace-nowrap">
+          <button class="btn btn-xs" type="button"
+                  hx-get="{% url 'ui3:notification_edit' hook.id %}"
+                  hx-target="#modal-root"
+                  hx-swap="innerHTML">Edit</button>
+          <form class="inline" method="post" action="{% url 'ui3:notification_test' hook.id %}"
+                hx-post="{% url 'ui3:notification_test' hook.id %}"
+                hx-target="#toast-root"
+                hx-swap="innerHTML">
+            {% csrf_token %}
+            <button class="btn btn-xs" type="submit">Test</button>
+          </form>
+          <form class="inline" method="post" action="{% url 'ui3:notification_delete' hook.id %}"
+                hx-post="{% url 'ui3:notification_delete' hook.id %}"
+                hx-target="#notification-table"
+                hx-swap="outerHTML"
+                hx-confirm="Delete notification hook '{{ hook.name }}'?">
+            {% csrf_token %}
+            <button class="btn btn-xs btn-error" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" class="opacity-70">No notification hooks yet. Add one below and the worker will message you when a job finishes or fails.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -22,6 +22,7 @@ ui3/AGENTS.md
 **/.ipynb_checkpoints/*
 QueueDB/migrations/*
 !QueueDB/migrations/0050_protocollist_template_job_sample_sheet.py
+!QueueDB/migrations/0051_notificationhook.py
 !QueueDB/migrations/0052_virtualenvironment_recipe.py
 ui/static/admin/img/*
 ui/.migrations/*

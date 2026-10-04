@@ -5,6 +5,7 @@ from .views import auth
 from .views import dag
 from .views import environments
 from .views import jobs
+from .views import notifications
 from .views import protocols
 from .views import references
 from .views import users
@@ -18,6 +19,12 @@ urlpatterns = [
     path("register/", auth.register_view, name="register"),
     path("account/", auth.account_view, name="account"),
     path("account/clean-folders/", auth.clean_folders_view, name="clean_folders"),
+    path("notifications/", notifications.notification_list, name="notifications"),
+    path("notifications/fields/", notifications.notification_fields, name="notification_fields"),
+    path("notifications/new/", notifications.notification_create, name="notification_create"),
+    path("notifications/<int:pk>/edit/", notifications.notification_edit, name="notification_edit"),
+    path("notifications/<int:pk>/delete/", notifications.notification_delete, name="notification_delete"),
+    path("notifications/<int:pk>/test/", notifications.notification_test, name="notification_test"),
     path("users/", users.user_list, name="users"),
     path("users/new/", users.user_create, name="user_create"),
     path("users/<int:pk>/activate/", users.user_activate, name="user_activate"),
