@@ -8,12 +8,21 @@ import subprocess
 import sys
 import time
 
-import django_initial
+_THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
+_REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, ".."))
+sys.path[:] = [
+    p for p in sys.path
+    if os.path.realpath(os.path.abspath(p or os.getcwd())) != _THIS_DIR
+]
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import worker.django_initial  # noqa: F401
 import psutil
 
-import bases
-from _step import _Step
-from ml_collector import get_cpu, get_cpu_mem, get_mem
+from worker import bases
+from worker.step import _Step
+from worker.ml_collector import get_cpu, get_cpu_mem, get_mem
 
 logger = logging.getLogger("BioQueue.ml_container")
 

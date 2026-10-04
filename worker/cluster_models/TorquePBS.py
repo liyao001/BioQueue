@@ -26,7 +26,7 @@ def alter_attribute(job_id, attribute):
         return 0
 
 
-def cancel_job(job_id):
+def cancel_job(job_id, extras=None):
     """
     Cancel job
     :param job_id: int, job id
@@ -104,7 +104,7 @@ def load_template():
     return template
 
 
-def query_job_status(job_id):
+def query_job_status(job_id, extras=None):
     """
     Query job status
     :param job_id: int, job id
@@ -173,7 +173,7 @@ def release_job(job_id):
         return 0
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace='', extras=None):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"

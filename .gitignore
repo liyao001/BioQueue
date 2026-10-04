@@ -35,7 +35,8 @@ QueueDB/migrations/*
 !QueueDB/migrations/0053_sync_models.py
 .pixi/
 **/.pixi/
-worker3/.testdata/
+worker/.testdata/
+.retired-local/
 protocol_templates/
 # pixi environments
 .pixi/*

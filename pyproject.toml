@@ -32,7 +32,7 @@ Documentation = "https://github.com/liyao001/BioQueue/tree/master/docs"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["BioQueue*", "QueueDB*", "accounts*", "ui*", "worker", "worker.*", "worker3*"]
+include = ["BioQueue*", "QueueDB*", "accounts*", "ui*", "worker", "worker.*"]
 exclude = ["worker2*", "ui.plugins.local*"]
 
 [tool.setuptools]

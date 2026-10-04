@@ -321,7 +321,7 @@ def _child_env():
 def cmd_worker(_args):
     _require_initialized()
     os.environ.update(_child_env())
-    os.execv(sys.executable, [sys.executable, "-m", "worker3"])
+    os.execv(sys.executable, [sys.executable, "-m", "worker"])
 
 
 def cmd_serve(args):
@@ -339,7 +339,7 @@ def cmd_start(args):
     bind = "%s:%s" % (args.host, args.port)
     print("Open http://%s:%s/  (Ctrl-C stops the worker and the web app)" % (args.host, args.port))
     env = _child_env()
-    worker = subprocess.Popen([sys.executable, "-m", "worker3"], env=env)
+    worker = subprocess.Popen([sys.executable, "-m", "worker"], env=env)
     web = subprocess.Popen(
         [
             sys.executable,

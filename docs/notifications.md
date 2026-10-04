@@ -1,6 +1,6 @@
 # Job notifications
 
-Each account can add notification hooks under **Notifications** in the user menu (`/ui/notifications/`). The worker3 process sends them when a job it runs changes status. The web app does not send these messages; the machine running `python -m worker3` must be able to reach the service.
+Each account can add notification hooks under **Notifications** in the user menu (`/ui/notifications/`). The worker process sends them when a job it runs changes status. The web app does not send these messages; the machine running `python -m worker` must be able to reach the service.
 
 Apply the database migration after pulling this change:
 

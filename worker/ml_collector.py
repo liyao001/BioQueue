@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import os
+import sys
+
+_THIS_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
+_REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, ".."))
+sys.path[:] = [
+    p for p in sys.path
+    if os.path.realpath(os.path.abspath(p or os.getcwd())) != _THIS_DIR
+]
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import worker.django_initial  # noqa: F401
 import psutil
 import time
 import getopt
-import sys
-import django_initial
 from QueueDB.models import Training
 
 vrt_mem_list = []

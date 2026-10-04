@@ -104,7 +104,7 @@ To start another project, add an account under **Users** in the user menu and si
 ## Going further
 
 - **Cluster submission**: set the cluster type and resources in `config/custom.conf`; the worker then submits steps to the scheduler instead of running them locally.
-- **Worker options**: `python -m worker3 --help` covers scheduling policy (`--schedule greedy|fifo`), resource estimation, and binding a worker to a named runner (`--runner`).
+- **Worker options**: `python -m worker --help` covers scheduling policy (`--schedule greedy|fifo`), resource estimation, and binding a worker to a named runner (`--runner`).
 - **Notifications**: [set up job alerts](docs/notifications.md).
 - **Lab use**: `bioqueue --host 0.0.0.0` or Apache/nginx, and PostgreSQL or MySQL instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Set `BIOQUEUE_DB_ENGINE` (for example `django.db.backends.postgresql`) and `BIOQUEUE_DB_NAME`, `BIOQUEUE_DB_USER`, `BIOQUEUE_DB_PASSWORD`, `BIOQUEUE_DB_HOST`, and `BIOQUEUE_DB_PORT` before `bioqueue init`. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
 

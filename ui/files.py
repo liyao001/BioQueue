@@ -455,7 +455,7 @@ def write_job_snapshot(job):
 
     input_blob = job.input_file or ""
     try:
-        from worker3.step import _Step
+        from worker.step import _Step
 
         parsed, _ = _Step._upload_file_map(input_blob, user_dir)
         parsed, _, _ = _Step._history_map(parsed, job.user)

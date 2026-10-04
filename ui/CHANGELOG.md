@@ -2,7 +2,7 @@
 
 ## 2026-10-02 — Notification hooks
 
-Account menu → Notifications. Each user can add Discord, Telegram, Slack, Teams, Mattermost, ntfy, Gotify, Pushover, email, or a generic webhook. worker3 sends them when a job starts, finishes, fails, or is interrupted. See `docs/notifications.md`.
+Account menu → Notifications. Each user can add Discord, Telegram, Slack, Teams, Mattermost, ntfy, Gotify, Pushover, email, or a generic webhook. The worker sends them when a job starts, finishes, fails, or is interrupted. See `docs/notifications.md`.
 
 ## 2026-09-30 — Collapse protocol shortcuts by default
 
