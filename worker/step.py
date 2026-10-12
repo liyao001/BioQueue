@@ -14,6 +14,11 @@
 import sys
 
 from worker import bases
+from worker.cpu_prior import (
+    configured_cpu_budget_units,
+    estimate_cpu_units,
+    user_cpu_prior_units,
+)
 import re
 import os
 import html
@@ -29,7 +34,7 @@ class _Step(object):
     def _predict_resource(self):
         pass
 
-    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, version_check, settings, gpu_step: bool = False):
+    def __init__(self, software, parameter, specify_output, md5_hex, env, force_local, version_check, settings, gpu_step: bool = False, cpu_prior=-1):
         self._software = software
         self._parameter = parameter
         self._command = html.unescape(str(self._software).rstrip() + " " + str(self._parameter))
@@ -45,6 +50,10 @@ class _Step(object):
         self._resources = None
         self._is_running = False
         self._gpu_step = gpu_step
+        try:
+            self._cpu_prior = int(cpu_prior)
+        except (TypeError, ValueError):
+            self._cpu_prior = -1
         self._ver_check = version_check
         self._dependent_jobs = set()
         self._prev_error_jobs = set()
@@ -727,6 +736,71 @@ class _Step(object):
                 pass
         return cleaned
 
+    def _cpu_budget_units(self):
+        """Configured machine/cluster budget. Live core count if config omits it."""
+        budget = configured_cpu_budget_units(self._settings)
+        if budget is not None:
+            return budget
+        try:
+            cores = bases.m_cpu_count()
+        except Exception:
+            logger.exception("cpu budget: m_cpu_count failed")
+            return None
+        try:
+            cores = int(cores)
+        except (TypeError, ValueError):
+            return None
+        if cores <= 0:
+            return None
+        return cores * 100
+
+    def _command_texts_for_cpu_prior(self):
+        """Unsubstituted parameter plus the command translation produced so far."""
+        texts = [self._parameter or "", self._command or ""]
+        if self._shell_script:
+            texts.append(self._shell_script)
+        translated = self._translated_command
+        if isinstance(translated, (list, tuple)):
+            texts.append(" ".join(str(part) for part in translated))
+        elif translated:
+            texts.append(str(translated))
+        return texts
+
+    def _parameters_for_cpu_prior(self, job):
+        """Job ``key=value`` map. Uses Task's parser when the dict is not built yet."""
+        if job is None:
+            return {}
+        params = getattr(job, "user_options", None)
+        if isinstance(params, dict):
+            return params
+        raw = getattr(job, "_parameter", None)
+        if not isinstance(raw, str):
+            return {}
+        # task.py imports this module; keep the import local.
+        from worker.queue.task import Task
+
+        return Task.build_special_parameter_dict(raw)
+
+    def _unknown_cpu_prior(self, job):
+        """CPU-units for a step with no learned estimate, or None to keep the one-core fallback.
+
+        An explicit ``Step.cpu_prior`` (> 0) wins over the command parse.
+        """
+        try:
+            budget = self._cpu_budget_units()
+            user_prior = user_cpu_prior_units(self._cpu_prior, budget)
+            if user_prior is not None:
+                return user_prior
+            return estimate_cpu_units(
+                self._command_texts_for_cpu_prior(),
+                parameters=self._parameters_for_cpu_prior(job),
+                software=self._software,
+                budget_units=budget,
+            )
+        except Exception:
+            logger.exception("CPU prior parse failed")
+            return None
+
     def predict_resources_needed(self, job):
         """
 
@@ -758,6 +832,17 @@ class _Step(object):
         resource_needed = self._predict_factory(in_size=job.input_size, training_num=training_num)
         resource_needed = self._sanitize_prediction(resource_needed)
         resource_needed = self._cap_prediction_to_env(resource_needed)
+        # Learned cpu (training rows or saved Prediction equations) stays.
+        # The command prior fills only the unknown / first-run case.
+        if resource_needed.get("cpu") is None:
+            prior = self._unknown_cpu_prior(job)
+            if prior is not None:
+                resource_needed["cpu"] = prior
+                logger.info(
+                    "cpu prior=%s units hash=%s (no learned estimate)",
+                    prior,
+                    self._md5_hex,
+                )
 
         no_new_learn = 0 if training_num < 10 else 1
         if no_new_learn == 0:

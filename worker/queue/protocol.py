@@ -41,4 +41,5 @@ class Protocol(object):
                      version_check=step.version_check,
                      force_local=step.force_local,
                      settings=self._settings,
-                     gpu_step=bool(getattr(step, "gpu_step", 0)))
+                     gpu_step=bool(getattr(step, "gpu_step", 0)),
+                     cpu_prior=getattr(step, "cpu_prior", -1))

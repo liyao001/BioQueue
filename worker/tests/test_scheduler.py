@@ -287,6 +287,106 @@ class PickNextJobTests(unittest.TestCase):
         self.assertIs(picked, unknown)
         self.assertEqual(known.checkpoints, [])
 
+    def test_fresh_step_reserves_one_core_on_a_busy_machine(self):
+        # No thread keyword: prediction leaves cpu unknown. This fallback
+        # is one core, not env.cpu (the whole machine).
+        queue = _queue(settings={
+            "cluster": {"type": ""},
+            "env": {"max_job": 4, "cpu": "14", "memory": "24"},
+        })
+        queue._launch_step_thread = MagicMock()
+        cleaned = queue._with_resource_defaults({"cpu": None, "mem": None, "disk": None})
+        self.assertEqual(cleaned["cpu"], 100)
+        job = FakeJob(1, cpu=None, mem=None, disk=None)
+        queue._queued_jobs[job.job_id] = job
+        queue.set_resources(job.job_id, job.steps[0].resources)
+        picked, locked = queue.pick_next_job(
+            job_table=queue.queued_jobs_snapshot(),
+            host_cpu_available=959,
+            host_memory_available=8 * 1024 ** 3,
+            host_disk_free=100 * 1024 ** 3,
+            budget_cpu=1400,
+            budget_memory=24 * 1024 ** 3,
+            budget_disk=400 * 1024 ** 3,
+        )
+        self.assertFalse(locked)
+        self.assertIs(picked, job)
+        self.assertEqual(job.checkpoints, [])
+
+    def test_eight_thread_prior_waits_until_eight_cores_are_free(self):
+        from worker.cpu_prior import estimate_cpu_units
+
+        units = estimate_cpu_units(
+            "minimap2 -t 8 ref.fa reads.fq",
+            software="minimap2",
+            budget_units=1400,
+        )
+        self.assertEqual(units, 800)
+        job = FakeJob(1, cpu=units, mem=10, disk=10)
+        self._register(job)
+        picked, locked = self.queue.pick_next_job(
+            job_table=self.queue.queued_jobs_snapshot(),
+            host_cpu_available=200,
+            host_memory_available=500,
+            host_disk_free=500,
+            budget_cpu=1400,
+            budget_memory=1000,
+            budget_disk=1000,
+        )
+        self.assertFalse(locked)
+        self.assertIsNone(picked)
+        self.assertEqual(job.checkpoints, [CheckPoints.CPU])
+        self.assertEqual(job.steps[0].resources["cpu"], 800)
+
+        picked, locked = self.queue.pick_next_job(
+            job_table=self.queue.queued_jobs_snapshot(),
+            host_cpu_available=800,
+            host_memory_available=500,
+            host_disk_free=500,
+            budget_cpu=1400,
+            budget_memory=1000,
+            budget_disk=1000,
+        )
+        self.assertFalse(locked)
+        self.assertIs(picked, job)
+
+    def test_thread_prior_above_budget_is_capped_not_wedged(self):
+        from worker.cpu_prior import estimate_cpu_units
+
+        units = estimate_cpu_units(
+            "bwa mem --threads 99999 ref.fa reads.fq",
+            software="bwa",
+            budget_units=1400,
+        )
+        self.assertEqual(units, 1400)
+        job = FakeJob(1, cpu=units, mem=10, disk=10)
+        self._register(job)
+        picked, locked = self.queue.pick_next_job(
+            job_table=self.queue.queued_jobs_snapshot(),
+            host_cpu_available=200,
+            host_memory_available=500,
+            host_disk_free=500,
+            budget_cpu=1400,
+            budget_memory=1000,
+            budget_disk=1000,
+        )
+        self.assertFalse(locked)
+        self.assertIsNone(picked)
+        self.assertEqual(job.steps[0].resources["cpu"], 1400)
+
+        picked, locked = self.queue.pick_next_job(
+            job_table=self.queue.queued_jobs_snapshot(),
+            host_cpu_available=1400,
+            host_memory_available=500,
+            host_disk_free=500,
+            budget_cpu=1400,
+            budget_memory=1000,
+            budget_disk=1000,
+        )
+        self.assertFalse(locked)
+        self.assertIs(picked, job)
+        self.assertEqual(job.steps[0].resources["cpu"], 1400)
+
     def test_skips_running_status(self):
         job = FakeJob(1, cpu=10, mem=10, disk=10, status=1)
         self._register(job)

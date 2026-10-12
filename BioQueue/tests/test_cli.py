@@ -1,10 +1,14 @@
 import importlib
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
-from BioQueue.cli import conf_get, prepare_install, read_conf, update_ini
+from BioQueue.cli import _web_command, conf_get, prepare_install, read_conf, update_ini
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 SAMPLE_CONF = """\
@@ -106,6 +110,26 @@ class PrepareInstallTests(unittest.TestCase):
         parser = read_conf(self.config_path)
         self.assertEqual(conf_get(parser, "env", "workspace"), os.path.abspath(moved))
         self.assertEqual(conf_get(parser, "env", "log"), os.path.join(os.path.abspath(moved), "logs"))
+
+
+class WebCommandTests(unittest.TestCase):
+    def test_runserver_is_a_module_the_reloader_can_reexec(self):
+        argv = _web_command("127.0.0.1:8000")
+        self.assertEqual(argv[1:4], ["-m", "BioQueue.serve", "runserver"])
+        self.assertNotIn("-c", argv)
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "BioQueue.serve", "--reloader-args"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        child = proc.stdout.splitlines()
+        self.assertIn("-m", child)
+        self.assertIn("BioQueue.serve", child)
+        self.assertNotIn("-c", child)
 
 
 if __name__ == "__main__":

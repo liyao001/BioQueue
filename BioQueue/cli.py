@@ -331,14 +331,21 @@ def cmd_worker(_args):
     os.execv(sys.executable, [sys.executable, "-m", "worker"])
 
 
+def _web_command(bind):
+    """Argv for the web app.
+
+    Django's autoreloader re-executes the process it was given. A
+    ``python -c`` launch has no script file, so ``runserver`` dies with
+    "Script -c does not exist". ``python -m BioQueue.serve`` is a real
+    module the reloader can start again.
+    """
+    return [sys.executable, "-m", "BioQueue.serve", "runserver", bind]
+
+
 def cmd_serve(args):
     _require_initialized()
     os.environ.update(_child_env())
-    bind = "%s:%s" % (args.host, args.port)
-    os.execv(
-        sys.executable,
-        [sys.executable, "-c", "from django.core.management import execute_from_command_line; execute_from_command_line(['bioqueue', 'runserver', '%s'])" % bind],
-    )
+    os.execv(sys.executable, _web_command("%s:%s" % (args.host, args.port)))
 
 
 def cmd_start(args):
@@ -347,14 +354,7 @@ def cmd_start(args):
     print("Open http://%s:%s/  (Ctrl-C stops the worker and the web app)" % (args.host, args.port))
     env = _child_env()
     worker = subprocess.Popen([sys.executable, "-m", "worker"], env=env)
-    web = subprocess.Popen(
-        [
-            sys.executable,
-            "-c",
-            "from django.core.management import execute_from_command_line; execute_from_command_line(['bioqueue', 'runserver', '%s'])" % bind,
-        ],
-        env=env,
-    )
+    web = subprocess.Popen(_web_command(bind), env=env)
 
     def stop(_signum=None, _frame=None):
         for proc in (worker, web):

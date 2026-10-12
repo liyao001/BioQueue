@@ -454,10 +454,13 @@ class JobQueue(object):
         env = (self._settings or {}).get("env") or {}
         cluster = (self._settings or {}).get("cluster") or {}
         if resource.get("cpu") is None:
-            try:
-                resource["cpu"] = int(float(env.get("cpu") or cluster.get("cpu") or 1)) * 100
-            except (TypeError, ValueError):
-                resource["cpu"] = 100
+            # One core (100 CPU-units). env.cpu is the whole machine, and
+            # free CPU is cores * (100 - percent busy). Reserving every
+            # core means a first run only starts when the host is idle.
+            # A thread-count prior is applied earlier, while the command
+            # is in hand. This remains the fallback when that prior is
+            # unknown.
+            resource["cpu"] = 100
         if resource.get("mem") is None:
             mem = env.get("memory") or cluster.get("mem") or ""
             try:
