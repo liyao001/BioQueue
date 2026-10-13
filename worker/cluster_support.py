@@ -6,20 +6,28 @@ import numbers
 import os
 import time
 
-from QueueDB.models import Job, Training, _JS_RUNNING, _JS_RESOURCELOCK
+from django.utils import timezone
+
+from QueueDB.models import Job, Training, _JS_RESOURCELOCK, _JS_RUNNING, _JS_WAITING
+from worker.queue.constants import STEP_USER_INTERRUPTED
 
 logger = logging.getLogger("BioQueue.cluster_support")
 
 
 def _sync_job_status(job_id, status, wait_for=None):
-    """Update Job.status for external-scheduler progress. Ignore lock-gated helpers."""
+    """Update Job.status for external-scheduler progress.
+
+    Leave a status the user already set (interrupted, failed, finished).
+    """
     try:
-        job = Job.objects.get(id=job_id)
-        job.status = status
+        fields = {"status": status, "update_time": timezone.now()}
         if wait_for is not None:
-            job.wait_for = wait_for
-        job.save(update_fields=["status", "wait_for", "update_time"] if wait_for is not None else ["status", "update_time"])
-        return True
+            fields["wait_for"] = wait_for
+        owned = Job.objects.filter(
+            id=job_id,
+            status__in=(_JS_WAITING, _JS_RUNNING, _JS_RESOURCELOCK),
+        ).update(**fields)
+        return owned == 1
     except Exception as exc:
         logger.warning("cluster job %s status sync (%s): %s", job_id, status, exc)
         return False
@@ -27,13 +35,17 @@ def _sync_job_status(job_id, status, wait_for=None):
 
 def if_terminate(job_id):
     """
-    Return True if the user requested termination for this job.
+    Return True if this cluster submission should be cancelled.
 
-    On DB errors, returns False so we do not spuriously cancel cluster work.
+    That is a stop flag, or a row the user already moved off Running
+    (for example by resuming). On DB errors, returns False so we do not
+    spuriously cancel cluster work.
     """
     try:
         job = Job.objects.get(id=job_id)
-        return bool(job.ter)
+        # Resume clears ter and sets Waiting. This cluster job is the previous
+        # run and must be cancelled before a new claim starts the step again.
+        return bool(job.ter) or job.status not in (_JS_RUNNING, _JS_RESOURCELOCK)
     except Exception as e:
         logger.warning("if_terminate(%s): %s", job_id, e)
         return False
@@ -201,9 +213,52 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, wor
     unknown_streak = 0
     started = time.time()
     poll_limit = _poll_limit_seconds(extras)
+    try:
+        return _watch_cluster_job(
+            cluster_model,
+            cluster_type,
+            cluster_id,
+            job_id,
+            learning,
+            trace_id,
+            extras,
+            unknown_streak,
+            started,
+            poll_limit,
+            pending_tag,
+        )
+    finally:
+        _release_status_watch(cluster_model, cluster_id, extras)
+
+
+def _release_status_watch(cluster_model, cluster_id, extras):
+    """Stop asking about an id before a slow fetch. Safe to call twice."""
+    release = getattr(cluster_model, "release_job_status", None)
+    if not release or not cluster_id:
+        return
+    try:
+        _with_extras(release, cluster_id, extras=extras)
+    except Exception:
+        logger.exception("release status watch for cluster job %s", cluster_id)
+
+
+def _watch_cluster_job(
+    cluster_model,
+    cluster_type,
+    cluster_id,
+    job_id,
+    learning,
+    trace_id,
+    extras,
+    unknown_streak,
+    started,
+    poll_limit,
+    pending_tag,
+):
     while True:
         if time.time() - started > poll_limit:
             logger.error("cluster job %s exceeded poll window (%ss)", cluster_id, poll_limit)
+            _release_status_watch(cluster_model, cluster_id, extras)
             _with_extras(cluster_model.cancel_job, cluster_id, extras=extras)
             _maybe_fetch(cluster_model, cluster_id, extras)
             return 1
@@ -214,6 +269,7 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, wor
                 unknown_streak += 1
                 if unknown_streak >= 10:
                     logger.error("cluster job %s vanished from scontrol/sacct", cluster_id)
+                    _release_status_watch(cluster_model, cluster_id, extras)
                     _maybe_fetch(cluster_model, cluster_id, extras)
                     return 1
             else:
@@ -227,11 +283,15 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, wor
                 _sync_job_status(job_id, _JS_RUNNING)
 
             if if_terminate(job_id):
+                _release_status_watch(cluster_model, cluster_id, extras)
                 _with_extras(cluster_model.cancel_job, cluster_id, extras=extras)
                 _maybe_fetch(cluster_model, cluster_id, extras)
                 break
-            time.sleep(30)
+            # Slurm blocks inside query_job_status until the shared poll is due.
+            if str(cluster_type or "").lower() != "slurm":
+                time.sleep(30)
         elif status_code == 0:
+            _release_status_watch(cluster_model, cluster_id, extras)
             if learning == 1:
                 _store_scheduler_usage(
                     cluster_model, cluster_id, trace_id, extras
@@ -240,8 +300,12 @@ def main(cluster_type, parameter, job_id, step_id, cpu, mem, vrt_mem, queue, wor
                 return 1
             return 0
         else:
+            _release_status_watch(cluster_model, cluster_id, extras)
             _maybe_fetch(cluster_model, cluster_id, extras)
+            if if_terminate(job_id):
+                return STEP_USER_INTERRUPTED
             return 1
 
-    # User cancelled while job was queued/running on cluster
-    return 2
+    # User cancelled while job was queued/running on cluster.
+    # Do not return 2: that is a normal process exit code.
+    return STEP_USER_INTERRUPTED

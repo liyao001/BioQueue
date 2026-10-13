@@ -6,6 +6,18 @@ Later sources win: cluster config → job/step GPU flags → Job.array_setting �
 from __future__ import annotations
 
 
+# Values stored on Slave.cluster_manager. Names match worker/cluster_models modules.
+# 0 runs the step on this machine. A manager with no SSH host calls its
+# commands here (BioQueue is on the cluster and can see the files). An SSH
+# host selects Slurm remote mode.
+CLUSTER_MANAGER_TYPES = {
+    1: "Slurm",
+    2: "LSF",
+    3: "TorquePBS",
+    4: "HTCondor",
+}
+
+
 PARAM_TO_EXTRA = {
     "ClusterGpus": "gpus",
     "ClusterGres": "gres",
@@ -68,20 +80,22 @@ def _truthy_gpu(value):
         return False
 
 
+def _slave_opt(slave, attr):
+    if slave is None:
+        return ""
+    return _text(getattr(slave, attr, None))
+
+
 def _remote_from_slave_and_settings(slave, cluster):
-    host = _opt(cluster, "remote_host")
-    user = _opt(cluster, "remote_user")
-    key = _opt(cluster, "remote_key")
-    bin_prefix = _opt(cluster, "bin_prefix")
-    scripts_dir = _opt(cluster, "remote_scripts_dir")
-    result_root = _opt(cluster, "remote_result_root")
-    log_root = _opt(cluster, "remote_log_root")
-    workdir = _opt(cluster, "remote_workdir")
-    if slave is not None:
-        host = _text(getattr(slave, "ssh_connection", None)) or host
-        user = _text(getattr(slave, "ssh_user", None)) or user
-        key = _text(getattr(slave, "ssh_key", None)) or key
-        bin_prefix = _text(getattr(slave, "cluster_manager_path", None)) or bin_prefix
+    # A runner field wins. custom.conf fills only what the runner left blank.
+    host = _slave_opt(slave, "ssh_connection") or _opt(cluster, "remote_host")
+    user = _slave_opt(slave, "ssh_user") or _opt(cluster, "remote_user")
+    key = _slave_opt(slave, "ssh_key") or _opt(cluster, "remote_key")
+    bin_prefix = _slave_opt(slave, "cluster_manager_path") or _opt(cluster, "bin_prefix")
+    scripts_dir = _slave_opt(slave, "scripts_dir") or _opt(cluster, "remote_scripts_dir")
+    result_root = _slave_opt(slave, "result_root") or _opt(cluster, "remote_result_root")
+    log_root = _slave_opt(slave, "log_root") or _opt(cluster, "remote_log_root")
+    workdir = _slave_opt(slave, "workdir") or _opt(cluster, "remote_workdir")
     if not host:
         return None
     if not scripts_dir:
@@ -143,16 +157,52 @@ def walltime_to_seconds(text):
     return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
 
+def stage_input_paths(job):
+    """Paths to rsync before sbatch.
+
+    ``job_input_files`` still holds tokens such as ``{{History:12347-}}``.
+    The shell body is expanded earlier, so staging the raw token skips the
+    parent job's result directory and leaves a host path in the script.
+    """
+    raw_entries = list(getattr(job, "job_input_files", None) or [])
+    if not raw_entries:
+        return []
+    from worker.queue.input_check import non_empty_input_entries, resolve_input_entry
+
+    resolved = []
+    for _, raw in non_empty_input_entries(raw_entries):
+        try:
+            path = resolve_input_entry(raw, job)
+        except Exception:
+            path = raw
+        resolved.append(path or raw)
+    return resolved
+
+
+def _stage_in_value(slave, cluster):
+    """Runner stage_in wins when set. None inherits cluster.stage_in."""
+    if slave is not None:
+        raw = getattr(slave, "stage_in", None)
+        if raw in (0, 1):
+            return str(raw)
+        text = _text(raw)
+        if text in ("0", "1"):
+            return text
+    return _opt(cluster, "stage_in") or "0"
+
+
 def resolve_cluster_type(cluster, job=None):
+    """Jobs assigned to a runner follow that runner. custom.conf applies otherwise."""
     cluster = cluster or {}
-    declared = _text(cluster.get("type"))
-    if declared:
-        return declared
     db = _job_db(job) if job is not None else None
     slave = getattr(db, "slave", None) if db is not None else None
-    if slave is not None and getattr(slave, "cluster_manager", 0) == 1:
-        return "Slurm"
-    return ""
+    if slave is not None:
+        try:
+            code = int(getattr(slave, "cluster_manager", 0) or 0)
+        except (TypeError, ValueError):
+            code = 0
+        return CLUSTER_MANAGER_TYPES.get(code, "")
+    return _text(cluster.get("type"))
 
 
 def build_cluster_request(job, step, cluster, allocate_cpu, allocate_mem, allocate_vrt, queue, walltime):
@@ -211,13 +261,16 @@ def build_cluster_request(job, step, cluster, allocate_cpu, allocate_mem, alloca
         "prologue": prologue,
         "epilogue": epilogue,
         "requeue": _opt(cluster, "requeue") or "1",
-        "bin_prefix": _opt(cluster, "bin_prefix"),
+        "bin_prefix": (
+            _slave_opt(slave, "cluster_manager_path")
+            or _opt(cluster, "bin_prefix")
+        ),
         "gpu_style": gpu_style,
         "poll_max_seconds": poll_max,
         # Opt-in. bioqueue_remote uploaded the script and ran in place (NFS /
         # cluster paths). Staging host workspaces by default broke those sites.
-        "stage_in": _opt(cluster, "stage_in") or "0",
-        "stage_inputs": list(getattr(job, "job_input_files", None) or []),
+        "stage_in": _stage_in_value(slave, cluster),
+        "stage_inputs": stage_input_paths(job),
         "remote": remote,
         "body": None,
     }

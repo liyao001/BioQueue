@@ -1,6 +1,7 @@
 """Cluster extras, Slurm script rendering, and GPU/array request merging."""
 import os
 import tempfile
+import threading
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -127,6 +128,24 @@ class ClusterRequestTests(unittest.TestCase):
             extras["stage_inputs"], ["/data/input-a", "/data/input-b"]
         )
 
+    def test_stage_inputs_expand_history_tokens(self):
+        job = SimpleNamespace(
+            user_options={},
+            job_input_files=["{{History:12347-}}", "  ", "/data/plain"],
+            db_obj=SimpleNamespace(slave=None, is_gpu_job=0, array_setting=""),
+        )
+
+        def fake_resolve(raw, _job):
+            if "History" in raw:
+                return "/results/12347v3/"
+            return raw
+
+        with patch("worker.queue.input_check.resolve_input_entry", side_effect=fake_resolve):
+            extras = build_cluster_request(
+                job, SimpleNamespace(gpu_step=False), {}, 1, "", "", "", ""
+            )["extras"]
+        self.assertEqual(extras["stage_inputs"], ["/results/12347v3/", "/data/plain"])
+
     def test_gpu_style_from_cluster_config(self):
         extras = build_cluster_request(
             SimpleNamespace(user_options={}, db_obj=None, is_gpu_job=0),
@@ -188,6 +207,15 @@ class SlurmRenderTests(unittest.TestCase):
         self.assertEqual(Slurm.status_from_states(["COMPLETED"]), 0)
         self.assertEqual(Slurm.status_from_states(["FAILED"]), -1)
         self.assertEqual(Slurm.status_from_states(["COMPLETED", "FAILED"]), -1)
+        self.assertEqual(Slurm.status_from_states(["SPECIAL_EXIT"]), -1)
+        self.assertEqual(Slurm.status_from_states(["REVOKED"]), -1)
+        self.assertEqual(Slurm.status_from_states(["PREEMPTED"]), 2)
+        self.assertEqual(Slurm.status_from_states(["PREEMPTED"], requeue=False), -1)
+        self.assertEqual(
+            Slurm.parse_sacct_states("199740|CANCELLED by 1353245|0:0"),
+            ["CANCELLED"],
+        )
+        self.assertEqual(Slurm.status_from_states(["CANCELLED by 1353245"]), -1)
 
     def test_submit_writes_script_and_parses_id(self):
         workspace = tempfile.mkdtemp(prefix="bq-slurm-")
@@ -239,6 +267,20 @@ class SlurmRenderTests(unittest.TestCase):
         self.assertTrue(any(str(part).startswith("bob@hpc:") for part in scp))
         self.assertEqual(ssh_sbatch[0], "ssh")
         self.assertTrue(any("sbatch" in str(part) for part in ssh_sbatch))
+        self.assertIn("ControlMaster=auto", ssh_mkdir)
+        self.assertIn("ControlMaster=auto", scp)
+
+    def test_ssh_scp_and_rsync_share_one_control_socket(self):
+        remote = {"host": "hpc", "user": "bob", "key": "/tmp/key"}
+        ssh_path = [part for part in Slurm._ssh_base(remote) if part.startswith("ControlPath=")]
+        scp_path = [part for part in Slurm._scp_argv(remote, "a", "/b") if part.startswith("ControlPath=")]
+        rsh = Slurm._rsync_rsh(remote)
+        self.assertEqual(ssh_path, scp_path)
+        self.assertEqual(len(ssh_path), 1)
+        self.assertIn(ssh_path[0].split("=", 1)[1], rsh)
+        other = Slurm._ssh_base({"host": "other", "user": "bob", "key": "/tmp/key"})
+        other_path = [part for part in other if part.startswith("ControlPath=")]
+        self.assertNotEqual(ssh_path, other_path)
 
 
 class ProtocolGpuStepTests(unittest.TestCase):
@@ -324,9 +366,100 @@ class SpecialParameterParseTests(unittest.TestCase):
 class ClusterTypeAndWalltimeTests(unittest.TestCase):
     def test_slave_cluster_manager_defaults_to_slurm(self):
         job = SimpleNamespace(db_obj=SimpleNamespace(slave=SimpleNamespace(cluster_manager=1)))
+        local = SimpleNamespace(db_obj=SimpleNamespace(slave=SimpleNamespace(cluster_manager=0)))
         self.assertEqual(resolve_cluster_type({}, job), "Slurm")
-        self.assertEqual(resolve_cluster_type({"type": "LSF"}, job), "LSF")
+        # The runner decides. A config type does not turn a Slurm runner into LSF
+        # or a local runner into Slurm.
+        self.assertEqual(resolve_cluster_type({"type": "LSF"}, job), "Slurm")
+        self.assertEqual(resolve_cluster_type({"type": "Slurm"}, local), "")
+        lsf = SimpleNamespace(db_obj=SimpleNamespace(slave=SimpleNamespace(cluster_manager=2)))
+        torque = SimpleNamespace(db_obj=SimpleNamespace(slave=SimpleNamespace(cluster_manager=3)))
+        condor = SimpleNamespace(db_obj=SimpleNamespace(slave=SimpleNamespace(cluster_manager=4)))
+        self.assertEqual(resolve_cluster_type({"type": "Slurm"}, lsf), "LSF")
+        self.assertEqual(resolve_cluster_type({}, torque), "TorquePBS")
+        self.assertEqual(resolve_cluster_type({}, condor), "HTCondor")
+        self.assertEqual(resolve_cluster_type({"type": "LSF"}, SimpleNamespace(db_obj=None)), "LSF")
         self.assertEqual(resolve_cluster_type({"type": ""}, SimpleNamespace(db_obj=None)), "")
+
+    def test_direct_slurm_runner_uses_local_commands(self):
+        slave = SimpleNamespace(
+            cluster_manager=1,
+            ssh_connection="",
+            ssh_user="",
+            ssh_key="",
+            cluster_manager_path="/usr/local/slurm/current/bin/",
+            scripts_dir="",
+            result_root="",
+            log_root="",
+            workdir="",
+            stage_in=None,
+        )
+        job = SimpleNamespace(
+            user_options={},
+            db_obj=SimpleNamespace(slave=slave, is_gpu_job=0, array_setting=""),
+        )
+        request = build_cluster_request(
+            job,
+            SimpleNamespace(gpu_step=False),
+            {"bin_prefix": "/from/config"},
+            1,
+            "1G",
+            "1G",
+            "",
+            "",
+        )
+        self.assertEqual(request["cluster_type"], "Slurm")
+        self.assertIsNone(request["extras"]["remote"])
+        self.assertEqual(request["extras"]["bin_prefix"], "/usr/local/slurm/current/bin/")
+
+    def test_runner_paths_override_config_blanks_inherit(self):
+        slave = SimpleNamespace(
+            ssh_connection="cluster.example.edu",
+            ssh_user="alice",
+            ssh_key="",
+            cluster_manager_path="",
+            scripts_dir="/cluster/scripts",
+            result_root="/home/alice/workdir",
+            log_root="",
+            workdir="",
+            stage_in=1,
+        )
+        job = SimpleNamespace(
+            user_options={},
+            db_obj=SimpleNamespace(slave=slave, is_gpu_job=0, array_setting=""),
+        )
+        extras = build_cluster_request(
+            job,
+            SimpleNamespace(gpu_step=False),
+            {
+                "remote_scripts_dir": "/from/config/scripts",
+                "remote_log_root": "/from/config/logs",
+                "stage_in": "0",
+            },
+            1,
+            "",
+            "",
+            "",
+            "",
+        )["extras"]
+        remote = extras["remote"]
+        self.assertEqual(remote["scripts_dir"], "/cluster/scripts")
+        self.assertEqual(remote["result_root"], "/home/alice/workdir")
+        self.assertEqual(remote["log_root"], "/from/config/logs")
+        self.assertEqual(extras["stage_in"], "1")
+
+        slave.stage_in = None
+        inherited = build_cluster_request(
+            job,
+            SimpleNamespace(gpu_step=False),
+            {"stage_in": "1"},
+            1,
+            "",
+            "",
+            "",
+            "",
+        )["extras"]
+        self.assertEqual(inherited["stage_in"], "1")
 
     def test_walltime_to_seconds(self):
         self.assertEqual(walltime_to_seconds("01:00:00"), 3600)
@@ -336,6 +469,12 @@ class ClusterTypeAndWalltimeTests(unittest.TestCase):
 
 
 class SlurmStatusAndFetchTests(unittest.TestCase):
+    def setUp(self):
+        Slurm._reset_status_boards_for_tests()
+
+    def tearDown(self):
+        Slurm._reset_status_boards_for_tests()
+
     def test_stage_in_rewrites_host_paths_to_cluster_paths(self):
         workspace = tempfile.mkdtemp(prefix="bq-stage-workspace-")
         input_dir = tempfile.mkdtemp(prefix="bq-stage-input-")
@@ -538,6 +677,178 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
                 Slurm.STATUS_UNKNOWN,
             )
 
+    def test_squeue_batches_ids_and_sacct_only_the_missing_one(self):
+        outputs = [
+            (1, "Invalid job id specified"),
+            (1, "Invalid job id specified"),
+            (0, "11|RUNNING\n"),
+            (0, "22|COMPLETED|0:0"),
+        ]
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            return outputs.pop(0)
+
+        with patch.object(Slurm, "_run", side_effect=fake_run) as run:
+            states, transport = Slurm._query_job_states(["22", "11"], {})
+        self.assertEqual(states["11"], 1)
+        self.assertEqual(states["22"], 0)
+        self.assertEqual(transport, set())
+        argv_lists = [call[0][0] for call in run.call_args_list]
+        targeted = [
+            argv
+            for argv in argv_lists
+            if str(argv[0]).endswith("squeue") and "-j" in argv
+        ]
+        broad = [
+            argv
+            for argv in argv_lists
+            if str(argv[0]).endswith("squeue") and "-j" not in argv
+        ]
+        sacct = [argv for argv in argv_lists if str(argv[0]).endswith("sacct")]
+        job_lists = [argv[argv.index("-j") + 1] for argv in targeted]
+        self.assertEqual(job_lists[0], "22,11")
+        self.assertIn("22", job_lists)
+        self.assertIn("11", job_lists)
+        self.assertEqual(broad, [])
+        self.assertEqual(len(sacct), 1)
+        self.assertIn("22", sacct[0])
+        self.assertNotIn("11", sacct[0])
+
+    def test_sacct_error_text_is_unknown_not_running(self):
+        noise = "sacct: error: Problem talking to the database\nInvalid job id specified\n"
+        self.assertEqual(Slurm.parse_sacct_states(noise), [])
+        mixed = "325802|COMPLETED|0:0\nsacct: error: ignored warning\n"
+        self.assertEqual(Slurm.parse_sacct_states(mixed), ["COMPLETED"])
+        with patch.object(Slurm, "_run", return_value=(1, noise)):
+            self.assertEqual(
+                Slurm._sacct_status("325802", {}),
+                Slurm.STATUS_UNKNOWN,
+            )
+
+    def test_array_squeue_lines_stay_running_until_every_task_finishes(self):
+        grouped = Slurm.parse_squeue_states("100|COMPLETED\n100|RUNNING\n100|PENDING\n")
+        self.assertEqual(Slurm.status_from_states(grouped["100"]), 1)
+        done = Slurm.parse_squeue_states("100|COMPLETED\n100|COMPLETED\n")
+        self.assertEqual(Slurm.status_from_states(done["100"]), 0)
+
+    def test_inflight_jobs_share_one_squeue(self):
+        remote = {"host": "batch-hpc", "user": "bob"}
+        seen = []
+
+        def fake_states(job_ids, extras):
+            seen.append(list(job_ids))
+            return {jid: (1 if jid == "11" else 2) for jid in job_ids}
+
+        barrier = threading.Barrier(2)
+        results = {}
+        errors = []
+
+        def worker(jid):
+            try:
+                barrier.wait(timeout=3)
+                results[jid] = Slurm.query_job_status(jid, extras={"remote": remote})
+            except Exception as exc:
+                errors.append(exc)
+
+        with patch.object(Slurm, "_POLL_COALESCE_SECONDS", 1), patch.object(
+            Slurm, "_query_job_states", side_effect=fake_states
+        ):
+            threads = [
+                threading.Thread(target=worker, args=(jid,)) for jid in ("11", "22")
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=5)
+        self.assertFalse(errors)
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertEqual(results, {"11": 1, "22": 2})
+        self.assertEqual(len(seen), 1)
+        self.assertCountEqual(seen[0], ["11", "22"])
+
+    def test_status_poll_interval_is_five_minutes(self):
+        remote = {"host": "pace-hpc", "user": "bob"}
+
+        def fake_states(job_ids, extras):
+            return {jid: (2 if jid == "11" else 1) for jid in job_ids}
+
+        with patch.object(Slurm, "_query_job_states", side_effect=fake_states):
+            self.assertEqual(
+                Slurm.query_job_status("11", extras={"remote": remote}), 2
+            )
+            self.assertEqual(
+                Slurm.query_job_status("22", extras={"remote": remote}), 1
+            )
+            pending_wait = Slurm._status_due_in("11", extras={"remote": remote})
+            running_wait = Slurm._status_due_in("22", extras={"remote": remote})
+        self.assertGreater(pending_wait, 280)
+        self.assertLess(pending_wait, 310)
+        self.assertGreater(running_wait, 280)
+        self.assertLess(running_wait, 310)
+
+    def test_terminal_status_drops_the_id_before_the_next_poll(self):
+        remote = {"host": "done-hpc", "user": "bob"}
+
+        def fake_states(job_ids, extras):
+            return {jid: 0 for jid in job_ids}
+
+        with patch.object(Slurm, "_query_job_states", side_effect=fake_states):
+            self.assertEqual(
+                Slurm.query_job_status("11", extras={"remote": remote}), 0
+            )
+            self.assertIsNone(Slurm._status_due_in("11", extras={"remote": remote}))
+
+    def test_ssh_blip_keeps_the_last_status(self):
+        remote = {"host": "blip-hpc", "user": "bob"}
+        calls = {"n": 0}
+
+        def fake_states(job_ids, extras):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return ({"11": 1}, set())
+            return ({"11": Slurm.STATUS_UNKNOWN}, {"11"})
+
+        with patch.object(Slurm, "_POLL_COALESCE_SECONDS", 0), patch.object(
+            Slurm, "POLL_RUNNING_SECONDS", 0
+        ), patch.object(Slurm, "_query_job_states", side_effect=fake_states):
+            self.assertEqual(
+                Slurm.query_job_status("11", extras={"remote": remote}), 1
+            )
+            self.assertEqual(
+                Slurm.query_job_status("11", extras={"remote": remote}), 1
+            )
+        self.assertGreaterEqual(calls["n"], 2)
+
+    def test_control_dir_mode_is_set_when_the_directory_already_exists(self):
+        with patch("worker.cluster_models.Slurm.os.makedirs", side_effect=OSError("exists")), patch(
+            "worker.cluster_models.Slurm.os.chmod"
+        ) as chmod:
+            Slurm._ssh_control_path({"host": "h", "user": "u", "key": ""})
+        self.assertEqual(chmod.call_args[0][1], 0o700)
+
+    def test_stale_control_socket_is_removed_and_retried(self):
+        socket = "/tmp/bq-ssh-1/dead"
+        calls = {"n": 0}
+        removed = []
+
+        def fake_sub(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return SimpleNamespace(
+                    returncode=255,
+                    stdout=b"Control socket connect(/tmp/bq-ssh-1/dead): Connection refused",
+                )
+            return SimpleNamespace(returncode=0, stdout=b"ok")
+
+        argv = ["ssh", "-o", "ControlPath=%s" % socket, "bob@h", "true"]
+        with patch("worker.cluster_models.Slurm.subprocess.run", side_effect=fake_sub), patch(
+            "worker.cluster_models.Slurm.os.unlink", side_effect=removed.append
+        ), patch("worker.cluster_models.Slurm.time.sleep"):
+            rc, out = Slurm._run(argv, retries=2)
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "ok")
+        self.assertEqual(removed, [socket])
+
     def test_run_retries_oserror_then_succeeds(self):
         n = {"i": 0}
 
@@ -678,6 +989,11 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
             workspace="/tmp/ws",
             extras=extras,
         )
+        self.assertIn("export BQ_RESULT_ROOT=/home/alice/workdir", script)
+        self.assertIn(
+            "export BQ_STAGE_DIR=/home/alice/bioqueue-scripts/jobs/9/workspace",
+            script,
+        )
         self.assertIn('mkdir -p /home/alice/workdir/"$SLURM_JOB_ID"', script)
         self.assertIn('cd /home/alice/workdir/"$SLURM_JOB_ID"', script)
         self.assertNotIn("#SBATCH --chdir /home/alice/bioqueue-scripts/jobs/9/workspace", script)
@@ -729,7 +1045,7 @@ class ClusterSupportHardeningTests(unittest.TestCase):
                 return (0, "")
             return (1, "unexpected")
 
-        with patch.object(Slurm, "_run", side_effect=fake_run):
+        with patch.object(Slurm, "_run", side_effect=fake_run) as run:
             ok = Slurm.fetch_logs(
                 7,
                 extras={
@@ -744,10 +1060,35 @@ class ClusterSupportHardeningTests(unittest.TestCase):
                 },
             )
         self.assertTrue(ok)
+        self.assertTrue(all(call[0][0][0] == "scp" for call in run.call_args_list))
         with open(log_path, "rb") as handle:
             self.assertIn(b"stdout body", handle.read())
         with open(err_path, "rb") as handle:
             self.assertIn(b"stderr body", handle.read())
+
+    def test_log_copy_stops_when_ssh_times_out(self):
+        calls = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            calls.append(argv[0])
+            return (1, "timeout: ssh")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            ok = Slurm.fetch_logs(
+                34785,
+                extras={
+                    "remote": {
+                        "host": "cluster.education.edu",
+                        "user": "ly349",
+                        "stdout_path": "/home/ly349/bioqueue-scripts/34785-0.out",
+                        "stderr_path": "/home/ly349/bioqueue-scripts/34785-0.err",
+                    },
+                    "fetch_log": "/tmp/34785.log",
+                    "fetch_err": "/tmp/34785.err",
+                },
+            )
+        self.assertFalse(ok)
+        self.assertEqual(calls, ["scp", "scp"])
 
     def test_learning_runs_original_body_and_stores_scheduler_usage(self):
         captured = {}
@@ -908,3 +1249,139 @@ class ClusterSupportHardeningTests(unittest.TestCase):
                 extras={"body": "echo hi", "poll_max_seconds": "60"},
             )
         self.assertEqual(rc, 1)
+
+    def test_user_terminate_returns_interrupt_sentinel(self):
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        fake_model = SimpleNamespace(
+            submit_job=lambda *a, extras=None: "12",
+            query_job_status=lambda *a, extras=None: 1,
+            fetch_results=lambda *a, extras=None: True,
+            cancel_job=lambda *a, extras=None: 1,
+        )
+        workspace = tempfile.mkdtemp(prefix="bq-stop-")
+        with patch("worker.cluster_support.dispatch", return_value=fake_model), patch(
+            "worker.cluster_support._sync_job_status", return_value=True
+        ), patch("worker.cluster_support.time.sleep"), patch(
+            "worker.cluster_support.if_terminate", return_value=True
+        ):
+            rc = cluster_main(
+                "Slurm",
+                "echo hi",
+                987654321,
+                0,
+                1,
+                "1G",
+                "1G",
+                "q",
+                workspace,
+                os.path.join(workspace, "job.log"),
+                extras={"body": "echo hi"},
+            )
+        self.assertEqual(rc, STEP_USER_INTERRUPTED)
+
+    def test_stopped_job_is_not_a_failure_when_slurm_already_cancelled(self):
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        fake_model = SimpleNamespace(
+            submit_job=lambda *a, extras=None: "12",
+            query_job_status=lambda *a, extras=None: -1,
+            fetch_results=lambda *a, extras=None: False,
+            cancel_job=lambda *a, extras=None: 1,
+        )
+        workspace = tempfile.mkdtemp(prefix="bq-stop-failed-")
+        with patch("worker.cluster_support.dispatch", return_value=fake_model), patch(
+            "worker.cluster_support._sync_job_status", return_value=True
+        ), patch("worker.cluster_support.if_terminate", return_value=True):
+            rc = cluster_main(
+                "Slurm",
+                "echo hi",
+                34785,
+                0,
+                1,
+                "1G",
+                "1G",
+                "q",
+                workspace,
+                os.path.join(workspace, "job.log"),
+                extras={"body": "echo hi"},
+            )
+        self.assertEqual(rc, STEP_USER_INTERRUPTED)
+        calls = {"n": 0}
+        order = []
+
+        def query(*_args, extras=None):
+            calls["n"] += 1
+            return 0 if calls["n"] > 1 else 2
+
+        def release(job_id, extras=None):
+            order.append("release")
+
+        def fetch(*_a, extras=None):
+            order.append("fetch")
+            return True
+
+        fake_model = SimpleNamespace(
+            submit_job=lambda *_a, extras=None: "12",
+            query_job_status=query,
+            fetch_results=fetch,
+            cancel_job=lambda *_a, extras=None: 1,
+            release_job_status=release,
+        )
+        workspace = tempfile.mkdtemp(prefix="bq-pace-")
+        with patch("worker.cluster_support.dispatch", return_value=fake_model), patch(
+            "worker.cluster_support._sync_job_status", return_value=True
+        ), patch("worker.cluster_support.time.sleep") as slept, patch(
+            "worker.cluster_support.if_terminate", return_value=False
+        ):
+            rc = cluster_main(
+                "Slurm",
+                "echo hi",
+                4,
+                0,
+                1,
+                "1G",
+                "1G",
+                "q",
+                workspace,
+                os.path.join(workspace, "job.log"),
+                extras={"body": "echo hi"},
+            )
+        self.assertEqual(rc, 0)
+        slept.assert_not_called()
+        self.assertEqual(order[:2], ["release", "fetch"])
+
+    def test_other_backends_still_pause_between_polls(self):
+        calls = {"n": 0}
+
+        def query(*_args, extras=None):
+            calls["n"] += 1
+            return 0 if calls["n"] > 1 else 2
+
+        fake_model = SimpleNamespace(
+            submit_job=lambda *_a, extras=None: "12",
+            query_job_status=query,
+            fetch_results=lambda *_a, extras=None: True,
+            cancel_job=lambda *_a, extras=None: 1,
+        )
+        workspace = tempfile.mkdtemp(prefix="bq-pause-")
+        with patch("worker.cluster_support.dispatch", return_value=fake_model), patch(
+            "worker.cluster_support._sync_job_status", return_value=True
+        ), patch("worker.cluster_support.time.sleep") as slept, patch(
+            "worker.cluster_support.if_terminate", return_value=False
+        ):
+            rc = cluster_main(
+                "LSF",
+                "echo hi",
+                4,
+                0,
+                1,
+                "1G",
+                "1G",
+                "q",
+                workspace,
+                os.path.join(workspace, "job.log"),
+                extras={"body": "echo hi"},
+            )
+        self.assertEqual(rc, 0)
+        slept.assert_called_once_with(30)

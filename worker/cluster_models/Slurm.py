@@ -1,18 +1,26 @@
 """Slurm backend: render a self-contained sbatch script, submit locally or over SSH."""
 from __future__ import print_function
 
+import hashlib
 import logging
 import os
 import posixpath
 import re
 import shlex
 import subprocess
+import threading
 import time
 
 logger = logging.getLogger("BioQueue.cluster.slurm")
 
 # 0 success, 1 running, 2 pending, 3 unknown/retryable, -1 failed
 STATUS_UNKNOWN = 3
+# One squeue covers every in-flight job.
+POLL_RUNNING_SECONDS = 300
+POLL_PENDING_SECONDS = 300
+_POLL_COALESCE_SECONDS = 0.5
+_POLL_WAIT_SECONDS = POLL_RUNNING_SECONDS + 600
+_SQUEUE_CHUNK = 100
 
 TERMINAL_OK = {"COMPLETED"}
 TERMINAL_FAIL = {
@@ -25,6 +33,8 @@ TERMINAL_FAIL = {
     "PREEMPTED",
     "BOOT_FAIL",
     "DEADLINE",
+    "SPECIAL_EXIT",
+    "REVOKED",
 }
 RUNNING_STATES = {
     "RUNNING",
@@ -38,9 +48,12 @@ RUNNING_STATES = {
 PENDING_STATES = {"PENDING", "REQUEUED", "RESV_DEL_HOLD", "REQUEUE_HOLD"}
 
 _SBATCH_ID = re.compile(r"Submitted batch job\s+(\d+)", re.IGNORECASE)
-_JOB_STATE = re.compile(r"JobState=([A-Za-z_]+)")
 _INVALID_JOB = re.compile(
     r"Invalid job id|invalid job id specified|unable to look up job",
+    re.IGNORECASE,
+)
+_MUX_STALE = re.compile(
+    r"Control socket|mux_client|muxserver|ControlSocket",
     re.IGNORECASE,
 )
 
@@ -124,13 +137,25 @@ def _normalize_state(state):
     text = str(state or "").strip().upper()
     if "+" in text:
         text = text.split("+", 1)[0]
-    return text.rstrip("*")
+    text = text.rstrip("*")
+    # sacct appends who cancelled: "CANCELLED by 1353245".
+    if " BY " in text:
+        text = text.split(" BY ", 1)[0].strip()
+    return text
 
 
-def status_from_states(states):
+def status_from_states(states, requeue=True):
     states = [_normalize_state(s) for s in (states or []) if s]
     states = [s for s in states if s]
     if not states:
+        return 2
+    # --requeue is the default. A preempted job is expected to come back,
+    # so keep watching instead of treating that state as a finished failure.
+    if requeue and any(s == "PREEMPTED" for s in states):
+        if any(s in RUNNING_STATES for s in states):
+            return 1
+        if any(s in TERMINAL_FAIL and s != "PREEMPTED" for s in states):
+            return -1
         return 2
     if all(s in TERMINAL_OK or s in TERMINAL_FAIL for s in states):
         if all(s in TERMINAL_OK for s in states):
@@ -150,6 +175,33 @@ def parse_sbatch_job_id(stdout):
     return 0
 
 
+def parse_squeue_states(stdout):
+    """Group squeue `%A|%T` lines by job id. Array tasks share the master id."""
+    grouped = {}
+    for raw in _decode(stdout).splitlines():
+        line = raw.strip()
+        if "|" not in line:
+            continue
+        jid, state = line.split("|", 1)
+        jid = jid.strip().split("_", 1)[0]
+        state = state.strip()
+        if not jid.isdigit() or not state:
+            continue
+        grouped.setdefault(jid, []).append(state)
+    return grouped
+
+
+def _sacct_job_field(field):
+    """True for 42, 42_0, 42.batch, or 42_0.extern. Error text does not match."""
+    head = str(field or "").split(".", 1)[0]
+    if not head or not head[0].isdigit():
+        return False
+    job, sep, task = head.partition("_")
+    if not job.isdigit():
+        return False
+    return not sep or task.isdigit()
+
+
 def parse_sacct_states(stdout):
     states = []
     for raw in _decode(stdout).splitlines():
@@ -158,11 +210,11 @@ def parse_sacct_states(stdout):
             continue
         if "|" in line:
             parts = [p.strip() for p in line.split("|")]
-            if len(parts) >= 2:
+            if len(parts) >= 2 and _sacct_job_field(parts[0]):
                 states.append(_normalize_state(parts[1]))
             continue
         cols = line.split()
-        if len(cols) >= 2:
+        if len(cols) >= 2 and _sacct_job_field(cols[0]):
             states.append(_normalize_state(cols[1]))
     return [s for s in states if s]
 
@@ -304,6 +356,9 @@ def render_script(
         log_root = _text(remote.get("log_root")) or _text(remote.get("scripts_dir"))
         if not log_root:
             log_root = "."
+        # Shared path stage_in used. Scripts may read inputs from here.
+        # Never a node-local scratch directory: preflight runs on the login node.
+        stage_dir = _text(remote.get("chdir")) or _text(remote.get("result_dir"))
         if array:
             # One directory and one log file per array task. Do not pin fetch
             # to a single staged workspace that every task would clobber.
@@ -322,7 +377,7 @@ def render_script(
                 root,
             )
         else:
-            chdir = _text(remote.get("chdir")) or _text(remote.get("workdir"))
+            chdir = stage_dir or _text(remote.get("workdir"))
             stdout_path = posixpath.join(log_root, "%s-%s.out" % (job_id, job_step))
             stderr_path = posixpath.join(log_root, "%s-%s.err" % (job_id, job_step))
             log_glob = ""
@@ -330,13 +385,19 @@ def render_script(
         remote["stderr_path"] = stderr_path
         remote["log_glob"] = log_glob
         extras["remote"] = remote
+        # Batch bodies run on a compute node. These point at shared storage
+        # the login node and the compute node can both see.
+        shared_boot = "export BQ_RESULT_ROOT=%s\n" % shlex.quote(result_root)
+        if stage_dir:
+            shared_boot += "export BQ_STAGE_DIR=%s\n" % shlex.quote(stage_dir)
     else:
         chdir = workspace
         log_root = workspace or "."
         stdout_path = os.path.join(log_root, "%s-%s.out" % (job_id, job_step))
         stderr_path = os.path.join(log_root, "%s-%s.err" % (job_id, job_step))
+        shared_boot = ""
     chdir_line = _flag_line("--chdir", chdir)
-    prologue = array_boot + _text(extras.get("prologue"))
+    prologue = shared_boot + array_boot + _text(extras.get("prologue"))
     epilogue = _text(extras.get("epilogue"))
     template = load_template()
     return (
@@ -358,11 +419,54 @@ def render_script(
     )
 
 
-def _ssh_base(remote):
-    argv = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
+def _ssh_control_path(remote):
+    """Short private socket shared by every ssh/scp/rsync to this login.
+
+    A fresh TCP login per status poll trips MaxStartups on the submit node.
+    The path stays under UNIX socket limits; host, user, and key are hashed.
+    """
+    ident = "\0".join(
+        (
+            _text(remote.get("user")),
+            _text(remote.get("host")),
+            _text(remote.get("key")),
+        )
+    )
+    digest = hashlib.sha1(ident.encode("utf-8")).hexdigest()[:16]
+    directory = "/tmp/bq-ssh-%s" % os.getuid()
+    try:
+        os.makedirs(directory, mode=0o700)
+    except OSError:
+        pass
+    try:
+        os.chmod(directory, 0o700)
+    except OSError:
+        pass
+    return os.path.join(directory, digest)
+
+
+def _ssh_options(remote):
+    control = _ssh_control_path(remote)
+    options = [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        "ControlPersist=600",
+        "-o",
+        "ControlPath=%s" % control,
+    ]
     key = _text(remote.get("key"))
     if key:
-        argv.extend(["-i", key])
+        options.extend(["-i", key])
+    return options
+
+
+def _ssh_base(remote):
+    argv = ["ssh"] + _ssh_options(remote)
     dest = _text(remote.get("host"))
     user = _text(remote.get("user"))
     if user:
@@ -372,10 +476,7 @@ def _ssh_base(remote):
 
 
 def _scp_argv(remote, local_path, remote_path):
-    argv = ["scp", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
-    key = _text(remote.get("key"))
-    if key:
-        argv.extend(["-i", key])
+    argv = ["scp"] + _ssh_options(remote)
     dest = _text(remote.get("host"))
     user = _text(remote.get("user"))
     if user:
@@ -385,10 +486,7 @@ def _scp_argv(remote, local_path, remote_path):
 
 
 def _rsync_rsh(remote):
-    parts = ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
-    key = _text(remote.get("key"))
-    if key:
-        parts.extend(["-i", key])
+    parts = ["ssh"] + _ssh_options(remote)
     return " ".join(shlex.quote(p) for p in parts)
 
 
@@ -398,6 +496,22 @@ def _remote_spec(remote):
     if user:
         dest = "%s@%s" % (user, dest)
     return dest
+
+
+def _drop_stale_mux(argv, output):
+    """OpenSSH will not replace a dead ControlMaster socket. Remove ours and retry."""
+    if not output or not _MUX_STALE.search(output):
+        return
+    for part in argv:
+        text = str(part)
+        if not text.startswith("ControlPath=") or "/bq-ssh-" not in text:
+            continue
+        path = text.split("=", 1)[1]
+        try:
+            os.unlink(path)
+            logger.warning("removed stale ssh control socket %s", path)
+        except OSError:
+            pass
 
 
 def _run(argv, timeout=60, cwd=None, retries=3):
@@ -419,6 +533,7 @@ def _run(argv, timeout=60, cwd=None, retries=3):
                 return last_rc, last_out
             if _INVALID_JOB.search(last_out):
                 return last_rc, last_out
+            _drop_stale_mux(argv, last_out)
         except subprocess.TimeoutExpired as exc:
             last_rc, last_out = 1, "timeout: %s" % exc
             logger.warning("cluster cmd timed out: %s", argv[0] if argv else "")
@@ -706,33 +821,324 @@ def _sacct_status(job_id, extras):
         "JobID,State,ExitCode",
     ]
     rc, out = _slurm_cmd(argv, extras, timeout=60, retries=2)
-    if rc != 0 and not out.strip():
-        return STATUS_UNKNOWN
     states = parse_sacct_states(out)
     if not states:
+        if rc != 0 and out.strip():
+            logger.info("sacct rc=%s for %s: %s", rc, job_id, out)
         return STATUS_UNKNOWN
-    return status_from_states(states)
+    return status_from_states(states, requeue=_requeue_enabled(extras))
+
+
+def _chunks(items, size):
+    items = list(items)
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def _squeue_argv(prefix, job_ids=None):
+    argv = [_bin(prefix, "squeue"), "-h", "-o", "%A|%T"]
+    if job_ids:
+        argv = [
+            _bin(prefix, "squeue"),
+            "-h",
+            "-j",
+            ",".join(job_ids),
+            "-o",
+            "%A|%T",
+        ]
+    return argv
+
+
+def _unwrap_states(payload):
+    """Accept a status dict or (dict, transport-failed ids)."""
+    if (
+        isinstance(payload, tuple)
+        and len(payload) == 2
+        and isinstance(payload[0], dict)
+    ):
+        states, transport = payload
+        return states, set(transport or ())
+    if isinstance(payload, dict):
+        return payload, set()
+    return {}, set()
+
+
+def _query_job_states(job_ids, extras):
+    """One squeue for many ids. sacct only for ids that have left the queue.
+
+    Returns (status_by_id, transport_failed_ids). A transport failure is not
+    treated as the job leaving the queue.
+    """
+    ids = []
+    seen = set()
+    for raw in job_ids:
+        jid = str(raw).strip()
+        if jid and jid not in seen:
+            seen.add(jid)
+            ids.append(jid)
+    result = {jid: STATUS_UNKNOWN for jid in ids}
+    if not ids:
+        return result, set()
+    extras = _extras(extras)
+    prefix = _bin_prefix(extras)
+    grouped = {}
+    transport_failed = set()
+
+    def consider(chunk):
+        if not chunk:
+            return
+        rc, out = _slurm_cmd(
+            _squeue_argv(prefix, chunk), extras, timeout=60, retries=3
+        )
+        parsed = parse_squeue_states(out)
+        if rc == 0:
+            grouped.update(parsed)
+            return
+        if _INVALID_JOB.search(out):
+            grouped.update(parsed)
+            missing = [jid for jid in chunk if jid not in grouped]
+            # One finished id can make `squeue -j` reject the list and print
+            # nothing. Split until the dead id is alone, then ask sacct for it.
+            # Do not list every job on the cluster: that call can time out and
+            # mark the healthy ids unknown.
+            if len(missing) > 1 and not parsed:
+                mid = len(missing) // 2
+                consider(missing[:mid])
+                consider(missing[mid:])
+            return
+        logger.warning("squeue rc=%s for %s: %s", rc, ",".join(chunk), out)
+        transport_failed.update(chunk)
+
+    try:
+        for chunk in _chunks(ids, _SQUEUE_CHUNK):
+            consider(chunk)
+    except Exception:
+        logger.exception("squeue failed for %s", ",".join(ids))
+        return result, set(ids)
+    requeue = _requeue_enabled(extras)
+    for jid in ids:
+        states = grouped.get(jid)
+        if states:
+            result[jid] = status_from_states(states, requeue=requeue)
+        elif jid in transport_failed:
+            result[jid] = STATUS_UNKNOWN
+        else:
+            logger.info("squeue lost job %s, asking sacct", jid)
+            result[jid] = _sacct_status(jid, extras)
+    return result, transport_failed
+
+
+def _poll_after(status_code):
+    if status_code == 2:
+        return POLL_PENDING_SECONDS
+    return POLL_RUNNING_SECONDS
+
+
+def _board_extras(extras):
+    extras = _extras(extras)
+    remote = extras.get("remote") if isinstance(extras.get("remote"), dict) else {}
+    snapshot = {}
+    if remote.get("host"):
+        snapshot["remote"] = {
+            "host": remote.get("host"),
+            "user": remote.get("user"),
+            "key": remote.get("key"),
+            "bin_prefix": remote.get("bin_prefix"),
+        }
+    prefix = _text(remote.get("bin_prefix")) or _text(extras.get("bin_prefix"))
+    if prefix:
+        snapshot["bin_prefix"] = prefix
+    return snapshot
+
+
+def _board_key(extras):
+    snapshot = _board_extras(extras)
+    remote = snapshot.get("remote") or {}
+    return (
+        _text(remote.get("host")),
+        _text(remote.get("user")),
+        _text(remote.get("key")),
+        _text(snapshot.get("bin_prefix")),
+    )
+
+
+class _BoardClosed(Exception):
+    pass
+
+
+class _StatusBoard(object):
+    """One poller per login node. Threads wait here instead of calling squeue."""
+
+    def __init__(self, key, extras):
+        self.key = key
+        self.extras = extras
+        self.cv = threading.Condition()
+        self.members = {}
+        self._stopped = False
+        self._thread = None
+
+    def start(self):
+        self._thread = threading.Thread(
+            target=self._loop, name="slurm-status", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self):
+        with self.cv:
+            self._stopped = True
+            self.members.clear()
+            self.cv.notify_all()
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=1)
+
+    def release(self, job_id):
+        with self.cv:
+            self.members.pop(str(job_id).strip(), None)
+            self.cv.notify_all()
+
+    def wait_status(self, job_id):
+        jid = str(job_id).strip()
+        with self.cv:
+            if self._stopped:
+                raise _BoardClosed()
+            slot = self.members.get(jid)
+            if slot is None:
+                slot = {
+                    "status": STATUS_UNKNOWN,
+                    "seq": 0,
+                    "next_due": time.time(),
+                }
+                self.members[jid] = slot
+            seen = slot["seq"]
+            self.cv.notify_all()
+            deadline = time.time() + _POLL_WAIT_SECONDS
+            while slot["seq"] == seen:
+                if self._stopped:
+                    raise _BoardClosed()
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    logger.warning("status wait timed out for %s", jid)
+                    return STATUS_UNKNOWN
+                self.cv.wait(timeout=remaining)
+            return slot["status"]
+
+    def _loop(self):
+        while True:
+            try:
+                if not self._poll_once():
+                    return
+            except Exception:
+                logger.exception("slurm status poller failed")
+                time.sleep(1)
+                if self._stopped:
+                    return
+
+    def _poll_once(self):
+        with self.cv:
+            while not self.members and not self._stopped:
+                self.cv.wait()
+            if self._stopped:
+                return False
+            now = time.time()
+            soonest = min(slot["next_due"] for slot in self.members.values())
+            if soonest > now:
+                self.cv.wait(timeout=soonest - now)
+                return True
+        time.sleep(_POLL_COALESCE_SECONDS)
+        with self.cv:
+            if self._stopped:
+                return False
+            now = time.time()
+            ids = [
+                jid
+                for jid, slot in self.members.items()
+                if slot["next_due"] <= now
+            ]
+        if not ids:
+            return True
+        ids.sort(key=lambda jid: int(jid) if jid.isdigit() else jid)
+        try:
+            payload = _query_job_states(ids, self.extras)
+        except Exception:
+            logger.exception("squeue batch failed")
+            payload = ({}, set(ids))
+        statuses, transport = _unwrap_states(payload)
+        now = time.time()
+        with self.cv:
+            for jid in ids:
+                slot = self.members.get(jid)
+                if slot is None:
+                    continue
+                status = statuses.get(jid, STATUS_UNKNOWN)
+                # One login-node blip must not advance the vanish streak for
+                # every job. Keep the last real state and try again shortly.
+                if jid in transport and slot["seq"] > 0:
+                    status = slot["status"]
+                    slot["next_due"] = now + POLL_RUNNING_SECONDS
+                else:
+                    slot["next_due"] = now + _poll_after(status)
+                slot["status"] = status
+                slot["seq"] += 1
+                if status in (0, -1):
+                    self.members.pop(jid, None)
+            self.cv.notify_all()
+        return True
+
+
+_status_boards = {}
+_status_boards_lock = threading.Lock()
+
+
+def _board_for(extras):
+    key = _board_key(extras)
+    with _status_boards_lock:
+        board = _status_boards.get(key)
+        if board is None or board._stopped:
+            board = _StatusBoard(key, _board_extras(extras))
+            _status_boards[key] = board
+            board.start()
+        return board
+
+
+def _reset_status_boards_for_tests():
+    with _status_boards_lock:
+        boards = list(_status_boards.values())
+        _status_boards.clear()
+    for board in boards:
+        board.stop()
+
+
+def _status_due_in(job_id, extras=None):
+    with _status_boards_lock:
+        board = _status_boards.get(_board_key(extras))
+    if board is None:
+        return None
+    with board.cv:
+        slot = board.members.get(str(job_id).strip())
+        if not slot:
+            return None
+        return slot["next_due"] - time.time()
 
 
 def query_job_status(job_id, extras=None):
-    extras = _extras(extras)
-    prefix = _bin_prefix(extras)
-    argv = [_bin(prefix, "scontrol"), "show", "job", str(job_id)]
-    try:
-        rc, out = _slurm_cmd(argv, extras, timeout=60, retries=3)
-    except Exception:
-        logger.exception("scontrol failed for %s", job_id)
-        return STATUS_UNKNOWN
-    if rc != 0 and _INVALID_JOB.search(out):
-        logger.info("scontrol lost job %s, asking sacct", job_id)
-        return _sacct_status(job_id, extras)
-    if rc != 0:
-        logger.warning("scontrol rc=%s for %s: %s", rc, job_id, out)
-        return STATUS_UNKNOWN
-    states = _JOB_STATE.findall(out)
-    if not states:
-        return STATUS_UNKNOWN
-    return status_from_states(states)
+    """Block until the shared poller publishes a new state for this id."""
+    snapshot = _board_extras(extras)
+    for _attempt in range(2):
+        board = _board_for(snapshot)
+        try:
+            return board.wait_status(job_id)
+        except _BoardClosed:
+            continue
+    return STATUS_UNKNOWN
+
+
+def release_job_status(job_id, extras=None):
+    """Drop a finished id so later polls do not keep asking about it."""
+    with _status_boards_lock:
+        board = _status_boards.get(_board_key(extras))
+    if board is not None:
+        board.release(job_id)
 
 
 def query_job_usage(job_id, extras=None):
@@ -866,15 +1272,12 @@ def _append_remote_file(remote, remote_path, local_path):
         except OSError:
             pass
     tmp_path = local_path + ".bq_pull"
-    argv = ["scp", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"]
-    key = _text(remote.get("key"))
-    if key:
-        argv.extend(["-i", key])
+    argv = ["scp"] + _ssh_options(remote)
     argv.extend(["%s:%s" % (_remote_spec(remote), remote_path), tmp_path])
     rc, out = _run(argv, timeout=600, retries=2)
     if rc != 0:
         if "No such file" in out or "not found" in out.lower():
-            return False
+            return None
         logger.warning("scp log failed (%s): %s", remote_path, out)
         return False
     try:
@@ -904,26 +1307,57 @@ def fetch_logs(job_id, extras=None):
     err_dest = _text(extras.get("fetch_err"))
     if not log_dest and not err_dest:
         return True
-    remote_files = _list_remote_log_files(remote, extras)
-    if not remote_files:
-        logger.warning("remote job %s has no Slurm log files to fetch", job_id)
-        return False
+    # The batch script already names these files. Copy them directly. A timed-out
+    # `find` used to drop the logs even though the path was known.
+    concrete = []
+    for path in (_text(remote.get("stdout_path")), _text(remote.get("stderr_path"))):
+        if path and "%" not in path:
+            concrete.append(path)
     synced = False
-    for remote_path in remote_files:
-        lower = remote_path.lower()
-        if lower.endswith(".err") and err_dest:
-            dest = err_dest
-        elif log_dest:
-            dest = log_dest
-        elif err_dest:
-            dest = err_dest
+    absent = []
+    transport_failed = False
+    for remote_path in concrete:
+        copied = _copy_log(remote, remote_path, log_dest, err_dest)
+        if copied is True:
+            synced = True
+        elif copied is None:
+            absent.append(remote_path)
         else:
+            transport_failed = True
+    if transport_failed:
+        if not synced:
+            logger.warning("failed to fetch Slurm logs for cluster job %s", job_id)
+        return synced
+    if synced and not remote.get("log_glob"):
+        return True
+    listed = _list_remote_log_files(remote, extras)
+    known = set(concrete)
+    for remote_path in listed:
+        if remote_path in known:
             continue
-        if _append_remote_file(remote, remote_path, dest):
+        copied = _copy_log(remote, remote_path, log_dest, err_dest)
+        if copied is True:
             synced = True
     if not synced:
-        logger.warning("failed to fetch Slurm logs for cluster job %s", job_id)
+        logger.warning(
+            "remote job %s has no Slurm log files to fetch%s",
+            job_id,
+            (": " + ", ".join(absent)) if absent else "",
+        )
     return synced
+
+
+def _copy_log(remote, remote_path, log_dest, err_dest):
+    lower = remote_path.lower()
+    if lower.endswith(".err") and err_dest:
+        dest = err_dest
+    elif log_dest:
+        dest = log_dest
+    elif err_dest:
+        dest = err_dest
+    else:
+        return None
+    return _append_remote_file(remote, remote_path, dest)
 
 
 def fetch_results(job_id, extras=None):
