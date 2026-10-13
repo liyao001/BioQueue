@@ -1072,6 +1072,27 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
 
 
 PROTOCOL_WILDCARD_RE = re.compile(r"\{\{(.*?)\}\}", re.IGNORECASE | re.DOTALL)
+
+
+def _cluster_parameter_assignments(text):
+    """ClusterKey=value lines in a step, including shell comments.
+
+    The job form otherwise only copies {{Key||default}} tokens. Cluster
+    settings are read from the job parameter string, so a protocol that
+    documents them as ClusterPartition=gpu would never prefill them.
+    """
+    from worker.queue.cluster_request import PARAM_TO_EXTRA
+
+    names = "|".join(sorted(PARAM_TO_EXTRA, key=len, reverse=True))
+    pattern = re.compile(r"(?<![\w{])(" + names + r")=([^\n;]*)")
+    found = []
+    for match in pattern.finditer(text or ""):
+        name = match.group(1)
+        value = match.group(2).strip().strip("#").strip()
+        if not value or any(char in value for char in ";{}"):
+            continue
+        found.append((name, value))
+    return found
 MAX_PROTOCOL_JSON_BYTES = 1_000_000
 
 
@@ -2222,6 +2243,17 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
             values = defaults.setdefault(name, set())
             if separator:
                 values.add(default)
+        for name, value in _cluster_parameter_assignments(text):
+            if legacy:
+                if name in seen:
+                    continue
+                seen.add(name)
+                entries.append("{}={};".format(name, value))
+                continue
+            values = defaults.setdefault(name, set())
+            if values:
+                continue
+            values.add(value)
     if legacy:
         return "".join(entries)
     rendered = []

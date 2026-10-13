@@ -134,8 +134,8 @@
     <textarea class="ui-input w-full font-mono" name="parameter" id="id_parameter" rows="4"
               data-ui3-complete
               placeholder="key=value;key2=value2">{{ form.parameter }}</textarea>
-    <div class="label"><span class="label-text-alt opacity-70">semicolon-separated; keys are passed to the protocol. Cluster overrides: ClusterGpus, ClusterPartition, ClusterTime, ClusterMem, ClusterExclude, ClusterExtra, ClusterArray</span></div>
-    <p class="text-sm opacity-70">These are job-wide values. A template fills them from its defaults, including one key per sample when a value differs by sample. Edit a key here to change that default. To override a single sample, edit its row under Samples. Your edits are kept when the list refreshes. Legacy keys writes <span class="font-mono">Key||default=</span> and leaves the value empty; otherwise the box shows <span class="font-mono">Key=default</span>.</p>
+    <div class="label"><span class="label-text-alt opacity-70">semicolon-separated; keys are passed to the protocol.</span></div>
+    <p id="parameter-template-help" class="text-sm opacity-70{% if not samples_active %} hidden{% endif %}">These are job-wide values. A template fills them from its defaults, including one key per sample when a value differs by sample. Edit a key here to change that default. To override a single sample, edit its row under Samples. Your edits are kept when the list refreshes. Legacy keys writes <span class="font-mono">Key||default=</span> and leaves the value empty; otherwise the box shows <span class="font-mono">Key=default</span>.</p>
     <p id="parameter-missing" class="text-sm" role="status"></p>
   </div>
 

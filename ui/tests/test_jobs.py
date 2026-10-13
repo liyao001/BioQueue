@@ -1248,6 +1248,29 @@ class JobTests(Ui3TestCase):
             "SAME=;SAME||6=;DIFFERENT||6=;DIFFERENT||8=;",
         )
 
+    def test_parameter_scaffold_reads_cluster_assignments(self):
+        from QueueDB.models import Step
+        from ui.services import parameter_scaffold
+
+        Step.objects.create(
+            parent=self.protocol,
+            software="__SHELL__",
+            parameter=(
+                "echo {{commit}}\n"
+                "# ClusterPartition=gpu;ClusterTime=47:59:00;ClusterMem=40000\n"
+                "# ClusterGres=gpu:1\n"
+                "# ClusterExtra=--get-user-env -n 5 --ntasks-per-node=5\n"
+            ),
+            step_order=1,
+            hash="cluster-scaffold",
+            user=self.user,
+        )
+        self.assertEqual(
+            parameter_scaffold(self.protocol, self.user),
+            "commit=;ClusterPartition=gpu;ClusterTime=47:59:00;ClusterMem=40000;"
+            "ClusterGres=gpu:1;ClusterExtra=--get-user-env -n 5 --ntasks-per-node=5;",
+        )
+
     def test_workspace_uploads_list(self):
         import os
         import tempfile

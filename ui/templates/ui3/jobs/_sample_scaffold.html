@@ -8,6 +8,8 @@
   var hold = {{ samples_hold|yesno:"true,false" }} && !force;
   var next = "{{ samples_value|escapejs }}";
   section.classList.toggle("hidden", !active);
+  var help = document.getElementById("parameter-template-help");
+  if (help) help.classList.toggle("hidden", !active);
   field.disabled = !active;
   document.getElementById("sample-required").textContent = "{{ samples_required|escapejs }}" ? "Required fields: {{ samples_required|escapejs }}" : "";
   var summary = document.getElementById("sample-run-summary");

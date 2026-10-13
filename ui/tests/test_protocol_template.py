@@ -265,6 +265,7 @@ class TemplateUiTests(Ui3TestCase):
         url = reverse("ui3:sample_scaffold")
         response = self.client.get(url, {"protocol": proto.id, "input_file": "a;b;c;d", "force": "1"}, HTTP_HX_REQUEST="true")
         self.assertContains(response, "var active = true;")
+        self.assertContains(response, 'getElementById("parameter-template-help")')
         self.assertContains(response, "UMI_LEN2")
         self.assertNotContains(response, "<html")
         response = self.client.get(url, {"protocol": self.protocol.id})
@@ -276,10 +277,13 @@ class TemplateUiTests(Ui3TestCase):
 
     def test_samples_hidden_for_plain_protocol_and_visible_for_template_clone(self):
         proto = self._indexed_protocol()
-        self.assertContains(self.client.get(reverse("ui3:job_create")), 'id="sample-fields" class="hidden"')
+        page = self.client.get(reverse("ui3:job_create"))
+        self.assertContains(page, 'id="sample-fields" class="hidden"')
+        self.assertContains(page, 'id="parameter-template-help" class="text-sm opacity-70 hidden">')
         clone = self.make_job(protocol=proto, sample_sheet='[{"name":"custom"}]')
         response = self.client.get(reverse("ui3:job_create"), {"clone": clone.id})
         self.assertContains(response, 'id="sample-fields">')
+        self.assertContains(response, 'id="parameter-template-help" class="text-sm opacity-70">')
         self.assertContains(response, "custom")
         response = self.client.post(reverse("ui3:job_create"), {
             "protocol": self.protocol.id, "job_name": "plain", "sample_sheet": "stale invalid text",
