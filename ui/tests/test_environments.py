@@ -30,6 +30,9 @@ class EnvironmentTests(Ui3TestCase):
         self.assertContains(response, "public")
         self.assertNotContains(response, "secret-env")
         self.assertContains(response, 'id="environment-filters"')
+        self.assertContains(response, 'hx-trigger="submit, input delay:400ms, change"')
+        self.assertNotContains(response, "from:input")
+        self.assertContains(response, 'hx-sync="#environment-filters:replace"')
         self.assertContains(response, "page-head")
         self.assertTrue(public.id)
 

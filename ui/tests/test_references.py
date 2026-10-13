@@ -90,6 +90,9 @@ class ReferenceTests(Ui3TestCase):
         self.assertContains(response, "reference")
         self.assertContains(response, "page size")
         self.assertContains(response, 'id="reference-filters"')
+        self.assertContains(response, 'hx-trigger="submit, input delay:400ms, change"')
+        self.assertNotContains(response, "from:input")
+        self.assertContains(response, 'hx-sync="#reference-filters:replace"')
         self.assertContains(response, "page-head")
 
     def test_create_rejects_too_long_name(self):

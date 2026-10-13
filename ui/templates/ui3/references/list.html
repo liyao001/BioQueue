@@ -14,7 +14,7 @@
       hx-swap="outerHTML"
       hx-push-url="true"
       hx-include="#page-size-select"
-      hx-trigger="submit, input delay:400ms from:input">
+      hx-trigger="submit, input delay:400ms, change">
   <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, path, or id">
   <button class="btn btn-sm" type="submit">Search</button>
 </form>
@@ -28,6 +28,7 @@
         hx-post="{% url 'ui3:reference_create' %}"
         hx-target="#reference-table"
         hx-swap="outerHTML"
+        hx-sync="#reference-filters:replace"
         hx-on::after-request="if(event.detail.successful) this.reset()">
     {% csrf_token %}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">

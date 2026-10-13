@@ -14,7 +14,7 @@
       hx-swap="outerHTML"
       hx-push-url="true"
       hx-include="#page-size-select"
-      hx-trigger="submit, input delay:400ms from:input, change from:select">
+      hx-trigger="submit, input delay:400ms, change">
   <input class="ui-input flex-1" type="search" name="q" value="{{ q }}" placeholder="Search by username, email, name, or id" autocomplete="off" aria-label="Search users">
   <select class="ui-select" name="state" aria-label="Account state">
     <option value="all" {% if state == "all" %}selected{% endif %}>All</option>
@@ -35,6 +35,7 @@
         hx-post="{% url 'ui3:user_create' %}"
         hx-target="#user-table"
         hx-swap="outerHTML"
+        hx-sync="#user-filters:replace"
         hx-include="#user-filters,#page-size-select"
         hx-on::after-request="if(event.detail.successful) this.reset()">
     {% csrf_token %}

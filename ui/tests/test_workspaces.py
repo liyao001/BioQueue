@@ -13,6 +13,9 @@ class WorkspaceTests(Ui3TestCase):
         self.assertNotContains(response, "secret-ws")
         self.assertContains(response, "Workspaces")
         self.assertContains(response, 'id="workspace-filters"')
+        self.assertContains(response, 'hx-trigger="submit, input delay:400ms, change"')
+        self.assertNotContains(response, "from:input")
+        self.assertContains(response, 'hx-sync="#workspace-filters:replace"')
         self.assertContains(response, "page-head")
 
     def test_create_workspace(self):
