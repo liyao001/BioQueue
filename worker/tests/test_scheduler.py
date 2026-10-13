@@ -534,7 +534,7 @@ class JobQueueMaintenanceTests(unittest.TestCase):
 
         class FakeDb(object):
             status = 0
-            ter = 0
+            ter = 1
 
             def save(self):
                 return None
@@ -547,8 +547,11 @@ class JobQueueMaintenanceTests(unittest.TestCase):
             def snapshot(self):
                 return None
 
+        task = FakeTask()
         with patch("worker.queue.job_queue.bases.save_output_dict"):
-            queue.dequeue(FakeTask())
+            queue.dequeue(task)
+        self.assertEqual(task.db_obj.ter, 0)
+        self.assertEqual(task.db_obj.status, -1)
 
     def test_coerce_int_from_config_string(self):
         queue = _queue()
@@ -577,6 +580,59 @@ class JobQueueMaintenanceTests(unittest.TestCase):
             self.assertFalse(queue._dependencies_are_ready(job, step))
         with patch.object(queue, "query_job_status", return_value=_JS_FINISHED):
             self.assertTrue(queue._dependencies_are_ready(job, step))
+
+    def test_collect_releases_claimed_job_with_no_step(self):
+        queue = _queue()
+        empty = FakeJob(1, 1, 1, 1)
+        empty.steps = []
+        empty.get_current_step = lambda: None
+        done = FakeJob(2, 1, 1, 1, resume=3)
+        done.get_current_step = lambda: None
+        with patch.object(queue, "dequeue") as dequeue:
+            queue.collect_schedulable_resources({1: empty, 2: done})
+        self.assertEqual(dequeue.call_count, 2)
+        self.assertEqual(dequeue.call_args_list[0].args, (empty,))
+        self.assertEqual(dequeue.call_args_list[0].kwargs, {"is_error": 1})
+        self.assertEqual(dequeue.call_args_list[1].kwargs, {"is_error": 0})
+
+    def test_run_step_exit_code_two_is_failure_not_interrupt(self):
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        queue = _queue(
+            settings={
+                "cluster": {"type": ""},
+                "env": {"max_job": 4, "log": "/tmp", "workspace": "/tmp"},
+            }
+        )
+        step = FakeStep(10, 10, 10)
+        step.dependent_jobs = []
+        step.force_local = 0
+        job = FakeJob(1, 10, 10, 10)
+        job.steps = [step]
+        job.run_folder = "/tmp"
+        job.db_obj = MagicMock()
+        # MagicMock would otherwise invent a runner and leave the local path.
+        job.db_obj.slave = None
+
+        def _forecast(step_obj, job_obj=None):
+            return True
+
+        with patch("os.path.exists", return_value=True), patch.object(
+            queue, "forecast_step", side_effect=_forecast
+        ), patch.object(queue, "_run_step_local", return_value=2), patch.object(
+            queue, "finish_step"
+        ) as finish, patch("worker.queue.job_queue.logger"):
+            queue.run_step(job)
+        finish.assert_called_once_with(job, is_error=1)
+
+        finish.reset_mock()
+        with patch("os.path.exists", return_value=True), patch.object(
+            queue, "forecast_step", side_effect=_forecast
+        ), patch.object(queue, "_run_step_local", return_value=STEP_USER_INTERRUPTED), patch.object(
+            queue, "finish_step", finish
+        ), patch("worker.queue.job_queue.logger"):
+            queue.run_step(job)
+        finish.assert_called_once_with(job, is_error=2)
 
     def test_run_step_releases_resources_after_exception(self):
         queue = _queue(

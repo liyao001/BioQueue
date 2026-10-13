@@ -324,6 +324,32 @@ class EchoJobIntegrationTests(TestCase):
         self.assertEqual(Job.objects.get(id=assigned.id).status, JobStatus.RUNNING)
         self.assertEqual(Job.objects.get(id=orphan.id).status, JobStatus.WRONG)
 
+    def test_clean_dead_jobs_leaves_in_memory_jobs_alone(self):
+        live = seed_echo_job(self.tmp, job_name="in-memory")
+        live.status = JobStatus.RUNNING
+        live.save(update_fields=["status"])
+        orphan = seed_echo_job(self.tmp, job_name="not-in-memory")
+        orphan.status = JobStatus.RUNNING
+        orphan.save(update_fields=["status"])
+        queue = self._queue()
+        queue.clean_dead_jobs(exclude_ids={live.id})
+        self.assertEqual(Job.objects.get(id=live.id).status, JobStatus.RUNNING)
+        self.assertEqual(Job.objects.get(id=orphan.id).status, JobStatus.WRONG)
+
+    def test_dequeue_does_not_overwrite_user_stop(self):
+        job = seed_echo_job(self.tmp, job_name="stopped")
+        job.status = JobStatus.INTERRUPTED
+        job.ter = 1
+        job.save(update_fields=["status", "ter"])
+        queue = self._queue()
+        task = queue._parse_api_job(job)
+        queue.enqueue(task)
+        queue.dequeue(task, is_error=0)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.INTERRUPTED)
+        self.assertEqual(job.ter, 1)
+        self.assertNotIn(job.id, queue.queued_jobs_snapshot())
+
     def test_clean_dead_jobs_releases_resource_lock(self):
         locked = seed_echo_job(self.tmp, job_name="resource-wait")
         locked.status = JobStatus.RESOURCELOCK

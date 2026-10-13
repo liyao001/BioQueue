@@ -87,3 +87,71 @@ class ProcessRunnerTests(unittest.TestCase):
         self.assertTrue(str(args[0][0]).endswith("bash"))
         self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["cwd"], run_dir)
+
+    def test_process_exit_code_two_is_returned_as_is(self):
+        proc = MagicMock()
+        proc.poll.return_value = 2
+        proc.returncode = 2
+        proc.pid = 1
+        runner = ProcessRunner(n_retries=1, kill_process_fn=lambda proc_info: None)
+        self.assertEqual(runner.wait_for_completion(proc, job_id=1), 2)
+
+    def test_terminate_flag_returns_interrupt_sentinel(self):
+        from types import SimpleNamespace
+
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.pid = 42
+        killed = []
+        runner = ProcessRunner(n_retries=1, kill_process_fn=lambda proc_info: killed.append(proc_info))
+        db_job = SimpleNamespace(ter=1)
+        with patch("worker.queue.process_runner.psutil.pids", return_value=[42]), patch(
+            "worker.queue.process_runner.psutil.Process",
+            return_value=SimpleNamespace(is_running=lambda: True),
+        ), patch("worker.queue.process_runner.close_old_connections"), patch(
+            "worker.queue.process_runner.Job"
+        ) as job_model:
+            job_model.objects.get.return_value = db_job
+            rc = runner.wait_for_completion(proc, job_id=7)
+        self.assertEqual(rc, STEP_USER_INTERRUPTED)
+        self.assertEqual(len(killed), 1)
+
+    def test_resume_to_waiting_stops_the_live_process(self):
+        from types import SimpleNamespace
+
+        from QueueDB.models import _JS_RUNNING, _JS_WAITING
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.pid = 42
+        killed = []
+        runner = ProcessRunner(n_retries=1, kill_process_fn=lambda proc_info: killed.append(proc_info))
+        released = SimpleNamespace(ter=0, status=_JS_WAITING)
+        with patch("worker.queue.process_runner.psutil.pids", return_value=[42]), patch(
+            "worker.queue.process_runner.psutil.Process",
+            return_value=SimpleNamespace(is_running=lambda: True),
+        ), patch("worker.queue.process_runner.close_old_connections"), patch(
+            "worker.queue.process_runner.Job"
+        ) as job_model:
+            job_model.objects.get.return_value = released
+            rc = runner.wait_for_completion(proc, job_id=7)
+        self.assertEqual(rc, STEP_USER_INTERRUPTED)
+        self.assertEqual(len(killed), 1)
+
+        proc.poll.side_effect = [None, 0]
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        killed.clear()
+        with patch("worker.queue.process_runner.psutil.pids", return_value=[42]), patch(
+            "worker.queue.process_runner.psutil.Process",
+            return_value=SimpleNamespace(is_running=lambda: True),
+        ), patch("worker.queue.process_runner.close_old_connections"), patch(
+            "worker.queue.process_runner.Job"
+        ) as job_model:
+            job_model.objects.get.return_value = SimpleNamespace(ter=0, status=_JS_RUNNING)
+            rc = runner.wait_for_completion(proc, job_id=7)
+        self.assertEqual(rc, 0)
+        self.assertEqual(killed, [])

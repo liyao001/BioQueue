@@ -213,7 +213,7 @@
     </div>
     <div class="mt-1 flex items-center gap-2 flex-wrap">
       <span class="field-label">Runner</span>
-      {% if job.locked or not job.ui3_can_write %}
+      {% if job.locked or not job.ui3_can_write or job.status == 1 or job.status == -2 %}
         <span>{{ job.slave.name|default:"(none)" }}</span>
       {% else %}
         <div class="ui-combo job-card-combo" data-combo data-combo-nosubmit
@@ -245,14 +245,14 @@
   <footer class="mt-3 flex justify-center">
     <div class="icon-btn-group">
       {% if job.ui3_can_write %}
-      {% if job.status >= 0 %}
+      {% if job.status == 0 or job.status == 1 or job.status == -2 %}
       <button type="button" class="icon-btn icon-btn-danger"
               title="Terminate"
               hx-post="{% url 'ui3:job_terminate' job.id %}" hx-include="#job-filters"
               hx-target="#job-results" hx-swap="outerHTML"
               hx-confirm="Terminate job #{{ job.id }}?"><i class="fa-solid fa-stop"></i></button>
       {% endif %}
-      {% if job.status < 1 %}
+      {% if job.status < 1 or job.status == 2 %}
       <button type="button" class="icon-btn"
               title="{% if job.locked %}Locked — unlock to rerun{% else %}Rerun (clean){% endif %}"
               {% if job.locked %}disabled{% endif %}
@@ -275,13 +275,13 @@
               hx-post="{% url 'ui3:job_mark_wrong' job.id %}"
               hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"><i class="fa-solid fa-triangle-exclamation"></i></button>
       {% endif %}
-      {% if job.status == -3 %}
+      {% if job.status == -3 or job.status == 2 %}
       <button type="button" class="icon-btn icon-btn-ok"
-              title="{% if job.locked %}Locked — unlock to resume{% else %}Resume from failed step{% endif %}"
+              title="{% if job.locked %}Locked — unlock to resume{% elif job.status == 2 %}Resume from interrupted step{% else %}Resume from failed step{% endif %}"
               {% if job.locked %}disabled{% endif %}
               hx-post="{% url 'ui3:job_resume' job.id %}" hx-vals='{"from_failed": "1"}'
               hx-include="#job-filters" hx-target="#job-results" hx-swap="outerHTML"
-              hx-confirm="Resume job #{{ job.id }} from the failed step?"><i class="fa-solid fa-play"></i></button>
+              hx-confirm="{% if job.status == 2 %}Resume job #{{ job.id }} from the interrupted step?{% else %}Resume job #{{ job.id }} from the failed step?{% endif %}"><i class="fa-solid fa-play"></i></button>
       {% endif %}
       {% if job.status == -1 or job.status == -3 or job.status == 2 %}
       <button type="button" class="icon-btn"

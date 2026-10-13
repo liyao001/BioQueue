@@ -7,9 +7,9 @@ import time
 from worker import bases
 import psutil
 from django.db import close_old_connections
-from QueueDB.models import Job
+from QueueDB.models import Job, _JS_RESOURCELOCK, _JS_RUNNING
 
-from worker.queue.constants import VERSION_CHECK_TIMEOUT, TERMINATION_POLL_INTERVAL
+from worker.queue.constants import STEP_USER_INTERRUPTED, VERSION_CHECK_TIMEOUT, TERMINATION_POLL_INTERVAL
 
 logger = logging.getLogger("BioQueue")
 
@@ -90,7 +90,13 @@ class ProcessRunner(object):
                         try:
                             close_old_connections()
                             db_job = Job.objects.get(id=job_id)
-                            terminate_requested = bool(db_job.ter)
+                            # ter is cleared as soon as the user resumes. A row
+                            # that is no longer Running or waiting for resources
+                            # belongs to that newer action, so this process must stop.
+                            terminate_requested = bool(db_job.ter) or db_job.status not in (
+                                _JS_RUNNING,
+                                _JS_RESOURCELOCK,
+                            )
                             break
                         except Exception as e:
                             logger.warning(f"Failed to retrieve job (id: {job_id}) status from the database")
@@ -98,7 +104,7 @@ class ProcessRunner(object):
                             time.sleep(1)
                     if terminate_requested:
                         self._kill_process_fn(proc_info)
-                        return 2
+                        return STEP_USER_INTERRUPTED
             try:
                 step_process.wait(timeout=TERMINATION_POLL_INTERVAL)
             except subprocess.TimeoutExpired:

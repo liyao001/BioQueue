@@ -10,3 +10,7 @@ MAX_MAIN_LOOP_BACKOFF = 60
 
 PREDICT_LINEAR = "linear"
 PREDICT_BASE = "base"
+
+# User stop request. Not a process exit status: those are 0–255, and a
+# signal death is negative. Exit code 2 must stay a normal step failure.
+STEP_USER_INTERRUPTED = 256

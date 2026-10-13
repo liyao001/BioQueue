@@ -652,7 +652,7 @@ def job_terminate(request, pk):
         return err
     job.terminate_job()
     job.refresh_from_db()
-    return _refresh_or_row(request, job, "Job #{} terminate requested.".format(job.id))
+    return _refresh_or_row(request, job, "Job #{} interrupted.".format(job.id))
 
 
 @ui3_login_required
@@ -816,8 +816,8 @@ def job_resume(request, pk):
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
     if request.POST.get("from_failed") == "1":
-        if job.status != JobStatus.WRONG:
-            return _bad(request, "Resume from failed step is only for failed jobs.")
+        if job.status not in (JobStatus.WRONG, JobStatus.INTERRUPTED):
+            return _bad(request, "Resume from the current step is only for failed or interrupted jobs.")
         try:
             services.resume_job_from(job, rollback_to=None)
         except services.JobActionError as exc:
@@ -1217,6 +1217,8 @@ def job_runner(request, pk):
         return err
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
+    if job.status in (JobStatus.RUNNING, JobStatus.RESOURCELOCK):
+        return _bad(request, "Stop the job before changing its runner.")
     raw = (request.POST.get("value") or "").strip()
     if not raw:
         job.slave = None

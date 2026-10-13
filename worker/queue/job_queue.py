@@ -12,6 +12,7 @@ import numpy as np
 import psutil
 from django.db.models import Q
 from django.db import close_old_connections
+from django.utils import timezone
 from QueueDB.models import (
     Job,
     Reference,
@@ -35,7 +36,12 @@ from worker.queue.cluster_request import build_cluster_request, resolve_cluster_
 from worker.queue.protocol import Protocol
 from worker.queue.task import Task
 from worker.queue.input_check import bind_input_dependencies, missing_local_inputs
-from worker.queue.constants import DEPENDENCY_WAIT_INTERVAL, PREDICT_BASE, PREDICT_LINEAR
+from worker.queue.constants import (
+    DEPENDENCY_WAIT_INTERVAL,
+    PREDICT_BASE,
+    PREDICT_LINEAR,
+    STEP_USER_INTERRUPTED,
+)
 from worker.step import _Step
 
 logger = logging.getLogger("BioQueue")
@@ -196,18 +202,20 @@ class JobQueue(object):
         with self._lock:
             if is_error == 2:
                 job.db_obj.status = _JS_INTERRUPTED
-                job.db_obj.ter = 0
                 outcome = "interrupted"
             elif is_error:
                 job.db_obj.status = _JS_WRONG
-                job.db_obj.ter = 0
                 outcome = "failed"
             else:
                 job.db_obj.status = _JS_FINISHED
                 outcome = "finished"
-            saved = self._save_job_with_retries(
+            # A stop requested near completion must not survive into the next
+            # resume. Otherwise the worker sees ter=1 and parks the job at
+            # Interrupted again. Only overwrite a status this worker still owns,
+            # so a Stop from the UI is not put back to Running or Finished.
+            saved = self._persist_terminal_status(
                 job.db_obj,
-                operation="dequeue",
+                job.db_obj.status,
                 on_failure=lambda: self._record_failed_task(self.dequeue, job, is_error),
             )
             try:
@@ -309,7 +317,7 @@ class JobQueue(object):
     def predict_mode(self):
         return predict_mode_from_settings(self._settings, override=self._predict_override)
 
-    def clean_dead_jobs(self):
+    def clean_dead_jobs(self, exclude_ids=None):
         # Crash recovery for jobs this worker could have owned. A pinned runner
         # only fails jobs assigned to that runner. An unpinned worker only
         # sweeps unassigned jobs — never cluster jobs bound to another Slave.
@@ -328,6 +336,8 @@ class JobQueue(object):
                 djs = djs.filter(runner_filter)
             else:
                 djs = djs.filter(slave__isnull=True)
+            if exclude_ids:
+                djs = djs.exclude(id__in=list(exclude_ids))
             for j in djs:
                 if j.status == _JS_RESOURCELOCK:
                     logger.info(
@@ -393,9 +403,28 @@ class JobQueue(object):
         sorted_jobs = {k: job_table[k] for k in sorted(job_table)}
         for job_id, job_obj in sorted_jobs.items():
             now_step = job_obj.get_current_step()
-            if now_step is None or now_step.is_running:
+            if now_step is None:
+                self._release_job_without_step(job_obj)
+                continue
+            if now_step.is_running:
                 continue
             self.set_resources(job_id, now_step.resources)
+
+    def _release_job_without_step(self, job_obj):
+        """A claimed job with nothing left to run must leave the queue.
+
+        Otherwise it stays Running, fills a job slot, and the card cannot
+        rerun or resume it.
+        """
+        job_id = job_obj.job_id
+        if any(running_id == job_id for running_id, _step in self._running_step_keys):
+            return
+        if len(getattr(job_obj, "steps", []) or []) == 0:
+            logger.error("Job %s has no steps; marking it failed", job_id)
+            self.dequeue(job_obj, is_error=1)
+            return
+        logger.info("Job %s has no remaining steps; marking it finished", job_id)
+        self.dequeue(job_obj, is_error=0)
 
     def _can_schedule_job(self, job_obj, resource, step_key):
         return not (
@@ -652,6 +681,48 @@ class JobQueue(object):
             except Exception:
                 logger.exception("Retry of failed task %s raised", getattr(fn, "__name__", fn))
 
+    def _persist_terminal_status(self, job_obj, status, on_failure=None):
+        """Write a terminal status without clobbering a newer user action.
+
+        Objects that are not Job rows (tests, stand-ins) keep the plain save.
+        """
+        job_obj.status = status
+        job_obj.ter = 0
+        if not isinstance(job_obj, Job):
+            return self._save_job_with_retries(
+                job_obj,
+                operation="dequeue",
+                on_failure=on_failure,
+            )
+        for attempt in range(self.n_retries):
+            try:
+                owned = Job.objects.filter(
+                    id=job_obj.id,
+                    status__in=(_JS_RUNNING, _JS_RESOURCELOCK),
+                ).update(status=status, ter=0, update_time=timezone.now())
+                return owned == 1
+            except Exception as e:
+                logger.warning(self._db_fail_msg_tpl.format(job=job_obj.id, operation="dequeue"))
+                logger.warning(e)
+                if attempt + 1 < self.n_retries:
+                    time.sleep(1)
+        if on_failure is not None:
+            on_failure()
+        return False
+
+    def _job_stop_requested(self, job_id):
+        try:
+            row = Job.objects.filter(id=job_id).values_list("ter", "status").first()
+        except Exception as exc:
+            logger.warning("Failed to read stop flag for job %s: %s", job_id, exc)
+            return False
+        if row is None:
+            return True
+        ter, status = row
+        # Waiting means the user resumed this job for a new claim. This thread
+        # still holds the previous run and must not pick that claim back up.
+        return bool(ter) or status not in (_JS_RUNNING, _JS_RESOURCELOCK)
+
     def _save_job_with_retries(self, job_obj, operation, on_failure=None):
         for attempt in range(self.n_retries):
             try:
@@ -817,7 +888,8 @@ class JobQueue(object):
         """
         rollback = 0
         cluster = self._settings.get("cluster") or {}
-        # Slave.cluster_manager can imply Slurm even when cluster.type is empty.
+        # An assigned runner decides local vs Slurm. cluster.type applies only
+        # to jobs with no runner.
         on_cluster = bool(resolve_cluster_type(cluster, job) or cluster.get("type"))
 
         if not on_cluster:
@@ -928,6 +1000,8 @@ class JobQueue(object):
         terminal_fail = {_JS_WRONG, _JS_INTERRUPTED}
         for sd in step_obj.dependent_jobs:
             while True:
+                if self._job_stop_requested(job_obj.job_id):
+                    return False
                 dep_status = self.query_job_status(job_id=sd)
                 if dep_status == _JS_FINISHED:
                     break
@@ -986,7 +1060,12 @@ class JobQueue(object):
                 job.resume += 1
                 job.db_obj.resume = job.resume
                 logger.info(f"Synchronizing resume info {job.resume} for job {job.job_id} to the database")
-                job.db_obj.save()
+                if isinstance(job.db_obj, Job):
+                    Job.objects.filter(id=job.job_id).update(
+                        resume=job.resume, update_time=timezone.now()
+                    )
+                else:
+                    job.db_obj.save()
             except Exception as e:
                 logger.error(f"Failed to update step status record for {job.job_id} ({job.resume}), details:")
                 logger.exception(e)
@@ -1178,7 +1257,8 @@ class JobQueue(object):
                 return
 
             if len(step_obj.dependent_jobs) > 0 and not self._dependencies_are_ready(job_obj, step_obj):
-                self.finish_step(job_obj, is_error=1)
+                stopped = self._job_stop_requested(job_obj.job_id)
+                self.finish_step(job_obj, is_error=2 if stopped else 1)
                 finished = True
                 return
 
@@ -1186,9 +1266,31 @@ class JobQueue(object):
                 self._active_step_count += 1
                 step_started = True
             try:
-                job_obj.db_obj.status = _JS_RUNNING
-                job_obj.db_obj.resume = job_obj.resume
-                self._save_job_with_retries(job_obj.db_obj, operation="update step status")
+                if isinstance(job_obj.db_obj, Job):
+                    owned = Job.objects.filter(
+                        id=current_job_id,
+                        status__in=(_JS_RUNNING, _JS_RESOURCELOCK),
+                    ).update(
+                        status=_JS_RUNNING,
+                        resume=job_obj.resume,
+                        update_time=timezone.now(),
+                    )
+                    if not owned:
+                        self._update_resource_pool(step_obj.resources)
+                        with self._lock:
+                            self.remove_resources(current_job_id)
+                            self._queued_jobs.pop(current_job_id, None)
+                            if self._active_step_count > 0:
+                                self._active_step_count -= 1
+                            step_started = False
+                        finished = True
+                        return
+                    job_obj.db_obj.status = _JS_RUNNING
+                    job_obj.db_obj.resume = job_obj.resume
+                else:
+                    job_obj.db_obj.status = _JS_RUNNING
+                    job_obj.db_obj.resume = job_obj.resume
+                    self._save_job_with_retries(job_obj.db_obj, operation="update step status")
             except Exception as e:
                 logger.warning(f"Unexpected failure while preparing DB state for {current_job_id}")
                 logger.warning(e)
@@ -1200,9 +1302,15 @@ class JobQueue(object):
                 logger.info(f"Projected resource usage: {step_obj.resources}")
                 rc = self._run_step_local(job_obj, log_file, errlog_file)
 
-            if rc == 2:
+            if rc == STEP_USER_INTERRUPTED:
                 self.finish_step(job_obj, is_error=2)
             elif rc != 0:
+                logger.error(
+                    "Job %s step %s failed with exit code %s",
+                    current_job_id,
+                    job_obj.resume,
+                    rc,
+                )
                 self.finish_step(job_obj, is_error=1)
             else:
                 self.finish_step(job_obj, is_error=0)

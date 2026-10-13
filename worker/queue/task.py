@@ -408,9 +408,18 @@ class Task(object):
         # INPUT_SIZE[job_id] = 0
 
     def set_checkpoint_info(self, checkpoint):
+        from django.utils import timezone
+
+        from QueueDB.models import _JS_RUNNING, _JS_WAITING
+
+        updated = Job.objects.filter(
+            id=self.job_id,
+            status__in=(_JS_WAITING, _JS_RUNNING, _JS_RESOURCELOCK),
+        ).update(wait_for=checkpoint, status=_JS_RESOURCELOCK, update_time=timezone.now())
+        if not updated:
+            return
         self.db_obj.wait_for = checkpoint
         self.db_obj.status = _JS_RESOURCELOCK
-        self.db_obj.save()
 
     @staticmethod
     def build_suffix_dict(output_files):

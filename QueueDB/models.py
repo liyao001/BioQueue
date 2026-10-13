@@ -387,22 +387,35 @@ class Job(_OwnerModel):
         return str(self.id) + "-" + self.job_name
 
     def terminate_job(self):
-        self.ter = 1
-        self.save()
-        Audition(
-            operation="Terminated",
-            related_job=self,
-            job_ver=self.version,
-            job_name=self.job_name,
-            prev_par=self.parameter,
-            new_par=self.parameter,
-            prev_input=self.input_file,
-            current_input=self.input_file,
-            protocol=self.protocol.name,
-            protocol_ver=self.protocol_ver,
-            resume_point=self.resume,
-            user=self.user,
-        ).save()
+        # Only a job the worker may still be executing should record a stop.
+        # Setting ter on an already interrupted (or finished) job makes the
+        # next resume kill itself and land back on Interrupted.
+        if self.status in (JobStatus.WAITING, JobStatus.RUNNING, JobStatus.RESOURCELOCK):
+            # Record the stop on the row itself. A dead worker never reads ter,
+            # and the queue will not claim anything but Waiting.
+            self.ter = 1
+            self.status = JobStatus.INTERRUPTED
+            self.save()
+            Audition(
+                operation="Terminated",
+                related_job=self,
+                job_ver=self.version,
+                job_name=self.job_name,
+                prev_par=self.parameter,
+                new_par=self.parameter,
+                prev_input=self.input_file,
+                current_input=self.input_file,
+                protocol=self.protocol.name,
+                protocol_ver=self.protocol_ver,
+                resume_point=self.resume,
+                user=self.user,
+            ).save()
+            try:
+                from QueueDB.notifications import notify_job
+
+                notify_job(self, "interrupted")
+            except Exception:
+                pass
         if self.is_executable == 0:
             for child_job in Job.objects.filter(parent_job=self):
                 child_job.terminate_job()
@@ -440,6 +453,7 @@ class Job(_OwnerModel):
         if not self.locked:
             self.resume = rollback
             self.status = 0
+            self.ter = 0
             self.protocol_ver = self.protocol.ver
             self.audit = 0
             self.save()

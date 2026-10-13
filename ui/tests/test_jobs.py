@@ -229,6 +229,14 @@ class JobTests(Ui3TestCase):
         self.assertEqual(response.status_code, 302)
         job.refresh_from_db()
         self.assertEqual(job.ter, 1)
+        self.assertEqual(job.status, JobStatus.INTERRUPTED)
+
+        paused = self.make_job(job_name="already-stopped", status=JobStatus.INTERRUPTED, ter=0)
+        response = self.client.post(reverse("ui3:job_terminate", args=[paused.id]))
+        self.assertEqual(response.status_code, 302)
+        paused.refresh_from_db()
+        self.assertEqual(paused.ter, 0)
+        self.assertEqual(paused.status, JobStatus.INTERRUPTED)
 
     def test_htmx_rerun_returns_results_fragment(self):
         job = self.make_job(status=JobStatus.FINISHED)
@@ -891,6 +899,20 @@ class JobTests(Ui3TestCase):
         self.assertEqual(job.status, JobStatus.WAITING)
         self.assertEqual(job.resume, 2)
 
+    def test_interrupted_job_resumes_and_clears_stop_request(self):
+        job = self.make_job(job_name="paused-card", status=JobStatus.INTERRUPTED, resume=1, ter=1)
+        self.login()
+        page = self.client.get(reverse("ui3:jobs"), {"q": "paused-card"})
+        self.assertContains(page, "Resume from interrupted step")
+        self.assertContains(page, reverse("ui3:job_rerun", args=[job.id]))
+        self.assertNotContains(page, reverse("ui3:job_terminate", args=[job.id]))
+        response = self.client.post(reverse("ui3:job_resume", args=[job.id]), {"from_failed": "1"})
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.status, JobStatus.WAITING)
+        self.assertEqual(job.resume, 1)
+        self.assertEqual(job.ter, 0)
+
     def test_cannot_mark_failed_job_failed_again(self):
         job = self.make_job(status=JobStatus.WRONG)
         self.login()
@@ -1325,6 +1347,15 @@ class JobTests(Ui3TestCase):
         self.assertEqual(run.status_code, 302)
         job.refresh_from_db()
         self.assertEqual(job.slave_id, runner.id)
+
+        running = self.make_job(job_name="live-runner", status=JobStatus.RUNNING)
+        blocked = self.client.post(reverse("ui3:job_runner", args=[running.id]), {"value": str(runner.id)})
+        self.assertEqual(blocked.status_code, 400)
+        running.refresh_from_db()
+        self.assertIsNone(running.slave_id)
+        card = self.client.get(reverse("ui3:jobs"), {"q": "live-runner"})
+        self.assertNotContains(card, reverse("ui3:job_runner", args=[running.id]))
+        self.assertContains(card, reverse("ui3:job_terminate", args=[running.id]))
 
         arr = self.client.post(
             reverse("ui3:job_edit_field", args=[job.id, "array_setting"]),
