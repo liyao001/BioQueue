@@ -105,14 +105,14 @@ missing. Worker configuration comes from `config/custom.conf`, with
 `BIOQUEUE_CUSTOM_CONF` supported by worker for an alternate path. Treat local
 settings, configuration, databases, and result directories as user data.
 
-Run tests from the repository root with a Python environment containing the
-dependencies:
+A checkout environment comes from Pixi (`pixi.toml`). Run tests from the
+repository root with:
 
 ```bash
-python manage.py test ui --settings=ui.test_settings
-python manage.py test worker.tests --settings=worker.test_settings
+pixi run python manage.py test ui --settings=ui.test_settings
+pixi run python manage.py test worker.tests --settings=worker.test_settings
 # Example of a focused suite:
-python manage.py test ui.tests.test_jobs --settings=ui.test_settings
+pixi run python manage.py test ui.tests.test_jobs --settings=ui.test_settings
 ```
 
 `ui/run_tests.sh` selects its conda environment. `worker/run_tests.sh` prefers

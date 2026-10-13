@@ -6,7 +6,7 @@ build/
 .tools/
 *.log
 *.lock
-!uv.lock
+!pixi.lock
 .pydevproject
 *.pyc
 workspace/*
