@@ -1,0 +1,48 @@
+<div id="runner-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Execution</th>
+        <th>SSH</th>
+        <th>Stage in</th>
+        <th>Results</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for runner in runners %}
+      <tr>
+        <td>{{ runner.id }}</td>
+        <td>
+          {{ runner.name }}
+          {% if runner.comment %}<div class="text-xs opacity-60 max-w-xs truncate" title="{{ runner.comment }}">{{ runner.comment }}</div>{% endif %}
+        </td>
+        <td>{{ runner.cluster_label }}</td>
+        <td class="font-mono text-xs">
+          {% if runner.ssh_user and runner.ssh_connection %}{{ runner.ssh_user }}@{{ runner.ssh_connection }}
+          {% elif runner.ssh_connection %}{{ runner.ssh_connection }}
+          {% else %}—{% endif %}
+        </td>
+        <td>{% if runner.stage_in == 1 %}On{% elif runner.stage_in == 0 %}Off{% else %}Config{% endif %}</td>
+        <td class="font-mono text-xs max-w-xs truncate" title="{{ runner.result_root }}">{{ runner.result_root|default:"—" }}</td>
+        <td class="whitespace-nowrap">
+          <button class="btn btn-xs" hx-get="{% url 'ui3:runner_edit' runner.id %}" hx-target="#modal-root" hx-swap="innerHTML">Edit</button>
+          <form class="inline" method="post" action="{% url 'ui3:runner_delete' runner.id %}"
+                hx-post="{% url 'ui3:runner_delete' runner.id %}"
+                hx-target="#runner-table"
+                hx-confirm="Delete runner '{{ runner.name }}'?">
+            {% csrf_token %}
+            <button class="btn btn-xs btn-error" type="submit"><i class="fa-regular fa-trash-can"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="opacity-70">No runners</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% url 'ui3:runners' as list_url %}
+  {% include "ui3/partials/pager.html" with hx_target="#runner-table" hx_include="#runner-filters" item_label="runner" %}
+</div>

@@ -124,16 +124,69 @@ class Slave(models.Model):
         choices=(
             (0, "Local"),
             (1, "Slurm"),
+            (2, "LSF"),
+            (3, "TorquePBS"),
+            (4, "HTCondor"),
         ),
         default=0,
-        help_text="Specify the cluster manager if this node is from a cluster",
+        help_text=(
+            "Local runs the command on this machine. A cluster manager runs "
+            "its commands here when SSH host is blank. Slurm uses SSH when a host is set."
+        ),
     )
     cluster_manager_path = models.CharField(
         max_length=2048,
         null=True,
         blank=True,
         default="",
+        help_text="Directory containing sbatch, scontrol, and sacct. Blank uses cluster.bin_prefix.",
     )
+    stage_in = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        choices=((0, "Off"), (1, "On")),
+        help_text="Blank inherits cluster.stage_in from custom.conf.",
+    )
+    scripts_dir = models.CharField(
+        max_length=2048,
+        blank=True,
+        default="",
+        help_text="Shared directory on the cluster for uploaded sbatch scripts.",
+    )
+    result_root = models.CharField(
+        max_length=2048,
+        blank=True,
+        default="",
+        help_text="Shared directory the worker fetches results from.",
+    )
+    log_root = models.CharField(
+        max_length=2048,
+        blank=True,
+        default="",
+        help_text="Shared directory for Slurm stdout and stderr.",
+    )
+    workdir = models.CharField(
+        max_length=2048,
+        blank=True,
+        default="",
+        help_text="Optional shared working directory. Blank uses the scripts directory.",
+    )
+
+    def cluster_label(self):
+        names = {
+            0: "Local",
+            1: "Slurm",
+            2: "LSF",
+            3: "Torque/PBS",
+            4: "HTCondor",
+        }
+        if not self.cluster_manager:
+            return "Local"
+        name = names.get(self.cluster_manager, "Local")
+        if str(self.ssh_connection or "").strip():
+            return "%s, remote" % name
+        return "%s, direct" % name
 
     def __str__(self):
         return self.name

@@ -1,0 +1,68 @@
+<label class="form-control">
+  <div class="label"><span class="label-text">Name</span></div>
+  <input class="ui-input w-full" name="name" value="{{ runner.name|default:'' }}" maxlength="100" required autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">Cluster manager</span></div>
+  <select class="ui-select w-full" name="cluster_manager">
+    <option value="0" {% if not runner.cluster_manager %}selected{% endif %}>This machine — run the command here</option>
+    <option value="1" {% if runner.cluster_manager == 1 %}selected{% endif %}>Slurm</option>
+    <option value="2" {% if runner.cluster_manager == 2 %}selected{% endif %}>LSF</option>
+    <option value="3" {% if runner.cluster_manager == 3 %}selected{% endif %}>Torque/PBS</option>
+    <option value="4" {% if runner.cluster_manager == 4 %}selected{% endif %}>HTCondor</option>
+  </select>
+</label>
+<label class="form-control lg:col-span-2">
+  <div class="label"><span class="label-text">Comment</span><span class="label-text-alt">optional</span></div>
+  <input class="ui-input w-full" name="comment" value="{{ runner.comment|default:'' }}" autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">SSH host</span><span class="label-text-alt">blank = direct, Slurm login = remote</span></div>
+  <input class="ui-input w-full font-mono" name="ssh_connection" value="{{ runner.ssh_connection|default:'' }}" maxlength="1024" placeholder="login.cluster.edu" autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">SSH user</span></div>
+  <input class="ui-input w-full font-mono" name="ssh_user" value="{{ runner.ssh_user|default:'' }}" maxlength="1024" autocomplete="off">
+</label>
+<label class="form-control lg:col-span-2">
+  <div class="label"><span class="label-text">SSH private key</span><span class="label-text-alt">path on the worker machine</span></div>
+  <input class="ui-input w-full font-mono" name="ssh_key" value="{{ runner.ssh_key|default:'' }}" maxlength="2048" placeholder="/home/ly349/.ssh/id_ed25519" autocomplete="off">
+</label>
+<label class="form-control lg:col-span-2">
+  <div class="label"><span class="label-text">Command directory</span><span class="label-text-alt">Slurm prefix; others use PATH</span></div>
+  <input class="ui-input w-full font-mono" name="cluster_manager_path" value="{{ runner.cluster_manager_path|default:'' }}" maxlength="2048" placeholder="/usr/local/slurm/current/bin/" autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">Stage inputs</span></div>
+  <select class="ui-select w-full" name="stage_in">
+    {% if runner.stage_in == 0 %}
+    <option value="">Use config file</option>
+    <option value="0" selected>Off — cluster paths already visible</option>
+    <option value="1">On — copy the workspace over SSH first</option>
+    {% elif runner.stage_in == 1 %}
+    <option value="">Use config file</option>
+    <option value="0">Off — cluster paths already visible</option>
+    <option value="1" selected>On — copy the workspace over SSH first</option>
+    {% else %}
+    <option value="" selected>Use config file</option>
+    <option value="0">Off — cluster paths already visible</option>
+    <option value="1">On — copy the workspace over SSH first</option>
+    {% endif %}
+  </select>
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">Scripts directory</span><span class="label-text-alt">shared, not node scratch</span></div>
+  <input class="ui-input w-full font-mono" name="scripts_dir" value="{{ runner.scripts_dir|default:'' }}" maxlength="2048" placeholder="/home/ly349/bioqueue-scripts" autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">Result directory</span><span class="label-text-alt">worker fetches this</span></div>
+  <input class="ui-input w-full font-mono" name="result_root" value="{{ runner.result_root|default:'' }}" maxlength="2048" placeholder="/home/ly349/workdir" autocomplete="off">
+</label>
+<label class="form-control">
+  <div class="label"><span class="label-text">Log directory</span></div>
+  <input class="ui-input w-full font-mono" name="log_root" value="{{ runner.log_root|default:'' }}" maxlength="2048" autocomplete="off">
+</label>
+<label class="form-control lg:col-span-2">
+  <div class="label"><span class="label-text">Work directory</span><span class="label-text-alt">optional shared path</span></div>
+  <input class="ui-input w-full font-mono" name="workdir" value="{{ runner.workdir|default:'' }}" maxlength="2048" autocomplete="off">
+</label>

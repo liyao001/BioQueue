@@ -33,6 +33,11 @@ QueueDB/migrations/*
 !QueueDB/migrations/0051_notificationhook.py
 !QueueDB/migrations/0052_virtualenvironment_recipe.py
 !QueueDB/migrations/0053_sync_models.py
+!QueueDB/migrations/0054_merge_20261004_1337.py
+!QueueDB/migrations/0054_slave_cluster_paths.py
+!QueueDB/migrations/0055_merge_20261010_1247.py
+!QueueDB/migrations/0055_slave_cluster_path_columns.py
+!QueueDB/migrations/0056_slave_cluster_managers.py
 .pixi/
 **/.pixi/
 worker/.testdata/

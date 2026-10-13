@@ -142,6 +142,31 @@ def assignable_runners(user):
     return visible_runners(user)
 
 
+def search_runners(q):
+    qs = Slave.objects.all()
+    q = (q or "").strip()
+    if q:
+        text = (
+            Q(name__icontains=q)
+            | Q(comment__icontains=q)
+            | Q(ssh_connection__icontains=q)
+            | Q(ssh_user__icontains=q)
+        )
+        try:
+            qs = qs.filter(text | Q(id=int(q)))
+        except ValueError:
+            qs = qs.filter(text)
+    return qs.order_by("name")
+
+
+def get_runner(pk):
+    return Slave.objects.filter(pk=pk).first()
+
+
+def runner_job_count(runner):
+    return Job.objects.filter(slave=runner).count()
+
+
 def owned_jobs(user, scope="own"):
     delegate = delegate_for(user)
     scope = (scope or "own").lower()

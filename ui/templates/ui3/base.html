@@ -57,6 +57,11 @@
         <a href="{% url 'ui3:environments' %}" class="{% if request.resolver_match.url_name|slice:':11' == 'environment' %}is-active{% endif %}">
           <i class="fas fa-cubes"></i> Virtual Envs
         </a>
+        {% if user.is_staff %}
+        <a href="{% url 'ui3:runners' %}" class="{% if request.resolver_match.url_name|slice:':6' == 'runner' %}is-active{% endif %}">
+          <i class="fas fa-server"></i> Runners
+        </a>
+        {% endif %}
         <a href="{% url 'ui3:dag' %}" class="{% if request.resolver_match.url_name|slice:':3' == 'dag' %}is-active{% endif %}">
           <i class="fas fa-diagram-project"></i> DAG
         </a>

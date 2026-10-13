@@ -8,6 +8,7 @@ from .views import jobs
 from .views import notifications
 from .views import protocols
 from .views import references
+from .views import runners
 from .views import users
 from .views import workspaces
 
@@ -90,6 +91,7 @@ urlpatterns = [
     path("protocols/<int:pk>/template/edit/", protocols.protocol_template_edit, name="protocol_template_edit"),
     path("protocols/<int:pk>/delete/", protocols.protocol_delete, name="protocol_delete"),
     path("protocols/<int:pk>/clone/", protocols.protocol_clone, name="protocol_clone"),
+    path("protocols/<int:pk>/share/", protocols.protocol_share, name="protocol_share"),
     path("protocols/<int:pk>/steps/", protocols.step_create, name="step_create"),
     path("protocols/<int:pk>/steps/reorder/", protocols.step_reorder, name="step_reorder"),
     path("steps/<int:pk>/edit/", protocols.step_edit, name="step_edit"),
@@ -103,6 +105,10 @@ urlpatterns = [
     path("workspaces/new/", workspaces.workspace_create, name="workspace_create"),
     path("workspaces/<int:pk>/edit/", workspaces.workspace_edit, name="workspace_edit"),
     path("workspaces/<int:pk>/delete/", workspaces.workspace_delete, name="workspace_delete"),
+    path("runners/", runners.runner_list, name="runners"),
+    path("runners/new/", runners.runner_create, name="runner_create"),
+    path("runners/<int:pk>/edit/", runners.runner_edit, name="runner_edit"),
+    path("runners/<int:pk>/delete/", runners.runner_delete, name="runner_delete"),
     path("environments/", environments.environment_list, name="environments"),
     path("environments/new/", environments.environment_create, name="environment_create"),
     path("environments/<int:pk>/edit/", environments.environment_edit, name="environment_edit"),
