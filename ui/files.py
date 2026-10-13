@@ -134,8 +134,8 @@ def format_bytes(n):
         value /= 1024.0
         i += 1
     if value < 10 and i > 0:
-        return "{:.1f} {}".format(value, units[i])
-    return "{} {}".format(int(round(value)), units[i])
+        return f"{value:.1f} {units[i]}"
+    return f"{int(round(value))} {units[i]}"
 
 
 def user_root(job):
@@ -209,7 +209,11 @@ def listed_display_name(job, trace):
     relative = decode_trace(trace) or ""
     folder = job.get_result() if hasattr(job, "get_result") else job.result
     folder = (folder or "").rstrip("/\\")
-    if folder and (relative == folder or relative.startswith(folder + "/") or relative.startswith(folder + os.sep)):
+    if folder and (
+        relative == folder
+        or relative.startswith(folder + "/")
+        or relative.startswith(folder + os.sep)
+    ):
         return relative[len(folder) :].lstrip("/\\")
     return relative
 
@@ -219,7 +223,7 @@ def _validate_file_basename(new_name):
     if not name:
         return None, "New name is required."
     if len(name) > MAX_FILE_NAME:
-        return None, "Name is too long (max {} characters).".format(MAX_FILE_NAME)
+        return None, f"Name is too long (max {MAX_FILE_NAME} characters)."
     if name in (".", ".."):
         return None, "Invalid file name."
     if "/" in name or "\\" in name or "\x00" in name:
@@ -236,7 +240,7 @@ def _safe_rename(src, dst):
         i = 0
         while os.path.lexists(tmp):
             i += 1
-            tmp = src + ".__renametmp__{}".format(i)
+            tmp = src + f".__renametmp__{i}"
         os.rename(src, tmp)
         os.rename(tmp, dst)
         return
@@ -273,7 +277,7 @@ def rename_job_file(job, trace, new_name):
         except OSError:
             same = False
         if not same:
-            return False, "A file named {} already exists.".format(name)
+            return False, f"A file named {name} already exists."
     try:
         _safe_rename(src, dest)
     except OSError as exc:
@@ -299,14 +303,16 @@ def list_job_files(job, max_files=50000):
             try:
                 full_path = os.path.join(root, file_name)
                 rel = full_path.replace(user_path + os.sep, "").replace(user_path, "")
-                items.append({
-                    "name": rel,
-                    "file_size": os.path.getsize(full_path),
-                    "file_create": time.ctime(os.path.getctime(full_path)),
-                    "trace": encode_trace(os.path.join(folder, rel)),
-                    "is_link": os.path.islink(full_path),
-                    "size_label": format_bytes(os.path.getsize(full_path)),
-                })
+                items.append(
+                    {
+                        "name": rel,
+                        "file_size": os.path.getsize(full_path),
+                        "file_create": time.ctime(os.path.getctime(full_path)),
+                        "trace": encode_trace(os.path.join(folder, rel)),
+                        "is_link": os.path.islink(full_path),
+                        "size_label": format_bytes(os.path.getsize(full_path)),
+                    }
+                )
                 count += 1
             except Exception:
                 continue
@@ -340,7 +346,9 @@ def page_job_files(job, *, q="", sort="name", order="asc", limit=50, offset=0):
     if sort_field == "size":
         items.sort(key=lambda x: int(x.get("file_size") or 0), reverse=reverse)
     elif sort_field == "created":
-        items.sort(key=lambda x: _created_ts(x.get("file_create") or ""), reverse=reverse)
+        items.sort(
+            key=lambda x: _created_ts(x.get("file_create") or ""), reverse=reverse
+        )
     else:
         items.sort(key=lambda x: (x.get("name") or "").lower(), reverse=reverse)
     total = len(items)
@@ -394,7 +402,9 @@ def delete_job_files(job, traces, max_files=1000):
     return {"deleted": deleted, "failed": failed, "requested": len(seen)}
 
 
-PROTECTED_WORKSPACE_FOLDERS = frozenset({"refs", "bin", "uploads", "archives", "OVERRIDE_UPLOAD"})
+PROTECTED_WORKSPACE_FOLDERS = frozenset(
+    {"refs", "bin", "uploads", "archives", "OVERRIDE_UPLOAD"}
+)
 
 
 def delete_job_file_tree(job):
@@ -595,9 +605,9 @@ def traces_to_archive_paths(job, traces):
             continue
         rel = (decode_trace(trace) or os.path.basename(path)).replace("\\", "/")
         if folder and (rel == folder or rel.startswith(folder + "/")):
-            rel = rel[len(folder):].lstrip("/")
+            rel = rel[len(folder) :].lstrip("/")
         paths.append(path)
-        tokens.append("{{{{History:{}-{}}}}}".format(job.id, rel))
+        tokens.append(f"{{{{History:{job.id}-{rel}}}}}")
     return paths, tokens
 
 
@@ -618,14 +628,14 @@ def history_tokens_to_archive_paths(user, raw, expected_job=None):
     for hid_s, rel in HISTORY_TOKEN_RE.findall(text):
         rec = get_writable_job(user, int(hid_s))
         if rec is None:
-            return expected_job, [], "Permission denied or job #{} not found.".format(hid_s)
+            return expected_job, [], f"Permission denied or job #{hid_s} not found."
         if job is None:
             job = rec
         elif job.id != rec.id:
             return expected_job, [], "Only files from the same job can be archived."
         root = result_dir(rec)
         if not root:
-            return expected_job, [], "Job #{} has no result folder.".format(rec.id)
+            return expected_job, [], f"Job #{rec.id} has no result folder."
         rel = (rel or "").replace("\\", "/").lstrip("/")
         parts = [p for p in rel.split("/") if p not in ("", ".")]
         if not parts or any(p == ".." for p in parts):
@@ -657,7 +667,9 @@ def clean_unlinked_job_folders(user):
     delegate = delegate_for(user)
     root = workspace_root_for(delegate)
     live = set(
-        Job.objects.filter(user_id=delegate.id).exclude(result="").values_list("result", flat=True)
+        Job.objects.filter(user_id=delegate.id)
+        .exclude(result="")
+        .values_list("result", flat=True)
     )
     live.discard(None)
     detected = 0
@@ -689,7 +701,9 @@ def download_response(job, trace):
     path = resolve_job_file(job, trace)
     if not path:
         raise Http404("File not found")
-    return FileResponse(open(path, "rb"), as_attachment=True, filename=os.path.basename(path))
+    return FileResponse(
+        open(path, "rb"), as_attachment=True, filename=os.path.basename(path)
+    )
 
 
 def preview_text(job, trace, max_bytes=2_000_000):
@@ -723,9 +737,10 @@ def preview_response(job, trace):
             "application/javascript",
         ):
             ctype = "text/plain"
-        return HttpResponse(body, content_type="{}; charset=utf-8".format(ctype))
+        return HttpResponse(body, content_type=f"{ctype}; charset=utf-8")
     if mode == "iframe" and (
-        ctype in ("text/html", "application/xhtml+xml") or path.lower().endswith(HTML_EXTS)
+        ctype in ("text/html", "application/xhtml+xml")
+        or path.lower().endswith(HTML_EXTS)
     ):
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -733,9 +748,11 @@ def preview_response(job, trace):
         except Exception as exc:
             return HttpResponseBadRequest(str(exc))
         return HttpResponse(body, content_type="text/html; charset=utf-8")
-    response = FileResponse(open(path, "rb"), as_attachment=False, filename=os.path.basename(path))
+    response = FileResponse(
+        open(path, "rb"), as_attachment=False, filename=os.path.basename(path)
+    )
     response["Content-Type"] = ctype
-    response["Content-Disposition"] = 'inline; filename="{}"'.format(os.path.basename(path))
+    response["Content-Disposition"] = f'inline; filename="{os.path.basename(path)}"'
     return response
 
 
@@ -751,9 +768,18 @@ def preview_mode_for(name, ctype=""):
     if ctype == "application/pdf" or lower.endswith(PDF_EXTS):
         return "iframe"
     if (
-        any(ctype.startswith(prefix) or ctype == prefix.rstrip("/") for prefix in TEXT_TYPES)
+        any(
+            ctype.startswith(prefix) or ctype == prefix.rstrip("/")
+            for prefix in TEXT_TYPES
+        )
         or ctype.startswith("text/")
-        or ctype in ("application/json", "application/xml", "application/javascript", "text/x-log")
+        or ctype
+        in (
+            "application/json",
+            "application/xml",
+            "application/javascript",
+            "text/x-log",
+        )
         or lower.endswith(TEXT_EXTS)
         or _is_log_name(lower)
     ):
@@ -800,7 +826,7 @@ def _match_new_basename(old_variants, new_name, basename):
             return nv
         for delim in (x for x in allowed_after if x):
             if basename.startswith(ov + delim):
-                return nv + basename[len(ov):]
+                return nv + basename[len(ov) :]
     return None
 
 
@@ -857,7 +883,7 @@ def _safe_rename(src, dst):
         i = 0
         while os.path.exists(tmp):
             i += 1
-            tmp = src + ".__renametmp__{}".format(i)
+            tmp = src + f".__renametmp__{i}"
         os.rename(src, tmp)
         os.rename(tmp, dst)
         return True
@@ -889,7 +915,9 @@ def rename_job_files(job, new_name, dry_run=False):
     run_dir = getattr(job, "run_dir", "")
     user_id = getattr(job, "user_id", None)
     out = {
-        "root": os.path.join(str(run_dir or ""), str(user_id or ""), str(result_folder or "")),
+        "root": os.path.join(
+            str(run_dir or ""), str(user_id or ""), str(result_folder or "")
+        ),
         "filesRenamed": 0,
         "dirsRenamed": 0,
         "renames": [],
@@ -903,8 +931,10 @@ def rename_job_files(job, new_name, dry_run=False):
     if dry_run or not renames:
         return out
     res = apply_renames(renames)
-    out.update({
-        "filesRenamed": res.get("filesRenamed", 0),
-        "dirsRenamed": res.get("dirsRenamed", 0),
-    })
+    out.update(
+        {
+            "filesRenamed": res.get("filesRenamed", 0),
+            "dirsRenamed": res.get("dirsRenamed", 0),
+        }
+    )
     return out
