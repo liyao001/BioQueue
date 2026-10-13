@@ -13,6 +13,61 @@ class Migration(migrations.Migration):
         ('QueueDB', '0052_virtualenvironment_recipe'),
     ]
 
+    # 0002–0049 already renamed FileArchives and created these models. They are
+    # kept on upgraded installs but are not part of the git history. Replacing
+    # them leaves one graph: new databases run the operations below, and
+    # databases that already applied 0002–0049 do not replay them.
+    replaces = [
+        ('QueueDB', '0002_googledriveconnection_runonqualityreport'),
+        ('QueueDB', '0003_auto_20210625_2337'),
+        ('QueueDB', '0004_auto_20210626_1321'),
+        ('QueueDB', '0005_auto_20210626_1514'),
+        ('QueueDB', '0006_prediction_create_time'),
+        ('QueueDB', '0007_auto_20210626_1604'),
+        ('QueueDB', '0008_auto_20210626_1651'),
+        ('QueueDB', '0009_auto_20210626_1655'),
+        ('QueueDB', '0010_auto_20210626_1658'),
+        ('QueueDB', '0011_auto_20210628_1622'),
+        ('QueueDB', '0012_auto_20210629_0156'),
+        ('QueueDB', '0013_auto_20210629_2344'),
+        ('QueueDB', '0014_auto_20210811_0913'),
+        ('QueueDB', '0015_auto_20210917_1101'),
+        ('QueueDB', '0016_job_slave'),
+        ('QueueDB', '0017_slave_is_master'),
+        ('QueueDB', '0018_auto_20210919_2054'),
+        ('QueueDB', '0019_auto_20210921_2147'),
+        ('QueueDB', '0020_runonqualityreport'),
+        ('QueueDB', '0021_runonqualityreport_gbtss_rate'),
+        ('QueueDB', '0022_auto_20211226_1332'),
+        ('QueueDB', '0023_crossaccess'),
+        ('QueueDB', '0024_job_is_gpu_job'),
+        ('QueueDB', '0025_step_gpu_step'),
+        ('QueueDB', '0026_run'),
+        ('QueueDB', '0027_auto_20230430_2309'),
+        ('QueueDB', '0028_auto_20230502_1040'),
+        ('QueueDB', '0029_run_comments'),
+        ('QueueDB', '0030_auto_20230502_2118'),
+        ('QueueDB', '0031_auto_20230502_2118'),
+        ('QueueDB', '0032_slave_ssh_user'),
+        ('QueueDB', '0033_slave_ssh_key'),
+        ('QueueDB', '0034_slave_cluster_manager_path'),
+        ('QueueDB', '0035_auto_20230515_1517'),
+        ('QueueDB', '0036_auto_20230515_1522'),
+        ('QueueDB', '0037_auto_20230515_1541'),
+        ('QueueDB', '0038_auto_20230515_1559'),
+        ('QueueDB', '0039_auto_20230516_0038'),
+        ('QueueDB', '0040_auto_20230517_1713'),
+        ('QueueDB', '0041_job_version'),
+        ('QueueDB', '0042_auto_20230809_0135'),
+        ('QueueDB', '0043_alter_virtualenvironment_unique_together_and_more'),
+        ('QueueDB', '0044_alter_virtualenvironment_unique_together_and_more'),
+        ('QueueDB', '0045_job_visibility'),
+        ('QueueDB', '0046_audition_comments_audition_job_ver_job_is_executable_and_more'),
+        ('QueueDB', '0047_celerytask_job_insitu_alter_job_is_executable_and_more'),
+        ('QueueDB', '0048_environment_protocol_alter_job_options_and_more'),
+        ('QueueDB', '0049_alter_protocolshortcut_protocol'),
+    ]
+
     operations = [
         migrations.CreateModel(
             name='CrossAccess',
