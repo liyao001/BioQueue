@@ -269,6 +269,9 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
     if not isinstance(document.setdefault("blocks", {}), dict) or not isinstance(document.setdefault("samples", {}), dict):
         raise ProtocolTemplateError("Samples and blocks must be JSON objects.")
     preview_samples = _preview_count(preview_samples)
+    env_by_name = {}
+    for env in sorted(environments, key=lambda env: env.user_id is None):
+        env_by_name.setdefault(env.name, env)
 
     def action(name, path):
         return json.dumps({"editor_action": name, "editor_path": json.dumps(path)})
@@ -310,6 +313,8 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
                 "output_rows": _pair_rows(item.get("outputs")),
                 "arg_rows": _pair_rows(item.get("args")),
                 "up": action("up", here), "down": action("down", here), "remove": action("remove", here),
+                "env_input_name": "tf:" + field(here + ["env"]),
+                "env_obj": env_by_name.get(item.get("env") or ""),
             }
             if kind == "map":
                 node["children"] = items_context(item.get("steps", []), here + ["steps"])

@@ -1,7 +1,7 @@
 <button type="button" class="ui-combo-item" data-value="" data-label="{{ empty_label }}" onclick="ui3.comboSelect(this)">{{ empty_label }}</button>
 {% for item in items %}
   <button type="button" class="ui-combo-item"
-          data-value="{{ item.id }}"
+          data-value="{% if by_name %}{{ item.name }}{% else %}{{ item.id }}{% endif %}"
           data-label="{% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% if item.template %} (template){% endif %}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}"
           onclick="ui3.comboSelect(this)">
     {% if kind == 'protocol' %}{{ item.id }} – {{ item.name }}{% if item.template %} <span class="tpl-badge">Template</span>{% endif %}{% elif kind == 'environment' %}{{ item.name }} ({{ item.ve_type }}){% else %}{{ item.name }}{% endif %}

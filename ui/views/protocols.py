@@ -462,15 +462,22 @@ def environment_options(request):
         )
     )
     empty_label = (request.GET.get("empty") or "").strip() or "No environment"
+    by_name = (request.GET.get("by") or "") == "name"
     pin_id = int_or_none(request.GET.get("pin"))
     if pin_id and not any(getattr(i, "id", None) == pin_id for i in items):
         pinned = services.visible_environments(request.user).filter(pk=pin_id).first()
         if pinned is not None:
             items = [pinned] + items
+    pin_name = (request.GET.get("pin_name") or "").strip()
+    if by_name and pin_name and not any(getattr(i, "name", None) == pin_name for i in items):
+        pinned = services.visible_environments(request.user).filter(name=pin_name).first()
+        if pinned is None:
+            pinned = type("MissingEnv", (), {"id": "", "name": pin_name, "ve_type": "unavailable"})()
+        items = [pinned] + items
     return render(
         request,
         "ui3/jobs/_combo_options.html",
-        {"items": items, "empty_label": empty_label, "kind": "environment"},
+        {"items": items, "empty_label": empty_label, "kind": "environment", "by_name": by_name},
     )
 
 

@@ -16,11 +16,7 @@
   <label class="form-control"><span class="label">Software</span><input class="ui-input w-full" name="tf:{{ node.paths.software }}" value="{{ node.item.software }}"></label>
   <label class="form-control"><span class="label">Parameters</span><textarea class="ui-input w-full font-mono" rows="3" name="tf:{{ node.paths.parameter }}" data-ui3-complete>{{ node.item.parameter|default_if_none:"" }}</textarea></label>
   <label class="form-control"><span class="label">Run environment</span>
-    <select class="ui-select w-full" name="tf:{{ node.paths.env }}">
-      <option value="">Default worker environment</option>
-      {% if node.item.env and node.item.env not in editor.environment_names %}<option value="{{ node.item.env }}" selected>{{ node.item.env }} (unavailable)</option>{% endif %}
-      {% for env in editor.environments %}<option value="{{ env.name }}" {% if env.name == node.item.env %}selected{% endif %}>{{ env.name }} ({{ env.ve_type }})</option>{% endfor %}
-    </select>
+    {% include "ui3/protocols/_env_combo.html" with name=node.env_input_name empty_label="Default worker environment" by_name=1 selected_name=node.item.env selected_env=node.env_obj %}
   </label>
   <details>
     <summary class="cursor-pointer text-sm">Outputs and execution options</summary>

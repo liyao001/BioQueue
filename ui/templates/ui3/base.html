@@ -407,7 +407,8 @@
         if (!combo) return false;
         return window.ui3.isCardCombo(combo)
           || window.innerWidth < 768
-          || !!combo.closest(".ui-modal");
+          || !!combo.closest(".ui-modal")
+          || !!combo.closest(".tpl-entry");
       },
       comboPanel: function (combo) {
         return (combo && combo._ui3Panel) || (combo && combo.querySelector(".ui-combo-panel"));
