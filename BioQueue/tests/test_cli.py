@@ -92,6 +92,35 @@ class PrepareInstallTests(unittest.TestCase):
         )
         self.assertEqual(settings.SECRET_KEY, conf_get(parser, "env", "secret_key"))
 
+    def test_database_env_selects_postgres(self):
+        self._prepare()
+        os.environ["BIOQUEUE_CUSTOM_CONF"] = self.config_path
+        os.environ["BIOQUEUE_DB_ENGINE"] = "django.db.backends.postgresql"
+        os.environ["BIOQUEUE_DB_NAME"] = "bioqueue"
+        os.environ["BIOQUEUE_DB_USER"] = "bioqueue"
+        os.environ["BIOQUEUE_DB_PASSWORD"] = "secret"
+        os.environ["BIOQUEUE_DB_HOST"] = "db.example"
+        os.environ["BIOQUEUE_DB_PORT"] = "5432"
+        for key in (
+            "BIOQUEUE_CUSTOM_CONF",
+            "BIOQUEUE_DB_ENGINE",
+            "BIOQUEUE_DB_NAME",
+            "BIOQUEUE_DB_USER",
+            "BIOQUEUE_DB_PASSWORD",
+            "BIOQUEUE_DB_HOST",
+            "BIOQUEUE_DB_PORT",
+        ):
+            self.addCleanup(os.environ.pop, key, None)
+        import BioQueue.default_settings as settings
+
+        importlib.reload(settings)
+        db = settings.DATABASES["default"]
+        self.assertEqual(db["ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual(db["NAME"], "bioqueue")
+        self.assertEqual(db["USER"], "bioqueue")
+        self.assertEqual(db["HOST"], "db.example")
+        self.assertEqual(db["PORT"], "5432")
+
     def test_second_install_does_not_rotate_secret_or_move_data(self):
         self._prepare()
         parser = read_conf(self.config_path)
