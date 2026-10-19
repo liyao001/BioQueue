@@ -15,7 +15,7 @@ STATUS_ICONS = {
     JobStatus.FINISHED: ("fa-circle-check", "text-green-600"),
     JobStatus.WAITING: ("fa-clock", "text-gray-500"),
     JobStatus.RUNNING: ("fa-circle-play", "text-blue-600"),
-    JobStatus.INTERRUPTED: ("fa-circle-pause", "text-yellow-500"),
+    JobStatus.INTERRUPTED: ("fa-circle-stop", "text-red-600"),
 }
 
 

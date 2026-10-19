@@ -148,12 +148,12 @@
     <p id="sample-file-error" class="text-sm text-error" role="alert"></p>
   </label>
   <div class="flex flex-wrap gap-2">
-    <button type="button" class="ui-btn"
+    <button type="button" class="ui-btn" data-ui3-file-pick
             hx-get="{% url 'ui3:workspace_uploads' %}?target=id_input_file"
             hx-target="#modal-root" hx-swap="innerHTML">
       <i class="fa-regular fa-folder-open"></i> Insert from uploads
     </button>
-    <button type="button" class="ui-btn"
+    <button type="button" class="ui-btn" data-ui3-file-pick
             hx-get="{% url 'ui3:job_results_picker' %}?target=id_input_file"
             hx-target="#modal-root" hx-swap="innerHTML">
       <i class="fa-regular fa-clone"></i> Insert from job results

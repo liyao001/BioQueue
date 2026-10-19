@@ -517,6 +517,7 @@ class TemplateUiTests(Ui3TestCase):
         proto = self._indexed_protocol()
         page = self.client.get(reverse("ui3:job_create"))
         self.assertContains(page, "input from:#id_input_file delay:400ms")
+        self.assertEqual(page.content.decode().count('class="ui-btn" data-ui3-file-pick'), 2)
         self.assertContains(page, "input from:#id_sample_sheet delay:400ms")
         self.assertContains(page, 'hx-include="#id_protocol, #id_input_file, #id_sample_sheet, #id_parameter_legacy"')
         self.assertContains(page, "change from:#id_parameter_legacy")

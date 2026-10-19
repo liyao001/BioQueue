@@ -1,6 +1,8 @@
+import json
+
 from django.urls import reverse
 
-from QueueDB.models import Job, JobStatus
+from QueueDB.models import Job, JobStatus, ProtocolList
 from ui.services import search_jobs
 from ui.tests import Ui3TestCase
 
@@ -279,6 +281,78 @@ class JobTests(Ui3TestCase):
         self.assertEqual(response.status_code, 302)
         job.refresh_from_db()
         self.assertEqual(job.parameter, "new=1")
+        self.assertEqual(job.audit, 1)
+
+    def test_sample_sheet_edit_flags_terminal_jobs(self):
+        proto = ProtocolList.objects.create(
+            name="sample-tpl",
+            user=self.user,
+            ver="tpl",
+            template=json.dumps({
+                "samples": {"group": 1},
+                "pipeline": [{
+                    "map": "samples",
+                    "steps": [{"software": "echo", "parameter": "{{sample.name}}"}],
+                }],
+            }),
+        )
+        original = '[{"name": "rep1"}]'
+        edited = '[{"name": "treated"}]'
+        self.login()
+        for status in (JobStatus.FINISHED, JobStatus.INTERRUPTED, JobStatus.WRONG):
+            job = self.make_job(
+                job_name="terminal-{}".format(int(status)),
+                protocol=proto,
+                status=status,
+                sample_sheet=original,
+                input_file="a.fq",
+                audit=0,
+            )
+            response = self.client.post(
+                reverse("ui3:job_edit_field", args=[job.id, "sample_sheet"]),
+                {"value": edited},
+                HTTP_HX_REQUEST="true",
+            )
+            self.assertEqual(response.status_code, 200)
+            job.refresh_from_db()
+            self.assertEqual(job.sample_sheet, edited)
+            self.assertEqual(job.audit, 1)
+            self.assertContains(response, 'id="job-card-{}"'.format(job.id))
+            self.assertContains(response, "is-audit")
+
+        for status in (JobStatus.WAITING, JobStatus.RUNNING, JobStatus.RESOURCELOCK):
+            job = self.make_job(
+                job_name="open-{}".format(int(status)),
+                protocol=proto,
+                status=status,
+                sample_sheet=original,
+                input_file="a.fq",
+                audit=0,
+            )
+            response = self.client.post(
+                reverse("ui3:job_edit_field", args=[job.id, "sample_sheet"]),
+                {"value": edited},
+            )
+            self.assertEqual(response.status_code, 302)
+            job.refresh_from_db()
+            self.assertEqual(job.sample_sheet, edited)
+            self.assertEqual(job.audit, 0)
+
+        same = self.make_job(
+            job_name="unchanged-samples",
+            protocol=proto,
+            status=JobStatus.FINISHED,
+            sample_sheet=edited,
+            input_file="a.fq",
+            audit=0,
+        )
+        response = self.client.post(
+            reverse("ui3:job_edit_field", args=[same.id, "sample_sheet"]),
+            {"value": edited},
+        )
+        self.assertEqual(response.status_code, 302)
+        same.refresh_from_db()
+        self.assertEqual(same.audit, 0)
 
     def test_running_count_badge(self):
         self.make_job(status=JobStatus.RUNNING)
@@ -359,6 +433,7 @@ class JobTests(Ui3TestCase):
         response = self.client.get(reverse("ui3:job_edit_field", args=[job.id, "input_file"]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Insert from job results")
+        self.assertContains(response, "data-ui3-file-pick")
         self.assertContains(response, 'id="id_edit_input_file"')
         self.assertContains(response, 'hx-target="#picker-root"')
         self.assertContains(response, reverse("ui3:job_results_picker"))
@@ -904,6 +979,9 @@ class JobTests(Ui3TestCase):
         self.login()
         page = self.client.get(reverse("ui3:jobs"), {"q": "paused-card"})
         self.assertContains(page, "Resume from interrupted step")
+        self.assertContains(page, "fa-circle-stop")
+        self.assertContains(page, "text-red-600")
+        self.assertNotContains(page, "fa-circle-pause")
         self.assertContains(page, reverse("ui3:job_rerun", args=[job.id]))
         self.assertNotContains(page, reverse("ui3:job_terminate", args=[job.id]))
         response = self.client.post(reverse("ui3:job_resume", args=[job.id]), {"from_failed": "1"})

@@ -898,8 +898,15 @@ def job_edit_field(request, pk, field):
             value = services.prepare_sample_sheet(job.protocol, job.input_file or "", value)
         except services.ProtocolTemplateError as exc:
             return _bad(request, str(exc))
+        changed = (job.sample_sheet or "") != value
         job.sample_sheet = value
-        job.save(update_fields=["sample_sheet"])
+        update_fields = ["sample_sheet"]
+        # A finished, failed, or interrupted job already ran with the previous
+        # samples. Flag it the same way a parameter or input edit does.
+        if changed and job.status in (JobStatus.FINISHED, JobStatus.WRONG, JobStatus.INTERRUPTED):
+            job.audit = 1
+            update_fields.append("audit")
+        job.save(update_fields=update_fields)
         services.audit_operation(job, "Changed sample sheet", comment=value)
     elif field == "parameter":
         job.update_parameter(value)

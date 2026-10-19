@@ -16,7 +16,7 @@
     "-1": { label: "Finished", color: "#38A169" },
     "0": { label: "Waiting", color: "#718096" },
     "1": { label: "Running", color: "#3182CE" },
-    "2": { label: "Interrupted", color: "#D69E2E" },
+    "2": { label: "Interrupted", color: "#E53E3E" },
   };
 
   var seeds = [];

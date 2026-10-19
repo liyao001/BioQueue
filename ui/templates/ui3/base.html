@@ -125,6 +125,7 @@
         return root;
       },
       closePicker: function () {
+        window.ui3.clearFilePicks();
         var root = document.getElementById("picker-root");
         if (root) root.innerHTML = "";
       },
@@ -654,12 +655,11 @@
       insertUploads: function (textareaId) {
         var root = document.getElementById("modal-root");
         if (!root) return;
-        var tokens = [];
         var wrap = function (kind, body) { return "{" + "{" + kind + ":" + body + "}" + "}"; };
-        root.querySelectorAll("input.upload-opt:checked").forEach(function (cb) {
+        var tokens = window.ui3.checkedInPickOrder(root, "input.upload-opt").map(function (cb) {
           var rel = cb.getAttribute("data-rel") || cb.value || "";
-          if (rel) tokens.push(wrap("Uploaded", rel));
-        });
+          return rel ? wrap("Uploaded", rel) : "";
+        }).filter(Boolean);
         window.ui3.appendTokens(textareaId, tokens, ";");
         window.ui3.closeModal();
       },
@@ -676,17 +676,13 @@
           window.ui3.showToast("Select a job first.", "warning");
           return;
         }
-        var tokens = [];
         var wrap = function (kind, body) { return "{" + "{" + kind + ":" + body + "}" + "}"; };
-        root.querySelectorAll("input.result-opt:checked").forEach(function (cb) {
+        var tokens = window.ui3.checkedInPickOrder(root, "input.result-opt").map(function (cb) {
           var name = cb.getAttribute("data-name") || cb.value || "";
-          if (!name) return;
-          if (shared) {
-            tokens.push(wrap("CrossAccess", (owner || "User") + "-" + jobId + "-" + name));
-          } else {
-            tokens.push(wrap("History", jobId + "-" + name));
-          }
-        });
+          if (!name) return "";
+          if (shared) return wrap("CrossAccess", (owner || "User") + "-" + jobId + "-" + name);
+          return wrap("History", jobId + "-" + name);
+        }).filter(Boolean);
         if (!tokens.length) {
           window.ui3.showToast("Select at least one result file.", "warning");
           return;
@@ -700,6 +696,81 @@
         if (useStack) window.ui3.closePicker();
         else window.ui3.closeModal();
       },
+      // file-pick-order:start
+      _filePickOrder: [],
+      clearFilePicks: function () {
+        window.ui3._filePickOrder = [];
+      },
+      filePickItem: function (cb) {
+        if (!cb || !cb.classList) return null;
+        if (cb.classList.contains("upload-opt")) {
+          var rel = cb.getAttribute("data-rel") || cb.value || "";
+          return rel ? {kind: "upload", rel: rel} : null;
+        }
+        if (cb.classList.contains("result-opt")) {
+          var meta = cb.closest ? cb.closest("[data-picker-job]") : null;
+          var name = cb.getAttribute("data-name") || cb.value || "";
+          var pickedJob = meta && meta.getAttribute("data-picker-job");
+          if (!name || !pickedJob) return null;
+          return {
+            kind: "result",
+            jobId: String(pickedJob),
+            shared: meta.getAttribute("data-picker-shared") === "1",
+            name: name,
+          };
+        }
+        return null;
+      },
+      samePick: function (a, b) {
+        if (!a || !b || a.kind !== b.kind) return false;
+        if (a.kind === "upload") return a.rel === b.rel;
+        return a.jobId === b.jobId && a.name === b.name;
+      },
+      noteFilePick: function (cb) {
+        var item = window.ui3.filePickItem(cb);
+        if (!item) return;
+        var order = window.ui3._filePickOrder || (window.ui3._filePickOrder = []);
+        var index = -1;
+        for (var i = 0; i < order.length; i++) {
+          if (window.ui3.samePick(order[i], item)) { index = i; break; }
+        }
+        if (cb.checked) {
+          if (index >= 0) order.splice(index, 1);
+          order.push(item);
+        } else if (index >= 0) {
+          order.splice(index, 1);
+        }
+      },
+      restoreFilePicks: function (root) {
+        if (!root || !root.querySelectorAll) return;
+        if (!root.querySelector("input.upload-opt, input.result-opt")) return;
+        var order = window.ui3._filePickOrder || [];
+        root.querySelectorAll("input.upload-opt, input.result-opt").forEach(function (cb) {
+          var item = window.ui3.filePickItem(cb);
+          if (!item) return;
+          var on = false;
+          for (var i = 0; i < order.length; i++) {
+            if (window.ui3.samePick(order[i], item)) { on = true; break; }
+          }
+          cb.checked = on;
+        });
+      },
+      checkedInPickOrder: function (root, selector) {
+        if (!root || !root.querySelectorAll) return [];
+        var boxes = Array.prototype.slice.call(root.querySelectorAll(selector + ":checked"));
+        var order = window.ui3._filePickOrder || [];
+        function rank(cb) {
+          var item = window.ui3.filePickItem(cb);
+          if (!item) return order.length;
+          for (var i = 0; i < order.length; i++) {
+            if (window.ui3.samePick(order[i], item)) return i;
+          }
+          return order.length;
+        }
+        boxes.sort(function (a, b) { return rank(a) - rank(b); });
+        return boxes;
+      },
+      // file-pick-order:end
       enableTabInTextarea: function (el) {
         if (!el || el._ui3TabBound) return;
         el._ui3TabBound = true;
@@ -1154,6 +1225,9 @@
       }
     });
     document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-ui3-file-pick]")) {
+        window.ui3.clearFilePicks();
+      }
       if (e.target.closest("[data-ui3-close]")) {
         e.preventDefault();
         if (e.target.closest("#picker-root")) window.ui3.closePicker();
@@ -1182,6 +1256,10 @@
       }
       if (e.target && e.target.classList && e.target.classList.contains("job-file-select")) {
         window.ui3.onFileSelectChange(e.target, e);
+      }
+      if (e.target && e.target.classList &&
+          (e.target.classList.contains("upload-opt") || e.target.classList.contains("result-opt"))) {
+        window.ui3.noteFilePick(e.target);
       }
     });
     document.body.addEventListener("htmx:configRequest", function (event) {
@@ -1431,6 +1509,8 @@
       }
     }, true);
     document.body.addEventListener("htmx:afterSwap", function (e) {
+      var swapped = (e.detail && e.detail.target) || e.target;
+      window.ui3.restoreFilePicks(swapped);
       window.ui3.restoreShortcutPanel();
       window.ui3.updateBulkBar();
       var filesRoot = e.target && e.target.closest ? e.target.closest("[data-job-files-root]") : null;

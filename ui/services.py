@@ -59,7 +59,7 @@ STATUS_BADGE = {
     JobStatus.FINISHED: "badge-success",
     JobStatus.WAITING: "badge-ghost",
     JobStatus.RUNNING: "badge-info",
-    JobStatus.INTERRUPTED: "badge-warning",
+    JobStatus.INTERRUPTED: "badge-error",
 }
 
 
