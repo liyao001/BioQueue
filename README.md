@@ -22,7 +22,7 @@ BioQueue replaces that with one place where:
 A BioQueue **account is a project**. Everything the project needs lives inside it, and its own folder on disk holds the uploads, results, and archives:
 
 ```text
-Project (account)            e.g. liver-regeneration
+Project (account)            e.g. enhancer-calling
 ├── Protocols                the methods: trim → align → count
 ├── References               named paths such as {{hg38}}
 ├── Environments             conda / venv activations for steps

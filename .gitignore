@@ -41,6 +41,7 @@ QueueDB/migrations/*
 .pixi/
 **/.pixi/
 worker/.testdata/
+.pressure-test/
 .retired-local/
 protocol_templates/
 # pixi environments
