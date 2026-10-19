@@ -8,7 +8,7 @@ You install it in your own account, the way you would install JupyterLab. No roo
 
 ## Why BioQueue
 
-Most analysis projects end up tracked in a spreadsheet of job IDs, a pile of `nohup.out` and `slurm-1234.out` files, and folder names like `align_v3_final_fixed`. Six months later, nobody can say which parameters produced the figure.
+Most analysis projects end up tracked in a spreadsheet of job IDs, a pile of `script.sh` and `slurm-1234.out` files, and folder names like `align_v3_final_fixed`. Six months later, nobody can say which parameters produced the figure.
 
 BioQueue replaces that with one place where:
 
@@ -19,7 +19,7 @@ BioQueue replaces that with one place where:
 
 ## How it fits together
 
-A BioQueue **account is a project**. Everything the project needs lives inside it, and its own folder on disk holds the uploads, results, and archives:
+A BioQueue account is a project. Everything the project needs lives inside it, and its own folder on disk holds the uploads, results, and archives:
 
 ```text
 Project (account)            e.g. enhancer-calling
@@ -79,7 +79,7 @@ A pip install also needs the `libmagic` library (`brew install libmagic` on macO
 
 For PostgreSQL or MySQL, see [PostgreSQL and MySQL](docs/databases.md). Install `bioqueue[postgres]` or `bioqueue[mysql]`, create an empty database, and export `BIOQUEUE_DB_ENGINE` and the other `BIOQUEUE_DB_*` variables before `bioqueue init`.
 
-To run from a checkout, install [Pixi](https://pixi.sh), then:
+To run from a checkout, you can install [Pixi](https://pixi.sh), then:
 
 ```bash
 git clone https://github.com/liyao001/BioQueue.git
