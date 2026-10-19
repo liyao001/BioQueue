@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('QueueDB', '0049_alter_protocolshortcut_protocol'),
         ('QueueDB', '0053_sync_models'),
     ]
 

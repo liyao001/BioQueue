@@ -12,6 +12,11 @@ _PUBLIC_MIGRATIONS = {
     "0051_notificationhook",
     "0052_virtualenvironment_recipe",
     "0053_sync_models",
+    "0054_merge_20261004_1337",
+    "0054_slave_cluster_paths",
+    "0055_merge_20261010_1247",
+    "0055_slave_cluster_path_columns",
+    "0056_slave_cluster_managers",
 }
 
 
