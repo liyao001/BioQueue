@@ -7,6 +7,8 @@ name = "bioqueue"
 version = "2.0.0"
 description = "A personal job workspace for computational biology"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [{name = "Li Yao"}]
 dependencies = [
