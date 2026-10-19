@@ -362,6 +362,9 @@ def render_script(
         if array:
             # One directory and one log file per array task. Do not pin fetch
             # to a single staged workspace that every task would clobber.
+            # $SLURM_JOB_ID is a different integer for each task. The name
+            # squeue shows, and the directory protocols publish, is
+            # ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} (269059_1).
             remote.pop("result_dir", None)
             chdir = ""
             stdout_path = posixpath.join(
@@ -371,11 +374,17 @@ def render_script(
                 log_root, "%s-%s_%%A_%%a.err" % (job_id, job_step)
             )
             log_glob = posixpath.join(log_root, "%s-%s_*" % (job_id, job_step))
-            root = result_root.rstrip("/")
-            array_boot = 'mkdir -p %s/"$SLURM_JOB_ID"\ncd %s/"$SLURM_JOB_ID"\n' % (
-                root,
-                root,
-            )
+            root = shlex.quote(result_root.rstrip("/"))
+            array_boot = (
+                'if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then\n'
+                '  bq_slot="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"\n'
+                "else\n"
+                '  bq_slot="${SLURM_JOB_ID}"\n'
+                "fi\n"
+                'export BQ_TASK_DIR=%s/"$bq_slot"\n'
+                'mkdir -p "$BQ_TASK_DIR"\n'
+                'cd "$BQ_TASK_DIR"\n'
+            ) % root
         else:
             chdir = stage_dir or _text(remote.get("workdir"))
             stdout_path = posixpath.join(log_root, "%s-%s.out" % (job_id, job_step))
@@ -1208,19 +1217,49 @@ def _parse_ls_dirs(stdout, result_root, job_id):
 
 
 def _list_remote_result_dirs(remote, result_root, job_id):
-    """Ask the remote shell to expand array dirs. rsync does not expand globs over SSH."""
+    """Expand <id> and <id>_* in the remote shell. rsync will not do that over SSH.
+
+    A ``find`` of the whole workdir has timed out on a busy home directory and
+    then the only fallback was ``<id>/``, which is not where array tasks publish.
+    """
     root = result_root.rstrip("/")
     jid = _safe_job_id(job_id)
-    inner = "find %s -mindepth 1 -maxdepth 1 \\( -name %s -o -name %s \\) -print" % (
-        shlex.quote(root),
-        shlex.quote(jid),
-        shlex.quote(jid + "_*"),
-    )
+    quoted = shlex.quote(root)
+    inner = (
+        "shopt -s nullglob; "
+        "for d in %s/%s %s/%s_*; do printf '%%s\\n' \"$d\"; done"
+    ) % (quoted, jid, quoted, jid)
     rc, out = _run(_ssh_base(remote) + ["bash", "-lc", inner], timeout=60, retries=2)
     return _parse_ls_dirs(out if rc == 0 else "", result_root, job_id), rc, out
 
 
-def _list_remote_log_files(remote, extras):
+def _array_task_dir(remote_dir, job_id):
+    """True when the remote directory is ``<sbatch id>_<task>``."""
+    base = posixpath.basename(_text(remote_dir).rstrip("/"))
+    jid = _safe_job_id(job_id)
+    return bool(jid) and base.startswith(jid + "_")
+
+
+def _missing_remote(output):
+    text = output or ""
+    return "No such file" in text or "not found" in text.lower()
+
+
+def _submission_log_remote(remote, cluster_id):
+    """Limit an array log glob to the Slurm id of this submission.
+
+    The glob is ``{job}-{step}_*``. Earlier reruns leave ``{job}-{step}_{oldId}_*``
+    in the same directory, and fetching those would mix runs.
+    """
+    remote = dict(remote or {})
+    glob = _text(remote.get("log_glob"))
+    cluster_id = _safe_job_id(cluster_id)
+    if glob.endswith("*") and cluster_id:
+        remote["log_glob"] = "%s%s_*" % (glob[:-1], cluster_id)
+    return remote
+
+
+def _list_remote_log_files(remote, extras, include_legacy=True):
     """Resolve remote Slurm stdout/stderr paths, including array expansions."""
     stdout_path = _text(remote.get("stdout_path"))
     stderr_path = _text(remote.get("stderr_path"))
@@ -1238,7 +1277,7 @@ def _list_remote_log_files(remote, extras):
         searches.append((posixpath.dirname(path) or ".", posixpath.basename(path)))
     user = _text(remote.get("user"))
     bq_id = _safe_job_id(extras.get("bq_job_id"))
-    if user and bq_id:
+    if include_legacy and user and bq_id:
         legacy_root = "/home/%s/slurm_outputs" % user
         searches.append((legacy_root, "%s.out" % bq_id))
         searches.append((legacy_root, "%s.err" % bq_id))
@@ -1297,6 +1336,17 @@ def _append_remote_file(remote, remote_path, local_path):
             pass
 
 
+def _copy_listed_logs(remote, listed, known, log_dest, err_dest):
+    synced = False
+    for remote_path in listed:
+        if remote_path in known:
+            continue
+        known.add(remote_path)
+        if _copy_log(remote, remote_path, log_dest, err_dest) is True:
+            synced = True
+    return synced
+
+
 def fetch_logs(job_id, extras=None):
     """Pull Slurm stdout/stderr into the worker's local job log files."""
     extras = _extras(extras)
@@ -1328,16 +1378,16 @@ def fetch_logs(job_id, extras=None):
         if not synced:
             logger.warning("failed to fetch Slurm logs for cluster job %s", job_id)
         return synced
-    if synced and not remote.get("log_glob"):
-        return True
-    listed = _list_remote_log_files(remote, extras)
-    known = set(concrete)
-    for remote_path in listed:
-        if remote_path in known:
-            continue
-        copied = _copy_log(remote, remote_path, log_dest, err_dest)
-        if copied is True:
+    listing_remote = _submission_log_remote(remote, job_id)
+    if not (synced and not listing_remote.get("log_glob")):
+        known = set(concrete)
+        listed = _list_remote_log_files(listing_remote, extras, include_legacy=False)
+        if _copy_listed_logs(listing_remote, listed, known, log_dest, err_dest):
             synced = True
+        if not synced:
+            legacy = _list_remote_log_files(listing_remote, extras, include_legacy=True)
+            if _copy_listed_logs(listing_remote, legacy, known, log_dest, err_dest):
+                synced = True
     if not synced:
         logger.warning(
             "remote job %s has no Slurm log files to fetch%s",
@@ -1392,16 +1442,36 @@ def fetch_results(job_id, extras=None):
         if path not in remote_dirs:
             remote_dirs.append(path)
     synced = False
+    failed = False
     last_out = ls_out
     for remote_dir in remote_dirs:
+        # Array tasks share one sbatch id and publish side by side
+        # (269059_0, 269059_1, ...). Unpacking every task into the job
+        # folder overwrites the previous task. Keep each task directory.
+        target = dest_dir
+        if _array_task_dir(remote_dir, job_id):
+            target = os.path.join(
+                dest_dir, posixpath.basename(remote_dir.rstrip("/"))
+            )
+            target = target if target.endswith(os.sep) else target + os.sep
+            try:
+                os.makedirs(target, exist_ok=True)
+            except OSError:
+                pass
         argv = ["rsync", "-a", "--compress", "--partial", "-e", _rsync_rsh(remote)]
-        argv.extend(["%s:%s" % (spec, remote_dir), dest_dir])
+        argv.extend(["%s:%s" % (spec, remote_dir), target])
         rc, out = _run(argv, timeout=3600, retries=2)
         last_out = out
         if rc == 0:
             synced = True
-        elif "No such file" not in out and "not found" not in out.lower():
-            logger.warning("rsync results failed (%s): %s", remote_dir, out)
+            continue
+        if _missing_remote(out):
+            logger.info("remote result dir absent: %s", remote_dir)
+            continue
+        logger.warning("rsync results failed (%s): %s", remote_dir, out)
+        failed = True
+    if failed:
+        return False
     if synced:
         return True
     stage_on = _text(extras.get("stage_in") or remote.get("stage_in")).lower() in (

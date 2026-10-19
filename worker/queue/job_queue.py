@@ -959,6 +959,18 @@ class JobQueue(object):
         except OSError:
             logger.exception("Failed to write job log %s", path)
 
+    @staticmethod
+    def _reset_job_logs(*paths):
+        """Drop output from earlier runs before step 0 of a new run starts."""
+        for path in paths:
+            if not path:
+                continue
+            try:
+                with open(path, "w"):
+                    pass
+            except OSError:
+                logger.exception("Failed to reset job log %s", path)
+
     def _fail_input_check(self, job_obj, log_file, errlog_file, message):
         logger.error("Job %s input check failed: %s", job_obj.job_id, message.strip())
         self._append_job_log(log_file, message)
@@ -1245,6 +1257,9 @@ class JobQueue(object):
 
             log_file = os.path.join(self._settings["env"]["log"], "{job_id}.log".format(job_id=job_obj.job_id))
             errlog_file = os.path.join(self._settings["env"]["log"], "{job_id}.err".format(job_id=job_obj.job_id))
+            # Later steps of this run keep appending. A rerun starts again at step 0.
+            if job_obj.resume == 0:
+                self._reset_job_logs(log_file, errlog_file)
 
             if not self._run_input_preflight(job_obj, log_file, errlog_file):
                 finished = True

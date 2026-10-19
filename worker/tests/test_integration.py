@@ -193,6 +193,33 @@ class EchoJobIntegrationTests(TestCase):
         self.assertIn("echo-job", log_text)
         self.assertEqual(User.objects.filter(username="worker").count(), 1)
 
+    def test_rerun_replaces_logs_from_the_previous_run(self):
+        job = seed_echo_job(self.tmp, job_name="rerun-job", n_steps=2)
+        queue = self._queue()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        for _ in task.steps:
+            disable_ml_collector(task)
+            queue.run_step(task)
+        log_path = self.log_dir / "{}.log".format(job.id)
+        err_path = self.log_dir / "{}.err".format(job.id)
+        self.assertEqual(log_path.read_text().count(ECHO_MARKER), 2)
+        log_path.write_text("previous-run-marker\n" + log_path.read_text())
+        err_path.write_text("previous-error-marker\n" + err_path.read_text())
+
+        job.rerun_job()
+        queue.fetch_jobs()
+        task = queue.queued_jobs_snapshot()[job.id]
+        for _ in task.steps:
+            disable_ml_collector(task)
+            queue.run_step(task)
+
+        log_text = log_path.read_text()
+        err_text = err_path.read_text()
+        self.assertNotIn("previous-run-marker", log_text)
+        self.assertNotIn("previous-error-marker", err_text)
+        self.assertEqual(log_text.count(ECHO_MARKER), 2)
+
     def test_fetch_jobs_skips_locked_and_non_executable(self):
         locked = seed_echo_job(self.tmp, job_name="locked-job")
         locked.locked = 1

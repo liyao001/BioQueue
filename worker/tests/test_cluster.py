@@ -188,6 +188,7 @@ class SlurmRenderTests(unittest.TestCase):
                 "epilogue": "rsync -a $SLURM_TMPDIR/work/ $BQ_OUT/",
             },
         )
+        self.assertIn("#SBATCH --open-mode=truncate", script)
         self.assertIn("#SBATCH --job-name=9-0", script)
         self.assertIn("#SBATCH --cpus-per-task=8", script)
         self.assertIn("#SBATCH --mem 16G", script)
@@ -917,7 +918,7 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
             joined = " ".join(str(p) for p in argv)
             if argv and argv[0] == "rsync":
                 return (0, "")
-            if "find" in joined and "/work" in joined:
+            if "nullglob" in joined and "/work" in joined:
                 return (0, "/work/9_0\n/work/9_1\n")
             return (0, "")
 
@@ -932,8 +933,33 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
         self.assertTrue(ok)
         rsync_calls = [c[0][0] for c in run.call_args_list if c[0][0] and c[0][0][0] == "rsync"]
         self.assertEqual(len(rsync_calls), 2)
-        self.assertTrue(any("9_0/" in str(part) for part in rsync_calls[0]))
-        self.assertTrue(any("9_1/" in str(part) for part in rsync_calls[1]))
+        self.assertTrue(any("/work/9_0/" in str(part) for part in rsync_calls[0]))
+        self.assertTrue(any("/work/9_1/" in str(part) for part in rsync_calls[1]))
+        self.assertEqual(os.path.basename(rsync_calls[0][-1].rstrip(os.sep)), "9_0")
+        self.assertEqual(os.path.basename(rsync_calls[1][-1].rstrip(os.sep)), "9_1")
+
+    def test_failed_array_task_copy_is_not_hidden(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-array-fail-")
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                if "9_1/" in joined:
+                    return (1, "timeout: rsync")
+                return (0, "")
+            if "nullglob" in joined:
+                return (0, "/work/9_0\n/work/9_1\n")
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            ok = Slurm.fetch_results(
+                9,
+                extras={
+                    "remote": {"host": "h", "result_root": "/work"},
+                    "fetch_dest": dest,
+                },
+            )
+        self.assertFalse(ok)
 
     def test_fetch_results_also_pulls_legacy_workdir_when_result_dir_is_set(self):
         dest = tempfile.mkdtemp(prefix="bq-fetch-both-")
@@ -942,7 +968,7 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
             joined = " ".join(str(p) for p in argv)
             if argv and argv[0] == "rsync":
                 return (0, "")
-            if "find" in joined and "/home/u/workdir" in joined:
+            if "nullglob" in joined and "/home/u/workdir" in joined:
                 return (0, "/home/u/workdir/99\n")
             return (0, "")
 
@@ -994,8 +1020,11 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
             "export BQ_STAGE_DIR=/home/alice/bioqueue-scripts/jobs/9/workspace",
             script,
         )
-        self.assertIn('mkdir -p /home/alice/workdir/"$SLURM_JOB_ID"', script)
-        self.assertIn('cd /home/alice/workdir/"$SLURM_JOB_ID"', script)
+        self.assertIn('bq_slot="${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"', script)
+        self.assertIn('export BQ_TASK_DIR=/home/alice/workdir/"$bq_slot"', script)
+        self.assertIn('mkdir -p "$BQ_TASK_DIR"', script)
+        self.assertIn('cd "$BQ_TASK_DIR"', script)
+        self.assertNotIn('"$SLURM_JOB_ID"', script)
         self.assertNotIn("#SBATCH --chdir /home/alice/bioqueue-scripts/jobs/9/workspace", script)
         self.assertIsNone(extras["remote"].get("result_dir"))
 
@@ -1065,6 +1094,58 @@ class ClusterSupportHardeningTests(unittest.TestCase):
             self.assertIn(b"stdout body", handle.read())
         with open(err_path, "rb") as handle:
             self.assertIn(b"stderr body", handle.read())
+
+    def test_fetch_logs_ignores_array_files_from_earlier_runs(self):
+        dest = tempfile.mkdtemp(prefix="bq-logs-")
+        log_path = os.path.join(dest, "job.log")
+        err_path = os.path.join(dest, "job.err")
+        copied = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            if argv and argv[0] == "ssh":
+                command = argv[-1]
+                self.assertIn("7-0_900_", command)
+                if ".out" in command:
+                    return (0, "/home/u/scripts/7-0_900_0.out\n")
+                if ".err" in command:
+                    return (0, "/home/u/scripts/7-0_900_0.err\n")
+                return (0, "")
+            if argv and argv[0] == "scp":
+                remote = argv[-2].split(":", 1)[-1]
+                local = argv[-1]
+                copied.append(remote)
+                payload = b"current-stdout" if remote.endswith(".out") else b"current-stderr"
+                with open(local, "wb") as handle:
+                    handle.write(payload)
+                return (0, "")
+            return (1, "unexpected")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            ok = Slurm.fetch_logs(
+                900,
+                extras={
+                    "bq_job_id": 7,
+                    "remote": {
+                        "host": "h",
+                        "user": "u",
+                        "stdout_path": "/home/u/scripts/7-0_%A_%a.out",
+                        "stderr_path": "/home/u/scripts/7-0_%A_%a.err",
+                        "log_glob": "/home/u/scripts/7-0_*",
+                    },
+                    "fetch_log": log_path,
+                    "fetch_err": err_path,
+                },
+            )
+        self.assertTrue(ok)
+        self.assertEqual(
+            copied,
+            [
+                "/home/u/scripts/7-0_900_0.err",
+                "/home/u/scripts/7-0_900_0.out",
+            ],
+        )
+        with open(log_path, "rb") as handle:
+            self.assertIn(b"current-stdout", handle.read())
 
     def test_log_copy_stops_when_ssh_times_out(self):
         calls = []

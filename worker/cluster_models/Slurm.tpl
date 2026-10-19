@@ -11,6 +11,7 @@
 {CHDIR}
 #SBATCH --output={STDOUT}
 #SBATCH --error={STDERR}
+#SBATCH --open-mode=truncate
 
 set -e
 {PROLOGUE}
