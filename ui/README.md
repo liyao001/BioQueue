@@ -33,10 +33,10 @@ HTMX and Font Awesome still load from CDNs in `templates/ui3/base.html`.
 Uses an isolated SQLite settings module so Postgres/Celery are not required:
 
 ```bash
-# conda env created for this app (Django 4.2)
+# conda env created for this app (Django 5.2)
 conda activate bioqueue-ui3
 
-# or any env with Django 4.2+
+# or any env with Django 5.2
 python manage.py test ui --settings=ui.test_settings
 ```
 

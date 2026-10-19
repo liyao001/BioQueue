@@ -91,6 +91,8 @@ class PrepareInstallTests(unittest.TestCase):
             os.path.join(os.path.abspath(self.data), "db.sqlite3"),
         )
         self.assertEqual(settings.SECRET_KEY, conf_get(parser, "env", "secret_key"))
+        self.assertFalse(settings.DEBUG)
+        self.assertEqual(settings.ALLOWED_HOSTS, ["localhost", "127.0.0.1", "[::1]"])
 
     def test_database_env_selects_postgres(self):
         self._prepare()
@@ -121,6 +123,50 @@ class PrepareInstallTests(unittest.TestCase):
         self.assertEqual(db["HOST"], "db.example")
         self.assertEqual(db["PORT"], "5432")
 
+    def test_debug_and_hosts_follow_env_then_config(self):
+        self._prepare()
+        update_ini(
+            self.config_path,
+            {"env": {"debug": "yes", "allowed_hosts": "lab.example, 127.0.0.1"}},
+        )
+        os.environ["BIOQUEUE_CUSTOM_CONF"] = self.config_path
+        self.addCleanup(os.environ.pop, "BIOQUEUE_CUSTOM_CONF", None)
+        import BioQueue.default_settings as settings
+
+        importlib.reload(settings)
+        self.assertTrue(settings.DEBUG)
+        self.assertEqual(settings.ALLOWED_HOSTS, ["lab.example", "127.0.0.1"])
+
+        os.environ["BIOQUEUE_DEBUG"] = "0"
+        os.environ["BIOQUEUE_ALLOWED_HOSTS"] = "other.example"
+        os.environ["BIOQUEUE_BIND_HOST"] = "0.0.0.0"
+        for key in ("BIOQUEUE_DEBUG", "BIOQUEUE_ALLOWED_HOSTS", "BIOQUEUE_BIND_HOST"):
+            self.addCleanup(os.environ.pop, key, None)
+        importlib.reload(settings)
+        self.assertFalse(settings.DEBUG)
+        self.assertEqual(settings.ALLOWED_HOSTS, ["other.example"])
+
+        os.environ.pop("BIOQUEUE_ALLOWED_HOSTS")
+        os.environ["BIOQUEUE_BIND_HOST"] = "bench.local"
+        importlib.reload(settings)
+        self.assertEqual(settings.ALLOWED_HOSTS, ["lab.example", "127.0.0.1", "bench.local"])
+
+    def test_missing_secret_is_rejected(self):
+        bare = os.path.join(self.root, "bare.conf")
+        with open(bare, "w", encoding="utf-8") as handle:
+            handle.write("[env]\nworkspace = /tmp/bq\nsecret_key =\n")
+        os.environ["BIOQUEUE_CUSTOM_CONF"] = bare
+        os.environ.pop("BIOQUEUE_SECRET_KEY", None)
+        self.addCleanup(os.environ.pop, "BIOQUEUE_CUSTOM_CONF", None)
+        import BioQueue.default_settings as settings
+        from django.core.exceptions import ImproperlyConfigured
+
+        with self.assertRaises(ImproperlyConfigured):
+            importlib.reload(settings)
+        os.environ["BIOQUEUE_CUSTOM_CONF"] = self.config_path
+        self._prepare()
+        importlib.reload(settings)
+
     def test_second_install_does_not_rotate_secret_or_move_data(self):
         self._prepare()
         parser = read_conf(self.config_path)
@@ -144,7 +190,7 @@ class PrepareInstallTests(unittest.TestCase):
 class WebCommandTests(unittest.TestCase):
     def test_runserver_is_a_module_the_reloader_can_reexec(self):
         argv = _web_command("127.0.0.1:8000")
-        self.assertEqual(argv[1:4], ["-m", "BioQueue.serve", "runserver"])
+        self.assertEqual(argv[1:5], ["-m", "BioQueue.serve", "runserver", "--insecure"])
         self.assertNotIn("-c", argv)
 
         proc = subprocess.run(

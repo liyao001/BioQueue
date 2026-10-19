@@ -1,3 +1,7 @@
+import os
+import sys
+
+from django.conf import settings
 from django.http import HttpResponse
 from django.urls import path, reverse
 from QueueDB.models import ProtocolShortcut
@@ -99,3 +103,25 @@ class PluginTests(Ui3TestCase):
     def test_broken_urlpatterns_are_skipped(self):
         self._plugins.register(_BoomPlugin())
         self.assertEqual(self._plugins.urlpatterns(), [])
+
+    def test_root_urlconf_does_not_import_lab_plugins(self):
+        path = os.path.join(settings.BASE_DIR, "BioQueue", "urls.py")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn("ui.views.plugins", text)
+        self.assertIn("ui.plugins.api_urls", text)
+
+    def test_lab_api_routes_are_empty_when_the_package_is_missing(self):
+        from ui.plugins.api_urls import load_api_urlpatterns
+
+        blocked = {
+            key: sys.modules.pop(key)
+            for key in list(sys.modules)
+            if key == "ui.views.plugins" or key.startswith("ui.views.plugins.")
+        }
+        sys.modules["ui.views.plugins"] = None
+        try:
+            self.assertEqual(load_api_urlpatterns(), [])
+        finally:
+            sys.modules.pop("ui.views.plugins", None)
+            sys.modules.update(blocked)

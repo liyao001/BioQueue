@@ -566,20 +566,22 @@ class JobQueueMaintenanceTests(unittest.TestCase):
         step = FakeStep(1, 1, 1)
         step.dependent_jobs = {17}
         job = FakeJob(1, 1, 1, 1)
-        with patch.object(queue, "query_job_status", return_value=_JS_WRONG), patch(
-            "worker.queue.job_queue.logger"
-        ):
-            self.assertFalse(queue._dependencies_are_ready(job, step))
-        with patch.object(queue, "query_job_status", return_value=_JS_INTERRUPTED), patch(
-            "worker.queue.job_queue.logger"
-        ):
-            self.assertFalse(queue._dependencies_are_ready(job, step))
-        with patch.object(queue, "query_job_status", return_value=None), patch(
-            "worker.queue.job_queue.logger"
-        ):
-            self.assertFalse(queue._dependencies_are_ready(job, step))
-        with patch.object(queue, "query_job_status", return_value=_JS_FINISHED):
-            self.assertTrue(queue._dependencies_are_ready(job, step))
+        # The stop flag reads the job row. This case is only about parent status.
+        with patch.object(queue, "_job_stop_requested", return_value=False):
+            with patch.object(queue, "query_job_status", return_value=_JS_WRONG), patch(
+                "worker.queue.job_queue.logger"
+            ):
+                self.assertFalse(queue._dependencies_are_ready(job, step))
+            with patch.object(queue, "query_job_status", return_value=_JS_INTERRUPTED), patch(
+                "worker.queue.job_queue.logger"
+            ):
+                self.assertFalse(queue._dependencies_are_ready(job, step))
+            with patch.object(queue, "query_job_status", return_value=None), patch(
+                "worker.queue.job_queue.logger"
+            ):
+                self.assertFalse(queue._dependencies_are_ready(job, step))
+            with patch.object(queue, "query_job_status", return_value=_JS_FINISHED):
+                self.assertTrue(queue._dependencies_are_ready(job, step))
 
     def test_collect_releases_claimed_job_with_no_step(self):
         queue = _queue()

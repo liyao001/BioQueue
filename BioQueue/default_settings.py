@@ -13,6 +13,8 @@ BIOQUEUE_DB_PASSWORD, BIOQUEUE_DB_HOST, and BIOQUEUE_DB_PORT.
 import os
 from configparser import ConfigParser
 
+from django.core.exceptions import ImproperlyConfigured
+
 from BioQueue.paths import config_file, package_dir
 
 BASE_DIR = os.path.dirname(package_dir())
@@ -42,13 +44,42 @@ def _template_dirs():
 
 _cfg = _custom_conf()
 
-SECRET_KEY = os.environ.get("BIOQUEUE_SECRET_KEY") or _conf_get(_cfg, "env", "secret_key") or "change-me"
 
-DEBUG = True
+def _prefer(env_name, section, key):
+    """Environment value when it is non-empty, otherwise custom.conf."""
+    env = os.environ.get(env_name)
+    if env is not None and env.strip():
+        return env.strip()
+    return _conf_get(_cfg, section, key).strip()
 
-ALLOWED_HOSTS = [
-    "*",
-]
+
+def _flag(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _csv(value):
+    return [part.strip() for part in str(value).split(",") if part.strip()]
+
+
+_LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
+# Bind addresses that are not names a browser sends in the Host header.
+_WILDCARD_BINDS = {"", "*", "0.0.0.0", "::", "[::]"}
+
+_secret = _prefer("BIOQUEUE_SECRET_KEY", "env", "secret_key")
+if not _secret:
+    raise ImproperlyConfigured(
+        "BioQueue has no secret key. Run `bioqueue init`, or set BIOQUEUE_SECRET_KEY "
+        "or env.secret_key in custom.conf."
+    )
+SECRET_KEY = _secret
+
+# Off unless custom.conf or BIOQUEUE_DEBUG asks for error pages.
+DEBUG = _flag(_prefer("BIOQUEUE_DEBUG", "env", "debug"))
+
+ALLOWED_HOSTS = _csv(_prefer("BIOQUEUE_ALLOWED_HOSTS", "env", "allowed_hosts")) or list(_LOCAL_HOSTS)
+_bind = os.environ.get("BIOQUEUE_BIND_HOST", "").strip()
+if _bind and _bind not in _WILDCARD_BINDS and _bind not in ALLOWED_HOSTS and "*" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_bind)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -132,7 +163,6 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"

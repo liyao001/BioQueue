@@ -57,7 +57,7 @@ Separate projects stay separate: each account has its own protocols, jobs, and f
 
 ## Get started
 
-You need Python 3.9 or newer.
+You need Python 3.10 or newer.
 
 ```bash
 pip install bioqueue
@@ -101,7 +101,7 @@ To start another project, add an account under **Users** in the user menu and si
 - **Cluster submission**: set the cluster type and resources in `config/custom.conf`; the worker then submits steps to the scheduler instead of running them locally.
 - **Worker options**: `python -m worker --help` covers scheduling policy (`--schedule greedy|fifo`), resource estimation, and binding a worker to a named runner (`--runner`).
 - **Notifications**: [set up job alerts](docs/notifications.md).
-- **Lab use**: `bioqueue --host 0.0.0.0` or Apache/nginx, and [PostgreSQL or MySQL](docs/databases.md) instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
+- **Lab use**: set `allowed_hosts` in `config/custom.conf` (or `BIOQUEUE_ALLOWED_HOSTS`) to the names browsers use, then `bioqueue --host 0.0.0.0` or Apache/nginx. Error details stay off unless `debug = yes` or `BIOQUEUE_DEBUG=1`. Use [PostgreSQL or MySQL](docs/databases.md) instead of SQLite. SQLite still allows only one writer at a time, so a shared install should not use it. Colleagues sign up for their own projects at `/ui/register/` (an admin activates new accounts).
 
 All documentation is in [`docs/`](docs/README.md).
 

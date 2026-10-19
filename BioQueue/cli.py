@@ -338,13 +338,23 @@ def _web_command(bind):
     ``python -c`` launch has no script file, so ``runserver`` dies with
     "Script -c does not exist". ``python -m BioQueue.serve`` is a real
     module the reloader can start again.
+
+    ``--insecure`` serves static files while DEBUG is off. A shared install
+    should put a real web server in front instead of using this process.
     """
-    return [sys.executable, "-m", "BioQueue.serve", "runserver", bind]
+    return [sys.executable, "-m", "BioQueue.serve", "runserver", "--insecure", bind]
+
+
+def _web_env(host):
+    env = _child_env()
+    # Lets default_settings allow this bind name. 0.0.0.0 is not added.
+    env["BIOQUEUE_BIND_HOST"] = host
+    return env
 
 
 def cmd_serve(args):
     _require_initialized()
-    os.environ.update(_child_env())
+    os.environ.update(_web_env(args.host))
     os.execv(sys.executable, _web_command("%s:%s" % (args.host, args.port)))
 
 
@@ -354,7 +364,7 @@ def cmd_start(args):
     print("Open http://%s:%s/  (Ctrl-C stops the worker and the web app)" % (args.host, args.port))
     env = _child_env()
     worker = subprocess.Popen([sys.executable, "-m", "worker"], env=env)
-    web = subprocess.Popen(_web_command(bind), env=env)
+    web = subprocess.Popen(_web_command(bind), env=_web_env(args.host))
 
     def stop(_signum=None, _frame=None):
         for proc in (worker, web):
