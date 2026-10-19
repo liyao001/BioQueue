@@ -9,7 +9,7 @@
 from __future__ import print_function
 
 
-def cancel_job(job_id):
+def cancel_job(job_id, extras=None):
     """
     Cancel job
     :param job_id: int, job id
@@ -37,7 +37,7 @@ def load_template():
     return template
 
 
-def query_job_status(job_id):
+def query_job_status(job_id, extras=None):
     """
     Query job status
     :param job_id: int, job id
@@ -99,7 +99,7 @@ def readable_to_kb(raw_value):
     return value_in_kb
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace='', extras=None):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"
@@ -121,7 +121,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     if not os.path.exists(workspace):
         try:
             os.makedirs(workspace)
-        except:
+        except OSError:
             pass
 
     job_name = str(job_id)+'-'+str(job_step)+'.xsd'
@@ -162,7 +162,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         status_m = re.search(re_pattern_for_lsf_id, stdout)
         try:
             os.remove(job_file_path)
-        except:
+        except OSError:
             pass
         if status_m:
             lsf_trace_id = status_m.group(1)

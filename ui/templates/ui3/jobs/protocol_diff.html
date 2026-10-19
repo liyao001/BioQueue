@@ -1,0 +1,24 @@
+{% extends "ui3/base.html" %}
+{% block title %}Protocol diff #{{ job.id }} – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Protocol version diff</h1>
+  <p class="text-sm opacity-70 page-head-sub">
+    Job <a class="underline" href="{% url 'ui3:jobs' %}?id={{ job.id }}">#{{ job.id }} {{ job.job_name }}</a>
+    used protocol {{ job.protocol.name }} version <code>{{ job_ver|default:"(unknown)" }}</code>;
+    current version is <code>{{ current_ver|default:"(unknown)" }}</code>.
+    {% if versions_match %}<span class="ml-1">Versions match.</span>{% endif %}
+  </p>
+</div>
+
+<div class="card bg-base-100 shadow-sm p-5">
+  {% if dump_missing %}
+  <p class="text-sm opacity-70">No protocol dump on disk for one or both versions (<code>protocol_dumps/{id}_{ver}.txt</code>), so a reliable diff cannot be shown.</p>
+  {% elif diff %}
+  <pre class="diff-pre">{% for line in diff %}<span class="{{ line.cls }}">{{ line.text }}</span>
+{% endfor %}</pre>
+  {% else %}
+  <p class="text-sm opacity-70">No differences found.</p>
+  {% endif %}
+</div>
+{% endblock %}

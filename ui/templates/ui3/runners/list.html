@@ -1,0 +1,42 @@
+{% extends "ui3/base.html" %}
+{% block title %}Runners – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">Runners</h1>
+    <p class="text-sm opacity-70 page-head-sub">A job assigned to a runner uses that record. Jobs with no runner use <span class="font-mono">config/custom.conf</span>.</p>
+  </div>
+</div>
+
+<form id="runner-filters" class="filter-bar flex flex-wrap gap-2 mb-4"
+      hx-get="{% url 'ui3:runners' %}"
+      hx-target="#runner-table"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="#page-size-select"
+      hx-trigger="submit, input delay:400ms, change">
+  <input class="input input-bordered input-sm flex-1" type="text" name="q" value="{{ q }}" placeholder="Search by name, host, comment, or id">
+  <button class="btn btn-sm" type="submit">Search</button>
+</form>
+
+{% include "ui3/runners/_table.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Add runner</h2>
+  <p class="text-sm opacity-70 mb-4">Leave the SSH host blank when BioQueue is on the cluster and can run <span class="font-mono">sbatch</span>, <span class="font-mono">bsub</span>, <span class="font-mono">qsub</span>, or <span class="font-mono">condor_submit</span> itself. Set an SSH host for remote Slurm. Blank remote paths inherit <span class="font-mono">cluster.*</span>, then <span class="font-mono">/home/&lt;ssh user&gt;/bioqueue-scripts</span> and <span class="font-mono">/home/&lt;ssh user&gt;/workdir</span>. Start the process with <span class="font-mono">python -m worker --slave &lt;name&gt;</span>.</p>
+  <form method="post" action="{% url 'ui3:runner_create' %}"
+        hx-post="{% url 'ui3:runner_create' %}"
+        hx-target="#runner-table"
+        hx-swap="outerHTML"
+        hx-sync="#runner-filters:replace"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {% include "ui3/runners/_fields.html" %}
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Create runner</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-lg" role="dialog" aria-modal="true" aria-labelledby="uploads-title">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 id="uploads-title" class="font-bold text-lg pr-8">Select files from uploads</h3>
+    <form class="mt-2 mb-3" hx-get="{% url 'ui3:workspace_uploads' %}"
+          hx-target="#modal-root" hx-swap="innerHTML">
+      <input type="hidden" name="target" value="{{ target_id }}">
+      <input class="ui-input w-full" type="search" name="q" value="{{ q }}"
+             placeholder="filter files"
+             hx-get="{% url 'ui3:workspace_uploads' %}"
+             hx-trigger="input delay:250ms"
+             hx-target="#modal-root"
+             hx-swap="innerHTML"
+             hx-include="closest form"
+             autocomplete="off">
+    </form>
+    <div class="overflow-x-auto max-h-80">
+      <table class="table table-sm table-zebra w-full">
+        <thead>
+          <tr>
+            <th class="w-16">Select</th>
+            <th>Name</th>
+            <th class="w-24">Size</th>
+            <th class="w-40">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>
+              <input type="checkbox" class="checkbox checkbox-sm upload-opt"
+                     data-rel="{{ item.name }}" value="{{ item.name }}">
+            </td>
+            <td class="font-mono text-sm break-all">{{ item.name }}</td>
+            <td>{{ item.size_label }}</td>
+            <td class="text-xs opacity-70">{{ item.file_create }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-center text-sm opacity-60 py-4">No files found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-3 flex justify-end gap-2">
+      <button type="button" class="ui-btn" data-ui3-close>Cancel</button>
+      <button type="button" class="ui-btn ui-btn-primary"
+              onclick="ui3.insertUploads('{{ target_id }}')">Insert</button>
+    </div>
+  </div>
+</div>

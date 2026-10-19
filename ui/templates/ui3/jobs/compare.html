@@ -1,0 +1,59 @@
+{% extends "ui3/base.html" %}
+{% block title %}Compare #{{ left.id }} vs #{{ right.id }} – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Compare jobs</h1>
+  <p class="text-sm opacity-70 page-head-sub">
+    <a class="underline" href="{% url 'ui3:jobs' %}?id={{ left.id }}">#{{ left.id }} {{ left.job_name }}</a>
+    vs
+    <a class="underline" href="{% url 'ui3:jobs' %}?id={{ right.id }}">#{{ right.id }} {{ right.job_name }}</a>
+    {% if not same_protocol %}<span class="ml-2 text-xs opacity-70">Different protocols</span>{% endif %}
+  </p>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+  <div class="card bg-base-100 shadow-sm p-5 overflow-x-auto">
+    <h2 class="text-lg font-semibold">Parameters</h2>
+    <table class="table table-sm diff-table mt-2">
+      <thead><tr><th>Key</th><th>#{{ left.id }}</th><th>#{{ right.id }}</th></tr></thead>
+      <tbody>
+        {% for row in param_rows %}
+        <tr>
+          <td class="font-mono text-xs">{{ row.key }}</td>
+          <td class="font-mono text-xs break-all {% if row.state == 'changed' %}is-changed{% elif row.state == 'only-left' %}is-only-left{% endif %}">{{ row.left }}</td>
+          <td class="font-mono text-xs break-all {% if row.state == 'changed' %}is-changed{% elif row.state == 'only-right' %}is-only-right{% endif %}">{{ row.right }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="opacity-70">No parameters on either job.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if param_diff %}
+    <pre class="diff-pre mt-3">{% for line in param_diff %}<span class="{{ line.cls }}">{{ line.text }}</span>
+{% endfor %}</pre>
+    {% endif %}
+  </div>
+
+  <div class="card bg-base-100 shadow-sm p-5 overflow-x-auto">
+    <h2 class="text-lg font-semibold">Input files</h2>
+    <table class="table table-sm diff-table mt-2">
+      <thead><tr><th>Path</th><th>#{{ left.id }}</th><th>#{{ right.id }}</th></tr></thead>
+      <tbody>
+        {% for row in input_rows %}
+        <tr>
+          <td class="font-mono text-xs break-all">{{ row.path }}</td>
+          <td>{% if row.state != 'only-right' %}yes{% else %}—{% endif %}</td>
+          <td>{% if row.state != 'only-left' %}yes{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="opacity-70">No input files on either job.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if input_diff %}
+    <pre class="diff-pre mt-3">{% for line in input_diff %}<span class="{{ line.cls }}">{{ line.text }}</span>
+{% endfor %}</pre>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

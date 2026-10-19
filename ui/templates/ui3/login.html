@@ -1,0 +1,32 @@
+{% extends "ui3/base.html" %}
+{% block title %}Sign In – BioQueue{% endblock %}
+{% block body_class %} login-body{% endblock %}
+{% block content %}
+<div class="login-page">
+  <div class="page-head mb-4">
+    <h1 class="text-2xl font-semibold">Sign in</h1>
+    <p class="text-sm opacity-70 page-head-sub">Continue to BioQueue</p>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+  {% endif %}
+
+  <form method="post" action="{% url 'ui3:login' %}" class="card bg-base-100 shadow-sm p-5 space-y-4">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label class="form-control">
+      <div class="label"><span class="label-text">Username</span></div>
+      <input class="ui-input w-full" type="text" name="username" autocomplete="username" required autofocus>
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Password</span></div>
+      <input class="ui-input w-full" type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <div class="flex items-center justify-between gap-3">
+      <a class="text-sm underline opacity-80" href="{% url 'ui3:register' %}">Create an account</a>
+      <button class="ui-btn ui-btn-primary" type="submit">Sign in</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

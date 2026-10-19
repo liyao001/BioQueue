@@ -1,0 +1,38 @@
+<div class="ui-overlay">
+  <div class="ui-modal ui-modal-lg" role="dialog" aria-modal="true">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 class="font-bold text-lg pr-8">Edit {{ hook.name }}</h3>
+    <form class="mt-3 space-y-2" method="post" action="{% url 'ui3:notification_edit' hook.id %}"
+          hx-post="{% url 'ui3:notification_edit' hook.id %}"
+          hx-target="#notification-table"
+          hx-swap="outerHTML">
+      {% csrf_token %}
+      <label class="form-control">
+        <div class="label"><span class="label-text">Name</span></div>
+        <input class="ui-input w-full" name="name" value="{{ hook.name }}" maxlength="80" required autocomplete="off">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Service</span></div>
+        <select class="ui-select w-full" name="provider"
+                hx-get="{% url 'ui3:notification_fields' %}"
+                hx-target="#notification-fields-edit"
+                hx-swap="innerHTML"
+                hx-params="provider"
+                hx-vals='{"hook": "{{ hook.id }}"}'
+                hx-trigger="change">
+          {% for item in providers %}
+          <option value="{{ item.key }}" {% if item.key == hook.provider %}selected{% endif %}>{{ item.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div id="notification-fields-edit" class="space-y-2">
+        {% include "ui3/notifications/_fields.html" %}
+      </div>
+      {% include "ui3/notifications/_events.html" %}
+      <div class="mt-3 flex justify-end gap-2">
+        <button class="ui-btn" type="button" data-ui3-close>Cancel</button>
+        <button class="ui-btn ui-btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

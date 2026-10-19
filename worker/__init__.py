@@ -1,4 +1,6 @@
-#!/usr/bin/env python
-# coding=utf-8
-# Created by: Li Yao
-# Created on: 6/23/20
+"""BioQueue worker. Run with ``python -m worker`` or ``python worker/bioqueue.py``.
+
+Self-contained: vendored ``bases``, ``step``, cluster backends, and ``ml_collector``.
+"""
+
+__all__: list[str] = []

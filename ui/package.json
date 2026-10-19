@@ -1,0 +1,12 @@
+{
+  "name": "bioqueue-ui3",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static_src/input.css -o ./static/ui3/app.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.12",
+    "daisyui": "^5.0.50",
+    "tailwindcss": "^4.1.12"
+  }
+}

@@ -1,0 +1,273 @@
+{% load ui3_tags %}
+{% if not selected %}
+  <div class="card bg-base-100 shadow-sm p-8 text-center opacity-70">
+    <p class="text-sm">Select a protocol to edit its steps.</p>
+  </div>
+{% else %}
+<div class="card bg-base-100 shadow-sm p-5 space-y-5">
+  <div class="flex items-start justify-between gap-3 flex-wrap">
+    {% if not can_edit_selected %}
+    <div class="min-w-0">
+      <h2 class="text-lg font-semibold truncate">
+        {{ selected.name }}
+        <span class="opacity-50 font-normal text-base">#{{ selected.id }}</span>
+      </h2>
+      <p class="text-sm opacity-70 mt-0.5 whitespace-pre-wrap">{{ selected.description|default:"No description" }}</p>
+      <p class="text-sm mt-2"><span class="opacity-70">Version</span> <span class="font-mono break-all">{{ selected.ver|default:"Not computed yet" }}</span></p>
+    </div>
+    {% endif %}
+    <div class="flex gap-2 flex-wrap">
+      <a class="ui-btn" href="{% url 'ui3:protocol_export' selected.id %}">
+        <i class="fa-solid fa-file-export"></i> Export JSON
+      </a>
+      <button type="button" class="ui-btn"
+              onclick="document.getElementById('clone-form').classList.toggle('hidden')">
+        <i class="fa-regular fa-copy"></i> Clone
+      </button>
+      {% if can_edit_selected %}
+      <button type="button" class="ui-btn"
+              onclick="document.getElementById('share-form').classList.toggle('hidden')">
+        <i class="fa-solid fa-share-nodes"></i> Share
+      </button>
+      {% endif %}
+      {% if can_edit_selected %}
+      <form method="post" action="{% url 'ui3:protocol_delete' selected.id %}"
+            hx-post="{% url 'ui3:protocol_delete' selected.id %}"
+            hx-target="#protocol-workspace" hx-swap="outerHTML"
+            hx-confirm="Delete protocol '{{ selected.name }}' and all of its steps?">
+        {% csrf_token %}
+        <button class="ui-btn icon-btn-danger" type="submit"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <form id="clone-form" class="hidden border border-base-300 rounded-md p-3 space-y-3 bg-base-200/40"
+        method="post" action="{% url 'ui3:protocol_clone' selected.id %}"
+        hx-post="{% url 'ui3:protocol_clone' selected.id %}"
+        hx-target="#protocol-workspace" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Clone name</span></div>
+      <input class="ui-input w-full" name="name" value="{{ selected.name }} (copy)" required>
+    </label>
+    <label class="label cursor-pointer justify-start gap-2 px-0">
+      <input type="checkbox" class="checkbox checkbox-sm" name="copy_description" value="1" checked>
+      <span class="label-text">Copy description</span>
+    </label>
+    <label class="label cursor-pointer justify-start gap-2 px-0">
+      <input type="checkbox" class="checkbox checkbox-sm" name="copy_shortcuts" value="1" checked>
+      <span class="label-text">Copy shortcuts</span>
+    </label>
+    <button class="ui-btn ui-btn-primary" type="submit">Clone protocol</button>
+  </form>
+
+  {% if can_edit_selected %}
+  <form id="share-form" class="hidden border border-base-300 rounded-md p-3 space-y-3 bg-base-200/40"
+        method="post" action="{% url 'ui3:protocol_share' selected.id %}"
+        hx-post="{% url 'ui3:protocol_share' selected.id %}"
+        hx-target="#protocol-workspace" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Account or project username</span></div>
+      <input class="ui-input w-full" name="peer" maxlength="150" required
+             placeholder="Enter a username" autocomplete="off">
+    </label>
+    <p class="text-sm opacity-70">Copies this protocol and its steps onto that account, including references and environments that account does not already have. One account at a time.</p>
+    <button class="ui-btn ui-btn-primary" type="submit">Share with a peer</button>
+  </form>
+  {% endif %}
+
+  {% if can_edit_selected %}
+  <form id="protocol-meta-form" {% if editor %}data-tpl-form{% endif %} class="space-y-3" method="post" action="{% url 'ui3:protocol_update' selected.id %}"
+        hx-post="{% url 'ui3:protocol_update' selected.id %}"
+        hx-target="#protocol-workspace" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Name</span></div>
+      <input class="ui-input w-full" name="name" value="{{ selected.name }}" required>
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Description</span></div>
+      <textarea class="ui-input w-full" name="description" rows="6"
+                placeholder="optional description">{{ selected.description|default:'' }}</textarea>
+    </label>
+    <div>
+      <div class="label"><span class="label-text">Version</span></div>
+      <p class="font-mono text-sm break-all">{{ selected.ver|default:"Not computed yet" }}</p>
+    </div>
+    {% if template_active %}
+    {% if editor %}
+    {{ token_list|json_script:"ui3-tokens" }}
+    {% include "ui3/protocols/_template_editor.html" %}
+    {% else %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Template JSON</span></div>
+      <textarea class="ui-input w-full font-mono" name="template" rows="14"
+                oninput="ui3.validateJsonField(this, 'template')">{{ template_source }}</textarea>
+      <span class="text-sm" role="status" aria-live="polite"></span>
+      <div class="label"><span class="label-text-alt opacity-70">Saved with the protocol. Map steps run once per sample; later steps see every sample.</span></div>
+    </label>
+    {% endif %}
+    {% endif %}
+    {% if not editor %}
+    <button class="ui-btn" type="submit"><i class="fa-regular fa-floppy-disk"></i> Save protocol</button>
+    {% endif %}
+  </form>
+  {% else %}
+  <p class="text-sm opacity-70">This is a public protocol. Clone it to make your own editable copy.</p>
+  {% endif %}
+
+  {% if template_active and not editor %}
+  <details class="tpl-entry">
+    <summary>
+      <span class="tpl-entry-title">Template</span>
+      <span class="tpl-entry-meta">samples, blocks, then a join</span>
+    </summary>
+    <div class="tpl-entry-body">
+    {% if template_error %}
+    <div class="alert alert-warning text-sm"><span>{{ template_error }}</span></div>
+    {% endif %}
+    {% if template_outline %}
+    <ol class="border border-base-300 rounded-md text-sm font-mono">
+      {% for line in template_outline %}
+      <li class="px-3 py-1 border-b border-base-200 last:border-b-0" style="padding-left: calc(0.75rem + {{ line.depth }}rem)">{{ line.text }}</li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+    </div>
+  </details>
+  {% if template_preview %}
+  <details class="tpl-entry">
+    <summary>
+      <span class="tpl-entry-title">Expanded preview</span>
+      <span class="tpl-entry-meta">{{ template_preview|length }} step{{ template_preview|length|pluralize }} for two samples</span>
+    </summary>
+    <div class="tpl-entry-body">
+    <div class="overflow-x-auto border border-base-300 rounded-md">
+      <table class="table table-sm w-full step-table">
+        <thead>
+          <tr class="bg-base-200/60">
+            <th class="w-12">#</th>
+            <th>Software</th>
+            <th>Run environment</th>
+            <th>Parameter</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in template_preview %}
+          <tr>
+            <td class="align-top opacity-70">{{ st.step_order }}</td>
+            <td class="align-top font-medium">{{ st.software }}</td>
+            <td class="align-top">{{ st.env_name|default:"Default worker environment" }}</td>
+            <td class="align-top font-mono text-xs max-w-md break-all whitespace-pre-wrap">{{ st.parameter }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    </div>
+  </details>
+  {% endif %}
+  {% else %}
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-semibold">Steps</h3>
+      <span class="text-xs opacity-60">{{ steps|length }} step{{ steps|length|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto border border-base-300 rounded-md">
+      <table class="table table-sm w-full step-table">
+        <thead>
+          <tr class="bg-base-200/60">
+            {% if can_edit_selected %}<th class="w-8"></th>{% endif %}
+            <th class="w-12">#</th>
+            <th>Software</th>
+            <th>Parameter</th>
+            <th class="w-32">Env</th>
+            <th class="w-36 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="protocol-steps"
+               {% if can_edit_selected and steps|length > 1 %}
+               data-reorder-url="{% url 'ui3:step_reorder' selected.id %}"
+               data-step-order="{% for st in steps %}{{ st.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+               ondragover="ui3.stepDragOver(event)"
+               {% endif %}>
+          {% for st in steps %}
+          <tr data-step-id="{{ st.id }}">
+            {% if can_edit_selected %}
+            <td class="align-top">
+              {% if steps|length > 1 %}
+              <button type="button" class="icon-btn step-drag" draggable="true" title="Drag to reorder"
+                      aria-label="Drag step {{ st.step_order }}"
+                      ondragstart="ui3.stepDragStart(event)"
+                      ondragend="ui3.stepDragEnd(event)">
+                <i class="fa-solid fa-grip-vertical"></i>
+              </button>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td class="align-top opacity-70">{{ st.step_order }}</td>
+            <td class="align-top font-medium">
+              {% if st.software|is_shell_step %}
+                <span class="step-shell-badge inline-flex items-center rounded-md border border-base-300 bg-base-200 px-2 py-0.5 text-xs font-semibold" title="{% shell_software %}">Shell</span>
+              {% else %}
+                {{ st.software }}
+              {% endif %}
+            </td>
+            <td class="align-top font-mono text-xs max-w-md break-all whitespace-pre-wrap">{{ st.parameter }}</td>
+            <td class="align-top text-sm opacity-80">{{ st.env.name|default:"—" }}</td>
+            <td class="align-top text-right whitespace-nowrap">
+              {% if can_edit_selected %}
+              <div class="inline-flex items-center gap-1 justify-end">
+                <form method="post" action="{% url 'ui3:step_move' st.id %}"
+                      hx-post="{% url 'ui3:step_move' st.id %}" hx-target="#protocol-detail">
+                  {% csrf_token %}<input type="hidden" name="direction" value="up">
+                  <button class="icon-btn" type="submit" title="Move up"><i class="fa-solid fa-arrow-up"></i></button>
+                </form>
+                <form method="post" action="{% url 'ui3:step_move' st.id %}"
+                      hx-post="{% url 'ui3:step_move' st.id %}" hx-target="#protocol-detail">
+                  {% csrf_token %}<input type="hidden" name="direction" value="down">
+                  <button class="icon-btn" type="submit" title="Move down"><i class="fa-solid fa-arrow-down"></i></button>
+                </form>
+                <button type="button" class="icon-btn"
+                        hx-get="{% url 'ui3:step_edit' st.id %}"
+                        hx-target="#modal-root" hx-swap="innerHTML" title="Edit">
+                  <i class="fa-regular fa-pen-to-square"></i>
+                </button>
+                <form method="post" action="{% url 'ui3:step_delete' st.id %}"
+                      hx-post="{% url 'ui3:step_delete' st.id %}" hx-target="#protocol-detail"
+                      hx-confirm="Delete this step?">
+                  {% csrf_token %}
+                  <button class="icon-btn icon-btn-danger" type="submit" title="Delete">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="{% if can_edit_selected %}6{% else %}5{% endif %}" class="text-center text-sm opacity-60 py-6">No steps yet</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if can_edit_selected %}
+  <form class="border-t border-base-300 pt-4 space-y-3"
+        method="post" action="{% url 'ui3:step_create' selected.id %}"
+        hx-post="{% url 'ui3:step_create' selected.id %}" hx-target="#protocol-detail">
+    {% csrf_token %}
+    <div class="font-medium text-sm">Add step</div>
+    {{ token_list|json_script:"ui3-tokens" }}
+    {% include "ui3/protocols/_step_fields.html" with software_required=1 %}
+    <button class="ui-btn ui-btn-primary" type="submit"><i class="fas fa-plus"></i> Add step</button>
+  </form>
+  {% endif %}
+  {% endif %}
+
+  {% include "ui3/protocols/_shortcuts.html" %}
+</div>
+{% endif %}

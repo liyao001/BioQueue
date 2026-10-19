@@ -1,0 +1,36 @@
+{% load ui3_tags %}
+<div id="reference-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  <table class="table table-sm">
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Path</th><th>Description</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in references %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.name }}</td>
+        <td class="font-mono text-xs max-w-md truncate" title="{{ r.path }}">{{ r.path }}</td>
+        <td class="text-sm">{{ r.description }}</td>
+        <td class="whitespace-nowrap">
+          {% if r|can_edit:request.user %}
+          <button class="btn btn-xs" hx-get="{% url 'ui3:reference_edit' r.id %}" hx-target="#modal-root" hx-swap="innerHTML">Edit</button>
+          <form class="inline" method="post" action="{% url 'ui3:reference_delete' r.id %}"
+                hx-post="{% url 'ui3:reference_delete' r.id %}"
+                hx-target="#reference-table"
+                hx-confirm="Delete reference '{{ r.name }}'?">
+            {% csrf_token %}
+            <button class="btn btn-xs btn-error" type="submit"><i class="fa-regular fa-trash-can"></i></button>
+          </form>
+          {% else %}
+          <span class="text-xs opacity-50">public</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="opacity-70">No references</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% url 'ui3:references' as list_url %}
+  {% include "ui3/partials/pager.html" with hx_target="#reference-table" hx_include="#reference-filters" item_label="reference" %}
+</div>

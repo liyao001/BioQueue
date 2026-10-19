@@ -1,9 +1,29 @@
+from django.http import JsonResponse
 from django.shortcuts import render
 from .forms import LoginForm, PasswordChangeForm, UserRegisterForm
 from django.contrib.auth import authenticate, login, update_session_auth_hash
-from ui.tools import success, error
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
+
+
+def success(message, jump_url=".", msg_title="success", status=1, wait_second=1):
+    return JsonResponse({
+        "msg_title": msg_title,
+        "info": message,
+        "url": jump_url,
+        "status": status,
+        "wait_second": wait_second,
+    })
+
+
+def error(message, jump_url=".", msg_title="error", status=0, wait_second=3):
+    return JsonResponse({
+        "msg_title": msg_title,
+        "info": str(message),
+        "url": jump_url,
+        "status": status,
+        "wait_second": wait_second,
+    })
 
 
 def user_login(request):

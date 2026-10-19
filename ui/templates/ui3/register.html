@@ -1,0 +1,49 @@
+{% extends "ui3/base.html" %}
+{% block title %}Register – BioQueue{% endblock %}
+{% block body_class %} login-body{% endblock %}
+{% block content %}
+<div class="login-page register-page">
+  <div class="page-head mb-4">
+    <h1 class="text-2xl font-semibold">Create an account</h1>
+    <p class="text-sm opacity-70 page-head-sub">An administrator must activate new accounts before sign-in</p>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-error mb-4"><span>{{ error }}</span></div>
+  {% endif %}
+
+  <form method="post" action="{% url 'ui3:register' %}" class="card bg-base-100 shadow-sm p-5 space-y-4">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Username</span></div>
+      <input class="ui-input w-full" type="text" name="username" value="{{ form.username }}" maxlength="150" autocomplete="username" required autofocus>
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Email</span><span class="label-text-alt">optional</span></div>
+      <input class="ui-input w-full" type="email" name="email" value="{{ form.email }}" maxlength="254" autocomplete="email">
+    </label>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label class="form-control">
+        <div class="label"><span class="label-text">First name</span></div>
+        <input class="ui-input w-full" type="text" name="first_name" value="{{ form.first_name }}" maxlength="150" autocomplete="given-name">
+      </label>
+      <label class="form-control">
+        <div class="label"><span class="label-text">Last name</span></div>
+        <input class="ui-input w-full" type="text" name="last_name" value="{{ form.last_name }}" maxlength="150" autocomplete="family-name">
+      </label>
+    </div>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Password</span></div>
+      <input class="ui-input w-full" type="password" name="password" autocomplete="new-password" required>
+    </label>
+    <label class="form-control">
+      <div class="label"><span class="label-text">Confirm password</span></div>
+      <input class="ui-input w-full" type="password" name="password_2" autocomplete="new-password" required>
+    </label>
+    <div class="flex items-center justify-between gap-3">
+      <a class="text-sm underline opacity-80" href="{% url 'ui3:login' %}">Sign in instead</a>
+      <button class="ui-btn ui-btn-primary" type="submit">Register</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bioqueue"
+version = "2.0.0"
+description = "A personal job workspace for computational biology"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Li Yao"}]
+dependencies = [
+    "Django>=5.2,<6",
+    "numpy",
+    "psutil",
+    "pytz",
+    "scipy",
+    "sqlparse",
+    "python-magic",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg2-binary>=2.9"]
+mysql = ["PyMySQL>=1.1"]
+
+[project.scripts]
+bioqueue = "BioQueue.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/liyao001/BioQueue"
+Documentation = "https://github.com/liyao001/BioQueue/tree/master/docs"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["BioQueue*", "QueueDB*", "accounts*", "ui*", "worker", "worker.*"]
+exclude = ["ui.plugins.local*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+BioQueue = ["templates/**/*", "data/*"]
+ui = ["templates/**/*", "static/**/*"]
+accounts = ["templates/**/*"]
+
+[tool.setuptools.exclude-package-data]
+ui = ["node_modules/**", "static_src/**", "plugins/local/**"]

@@ -1,0 +1,97 @@
+<div id="user-table" class="card bg-base-100 shadow-sm overflow-x-auto">
+  {% if pending_count %}
+  <div class="px-4 pt-4 flex justify-end">
+    <a class="ui-btn ui-btn-primary" href="{% url 'ui3:users' %}?state=pending">{{ pending_count }} pending</a>
+  </div>
+  {% endif %}
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Role</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="opacity-70">{{ u.id }}</td>
+        <td>{{ u.username }}</td>
+        <td class="text-sm">{{ u.first_name }} {{ u.last_name }}</td>
+        <td class="text-sm">{{ u.email|default:"—" }}</td>
+        <td>
+          {% if u.is_active %}
+            <span class="badge badge-success badge-sm">Active</span>
+          {% elif not u.last_login %}
+            <span class="badge badge-warning badge-sm">Pending</span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">Deactivated</span>
+          {% endif %}
+        </td>
+        <td class="text-sm">{% if u.is_superuser %}Superuser{% elif u.is_staff %}Staff{% else %}User{% endif %}</td>
+        <td class="text-xs opacity-80 whitespace-nowrap">{{ u.date_joined|date:"Y-m-d H:i" }}</td>
+        <td class="whitespace-nowrap">
+          {% if u.is_superuser and not request.user.is_superuser %}
+          {% elif not u.is_active %}
+          <form class="inline" method="post" action="{% url 'ui3:user_activate' u.id %}"
+                hx-post="{% url 'ui3:user_activate' u.id %}"
+                hx-target="#user-table"
+                hx-swap="outerHTML"
+                hx-include="#user-filters"
+                {% if u.last_login %}hx-confirm="Reactivate {{ u.username|escapejs }}? They will be able to sign in."{% endif %}>
+            {% csrf_token %}
+            <input type="hidden" name="active" value="1">
+            <button class="ui-btn ui-btn-primary" type="submit">{% if u.last_login %}Reactivate{% else %}Approve{% endif %}</button>
+          </form>
+          {% elif u.id != request.user.id %}
+          <form class="inline" method="post" action="{% url 'ui3:user_activate' u.id %}"
+                hx-post="{% url 'ui3:user_activate' u.id %}"
+                hx-target="#user-table"
+                hx-swap="outerHTML"
+                hx-include="#user-filters"
+                hx-confirm="Deactivate {{ u.username|escapejs }}? They will not be able to sign in.">
+            {% csrf_token %}
+            <input type="hidden" name="active" value="0">
+            <button class="ui-btn" type="submit">Deactivate</button>
+          </form>
+          {% endif %}
+          {% if request.user.is_superuser and u.id != request.user.id and not u.is_superuser %}
+            {% if u.is_staff %}
+            <form class="inline" method="post" action="{% url 'ui3:user_staff' u.id %}"
+                  hx-post="{% url 'ui3:user_staff' u.id %}"
+                  hx-target="#user-table"
+                  hx-swap="outerHTML"
+                  hx-include="#user-filters"
+                  hx-confirm="Remove staff from {{ u.username|escapejs }}?">
+              {% csrf_token %}
+              <input type="hidden" name="staff" value="0">
+              <button class="ui-btn" type="submit">Revoke staff</button>
+            </form>
+            {% else %}
+            <form class="inline" method="post" action="{% url 'ui3:user_staff' u.id %}"
+                  hx-post="{% url 'ui3:user_staff' u.id %}"
+                  hx-target="#user-table"
+                  hx-swap="outerHTML"
+                  hx-include="#user-filters"
+                  hx-confirm="Grant staff to {{ u.username|escapejs }}?">
+              {% csrf_token %}
+              <input type="hidden" name="staff" value="1">
+              <button class="ui-btn" type="submit">Make staff</button>
+            </form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="opacity-70">No accounts</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% url 'ui3:users' as list_url %}
+  {% include "ui3/partials/pager.html" with hx_target="#user-table" hx_include="#user-filters" item_label="account" %}
+</div>

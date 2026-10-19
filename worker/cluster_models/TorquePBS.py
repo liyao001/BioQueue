@@ -26,7 +26,7 @@ def alter_attribute(job_id, attribute):
         return 0
 
 
-def cancel_job(job_id):
+def cancel_job(job_id, extras=None):
     """
     Cancel job
     :param job_id: int, job id
@@ -104,7 +104,7 @@ def load_template():
     return template
 
 
-def query_job_status(job_id):
+def query_job_status(job_id, extras=None):
     """
     Query job status
     :param job_id: int, job id
@@ -150,7 +150,7 @@ def query_job_status(job_id):
                 else:
                     exit_code = 0
                 return int(exit_code)
-            except:
+            except (ValueError, TypeError, AttributeError):
                 return 0
     else:
         return -3
@@ -173,7 +173,7 @@ def release_job(job_id):
         return 0
 
 
-def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace=''):
+def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', log_file='', wall_time='', workspace='', extras=None):
     """
     Submit job
     :param protocol: string, job parameter, like "wget http://www.a.com/b.txt"
@@ -194,7 +194,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     if not os.path.exists(workspace):
         try:
             os.makedirs(workspace)
-        except:
+        except OSError:
             pass
 
     job_name = str(job_id)+'-'+str(job_step)+'.pbs'
@@ -228,7 +228,7 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
         pbs_trace_id = stdout.split('\n')[0]
         try:
             os.remove(job_file_path)
-        except:
+        except OSError:
             pass
         return pbs_trace_id
     except Exception as e:

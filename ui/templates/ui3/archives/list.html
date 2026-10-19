@@ -1,0 +1,10 @@
+{% extends "ui3/base.html" %}
+{% block title %}Archives – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">File archives</h1>
+  <p class="text-sm opacity-70 page-head-sub">Queued tar jobs (FileArchive). A worker compresses status=queued items.</p>
+</div>
+
+{% include "ui3/archives/_table.html" %}
+{% endblock %}

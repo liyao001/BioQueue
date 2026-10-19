@@ -1,0 +1,50 @@
+{% extends "ui3/base.html" %}
+{% block title %}Protocols – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head flex items-center justify-between mb-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold">Protocols</h1>
+    <p class="text-sm opacity-70 page-head-sub">Manage protocols and their steps</p>
+  </div>
+  <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+    <form method="post" action="{% url 'ui3:protocol_import' %}" enctype="multipart/form-data"
+          class="inline-flex items-center gap-2">
+      {% csrf_token %}
+      <input class="ui-input" type="file" name="file" accept=".json,application/json"
+             required aria-label="Protocol JSON file">
+      <button class="ui-btn" type="submit"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+    </form>
+    <a class="ui-btn" href="{% url 'ui3:protocol_template_create' %}"><i class="fas fa-layer-group"></i> New Template</a>
+    <a class="ui-btn ui-btn-primary" href="{% url 'ui3:protocol_create' %}"><i class="fas fa-plus"></i> New Protocol</a>
+  </div>
+</div>
+{% include "ui3/protocols/_workspace.html" %}
+{% endblock %}
+{% block extra_js %}
+<script>
+  (function () {
+    var KEY = "ui3.protocolListCollapsed";
+    function collapsed() {
+      try { return localStorage.getItem(KEY) === "1"; } catch (e) { return false; }
+    }
+    function syncProtocolList() {
+      var on = collapsed();
+      document.documentElement.classList.toggle("protocol-list-collapsed", on);
+      var btn = document.querySelector(".protocol-list-toggle");
+      if (!btn) return;
+      var label = on ? "Expand list" : "Collapse list";
+      btn.setAttribute("aria-expanded", on ? "false" : "true");
+      btn.title = label;
+      btn.setAttribute("aria-label", label);
+    }
+    document.addEventListener("click", function (event) {
+      var btn = event.target.closest && event.target.closest(".protocol-list-toggle");
+      if (!btn) return;
+      try { localStorage.setItem(KEY, collapsed() ? "0" : "1"); } catch (e) {}
+      syncProtocolList();
+    });
+    document.body.addEventListener("htmx:afterSettle", syncProtocolList);
+    syncProtocolList();
+  })();
+</script>
+{% endblock %}
