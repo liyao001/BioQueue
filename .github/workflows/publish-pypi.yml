@@ -1,0 +1,82 @@
+# Publishes to PyPI when a GitHub release is published.
+# The trusted publisher on PyPI must name this file and the environment "pypi".
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set the version from the release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          version = tag[1:] if tag.startswith("v") else tag
+          version = re.sub(r"[-_]((?:a|b|rc|post|dev)\d+)", r"\1", version)
+          if not re.fullmatch(
+              r"[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc)[0-9]+)?(?:\.post[0-9]+)?(?:\.dev[0-9]+)?",
+              version,
+          ):
+              raise SystemExit(
+                  f"Release tag {tag!r} is not a package version. Use a tag like v2.0.0."
+              )
+          path = Path("pyproject.toml")
+          text = path.read_text()
+          new, count = re.subn(
+              r'(?m)^version = "[^"]+"',
+              f'version = "{version}"',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("pyproject.toml has no version field")
+          path.write_text(new)
+          print(f"version={version}")
+          PY
+
+      - name: Build the sdist and wheel
+        run: |
+          python -m pip install build twine
+          python -m build
+          twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/bioqueue
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
