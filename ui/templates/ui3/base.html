@@ -1273,7 +1273,14 @@
           return;
         }
         if (Array.isArray(value)) {
-          var kept = value.filter(function (v) { return v !== "" && v !== null && v !== undefined; });
+          // htmx 2 wraps repeated fields in a FormData proxy. Calling
+          // .filter() on that proxy discards the return value, so kept
+          // was undefined and kept.length threw when purging or refreshing.
+          var kept = [];
+          for (var i = 0; i < value.length; i++) {
+            var item = value[i];
+            if (item !== "" && item !== null && item !== undefined) kept.push(item);
+          }
           if (!kept.length) delete params[key];
           else params[key] = kept.length === 1 ? kept[0] : kept;
         }

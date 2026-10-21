@@ -827,6 +827,11 @@ class JobTests(Ui3TestCase):
             r'hx-get="%s"\s+hx-vals=\'\{"page": "2"\}\'' % reverse("ui3:jobs"),
         )
         self.assertContains(multi, "htmx:configRequest")
+        # Repeated fields (combo_q) arrive as an htmx FormData proxy.
+        # Its array methods drop their return value, so .filter() left
+        # `kept` undefined and threw on purge / refresh.
+        self.assertNotIn("value.filter(", multi.content.decode())
+        self.assertIn("FormData proxy", multi.content.decode())
 
     def test_list_params_compacts_duplicate_empty_query(self):
         from ui.http import compact_querydict, list_params
