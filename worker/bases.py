@@ -432,29 +432,70 @@ def get_job_log(file_path):
         return 'This is not a plain text file.'
 
 
+# Operators that shlex keeps as their own argument when spaces surround them.
+# ``{{Key||default}}`` is not in this set: the placeholder stays one word.
+_SHELL_TOKENS = frozenset((
+    ">", "<", "|", ";", "*",
+    "&&", "||", ">>", "<<", "<<<",
+    "$(", "&", "|&", ">&", "&>", "<&",
+))
+
+
+def _word_needs_shell(token):
+    """True when a single already-split word still contains shell syntax.
+
+    The splitter does not peel operators off neighboring words, so ``>out``,
+    ``2>&1``, ``*.tmp``, and ``${HOME}`` stay inside one element. Characters
+    that are ordinary argument text stay literal: ``?`` and ``&`` in URLs,
+    ``;`` in ``a;b`` lists, ``|`` in regular expressions, and ``||`` inside
+    ``{{Key||default}}``.
+    """
+    if token.startswith((">", "<", "~/")):
+        return True
+    if token.startswith(('"', "'")) or token.endswith(('"', "'")):
+        return True
+    if any(sig in token for sig in ("$(", "${", "`", ">&", "&>", "<&", "|&", "<(", ">(")):
+        return True
+    if "*" in token:
+        return True
+    if "{{" not in token and ("||" in token or "&&" in token):
+        return True
+    dollar = token.find("$")
+    while dollar != -1:
+        nxt = token[dollar + 1:dollar + 2]
+        if nxt == "{" or nxt == "_" or nxt.isalnum():
+            return True
+        dollar = token.find("$", dollar + 1)
+    for index, char in enumerate(token):
+        if char in "<>" and index > 0 and token[index - 1].isdigit():
+            return True
+    return False
+
+
 def check_shell_sig(command_tuple):
     """
-    Check whether the command uses shell features
-    like pipe, wildcard
+    Check whether the command uses shell features.
+
+    Arguments are already split on whitespace. Spaced operators such as
+    ``||`` and ``|`` are their own elements. Globs, variables, quotes, and
+    redirections written against a word (``*.tmp``, ``${HOME}``, ``2>&1``)
+    are detected inside that element. ``{{Key||default}}`` stays one word
+    and is not treated as a shell operator.
+
     :param command_tuple: tuple or list
     :return: bool
     """
-    redirect_tags = ('>', '<', '|', ';', '*', '&&', '>>')
-    true_shell = 0
     try:
-        for rt in redirect_tags:
-            if rt in command_tuple:
-                true_shell = 1
-                break
-        # special care for R scripts
-        if command_tuple[0] == "R":
-            true_shell = 1
+        if not command_tuple:
+            return 0
+        if command_tuple[0] in ("R", "__SHELL__", "source", "."):
+            return 1
+        for token in command_tuple:
+            if token in _SHELL_TOKENS or _word_needs_shell(token):
+                return 1
     except Exception as e:
         logger.debug("check_shell_sig: %s", e)
-    if command_tuple and command_tuple[0] == "__SHELL__":
-        true_shell = 1
-
-    return true_shell
+    return 0
 
 
 def bytes_to_readable(bytes_value):

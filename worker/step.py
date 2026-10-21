@@ -162,22 +162,7 @@ class _Step(object):
     def run_as_shell(self):
         if self.is_shell:
             return 1
-        redirect_tags = ('>', '<', '|', ';', '*', '&&', '>>', '||', '$(')
-        true_shell = 0
-        try:
-            for rt in redirect_tags:
-                if rt in self._translated_command:
-                    true_shell = 1
-                    break
-            for c in self._translated_command:
-                if c.find("*") != -1 or c.startswith('"') or c.endswith('"') or c.find("$(") != -1:
-                    true_shell = 1
-                    break
-            if self._translated_command and self._translated_command[0] == "R":
-                true_shell = 1
-        except Exception as e:
-            logger.exception(e)
-        return true_shell
+        return bases.check_shell_sig(self._translated_command)
 
     @property
     def force_local(self):
