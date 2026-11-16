@@ -47,7 +47,13 @@ from QueueDB.protocol_template import (
 )
 
 from .http import csv_ints, delegate_for, int_or_none
-from .template_editor import blank_template_document, edit_template_document, read_template_form, template_editor_context
+from .template_editor import (
+    apply_posted_block_names,
+    blank_template_document,
+    edit_template_document,
+    read_template_form,
+    template_editor_context,
+)
 
 
 PAGE_SIZE_DEFAULT = 12

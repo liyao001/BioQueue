@@ -17,16 +17,21 @@
   <label class="form-control"><span class="label">Parameters</span><textarea class="ui-input w-full font-mono" rows="3" name="tf:{{ node.paths.parameter }}" data-ui3-complete>{{ node.item.parameter|default_if_none:"" }}</textarea></label>
   <label class="form-control"><span class="label">Run environment</span>
     {% include "ui3/protocols/_env_combo.html" with name=node.env_input_name empty_label="Default worker environment" by_name=1 selected_name=node.item.env selected_env=node.env_obj %}
+    <span class="label-text-alt mt-1">Uses the environment's name, so an exported template can match an environment with the same name on another installation.</span>
   </label>
   <details>
     <summary class="cursor-pointer text-sm">Outputs and execution options</summary>
     <div class="form-control">
       <span class="label">Outputs</span>
-      {% include "ui3/protocols/_template_pairs.html" with path=node.paths.outputs rows=node.output_rows add_label="output" %}
-      <span class="label-text-alt mt-1">Optional. Name the file this command writes, then use that name in a later command. Open <strong>How later steps use an output</strong> above the pipeline for where the name is stored.</span>
+      {% include "ui3/protocols/_template_pairs.html" with path=node.paths.outputs rows=node.output_rows add_label="output" key_placeholder="Name" value_placeholder="Path" %}
+      <span class="label-text-alt mt-1">Optional. The name is what a later command uses. The path is the file this command writes. Open <strong>How a later command uses an output</strong> for where the name is stored.</span>
     </div>
-    <label class="form-control"><span class="label">Version check</span><input class="ui-input w-full" name="tf:{{ node.paths.version_check }}" value="{{ node.item.version_check|default_if_none:'' }}"></label>
-    <label class="form-control"><span class="label">Run locally</span><select class="ui-select" name="tb:{{ node.paths.force_local }}"><option value="0">Use configured runner</option><option value="1" {% if node.item.force_local %}selected{% endif %}>Force local</option></select></label>
+    <label class="form-control"><span class="label">Version check</span><input class="ui-input w-full" name="tf:{{ node.paths.version_check }}" value="{{ node.item.version_check|default_if_none:'' }}">
+      <span class="label-text-alt mt-1">Optional command run before this one, such as <span class="font-mono">samtools --version</span>.</span>
+    </label>
+    <label class="form-control"><span class="label">Run locally</span><select class="ui-select" name="tb:{{ node.paths.force_local }}"><option value="0">Use configured runner</option><option value="1" {% if node.item.force_local %}selected{% endif %}>Force local</option></select>
+      <span class="label-text-alt mt-1">Force local runs on the worker machine. Otherwise the job uses its runner.</span>
+    </label>
     <label class="form-control"><span class="label">GPU</span><select class="ui-select" name="tb:{{ node.paths.gpu_step }}"><option value="0">Not required</option><option value="1" {% if node.item.gpu_step %}selected{% endif %}>Required</option></select></label>
   </details>
   {% elif node.kind == 'call' %}
@@ -39,7 +44,7 @@
   <div class="form-control">
     <span class="label">Arguments</span>
     {% include "ui3/protocols/_template_pairs.html" with path=node.paths.args rows=node.arg_rows add_label="argument" %}
-    <span class="label-text-alt mt-1">Optional. {% verbatim %}A row bam = {{sample.dedup_bam}} is read inside the block as {{bam}}.{% endverbatim %}</span>
+    <span class="label-text-alt mt-1">Optional. {% verbatim %}A row label = {{sample.name}} is read inside the block as {{label}}.{% endverbatim %}</span>
   </div>
   {% else %}
     {% include "ui3/protocols/_template_items.html" with group=node.children remove_vals="" remove_name="" show_save="" %}
@@ -48,9 +53,9 @@
 </details>
 {% endfor %}
 <div class="ui-toolbar tpl-list-actions{% if show_save %} tpl-pipeline-actions{% endif %}">
-  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_step }}">Add command</button>
-  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_call }}">Add block call</button>
-  {% if group.add_map %}<button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_map }}">Add sample map</button>{% endif %}
+  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_step }}">{{ group.add_command_label }}</button>
+  <button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_call }}">{{ group.add_call_label }}</button>
+  {% if group.add_map %}<button type="button" class="ui-btn" hx-post="{{ editor_url }}" hx-vals="{{ group.add_map }}">{{ group.add_map_label }}</button>{% endif %}
   {% if show_save %}<button class="ui-btn ui-btn-primary" type="submit"><i class="fa-regular fa-floppy-disk"></i> {{ editor_submit_label }}</button>{% endif %}
 </div>
 </div>

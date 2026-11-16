@@ -4,7 +4,7 @@
 <div class="page-head flex items-center justify-between mb-4 gap-3 flex-wrap">
   <div class="min-w-0">
     <h1 class="text-2xl font-semibold">New Protocol Template</h1>
-    <p class="text-sm opacity-70 page-head-sub">Write commands that repeat for every sample once. BioQueue expands them into a full command list when a job runs.</p>
+    <p class="text-sm opacity-70 page-head-sub">Write the commands that repeat for every sample once. BioQueue expands them when a job runs.</p>
   </div>
   <a class="ui-btn" href="{% url 'ui3:protocols' %}">Back to protocols</a>
 </div>
@@ -23,16 +23,15 @@
     <textarea class="ui-input w-full" name="description" rows="3" placeholder="optional description">{{ form.description }}</textarea>
   </label>
   <div class="tpl-guide rounded-md border border-base-300 bg-base-200/40 p-3 text-sm space-y-2">
-    <p>A normal protocol lists every command. A <strong>protocol template</strong> is the short form when the same commands run on each sample, such as each replicate. You can also list commands that combine those samples. BioQueue expands the template into a full command list when a job runs.</p>
-    <p>This page opens an example: a block named <strong>process_sample</strong>, called once per sample. Replace the <code>echo</code> command with your own software and arguments.</p>
+    <p>The example command is the <code>echo</code> line in the <strong>process_sample</strong> block, under <strong>Reusable blocks</strong>. Replace it with your software and arguments.</p>
     <ul>
       <li><strong>Name</strong> is required. Description is optional.</li>
-      <li><strong>Samples.</strong> Files per sample starts at 1, which means one input file per sample. Use 2 for paired reads. The name pattern and extra fields are optional.</li>
-      <li><strong>Blocks</strong> are optional named lists of commands. The pipeline can hold those commands directly instead.</li>
-      <li><strong>Pipeline</strong> is the run order. A sample map is optional. Use one to repeat commands for every sample, then add commands after it when a step needs every sample.</li>
+      <li><strong>Files per sample</strong> starts at 1, which means one input file per sample. Use 2 for paired reads. The name pattern and extra fields are optional.</li>
+      <li><strong>Reusable blocks</strong> are optional named lists of commands. The pipeline can hold those commands directly instead.</li>
+      <li><strong>Pipeline</strong> is the run order. <strong>Add command (runs once)</strong> adds a command that runs a single time. <strong>Add for each sample</strong> repeats its commands for every sample. Put a command that needs every sample after that.</li>
       <li><strong>Commands.</strong> Software is required. Parameters, outputs, environment, version check, local run, and GPU are optional.</li>
     </ul>
-    <p class="opacity-70">{% verbatim %}Inside a sample map, {{sample.r1}} is that sample's first file and {{sample.prefix}} is {{JobName}}_ plus the sample name. After the map, {{samples.prefix}} lists every sample. An output name is stored on the sample when the command runs inside the map ({{sample.clean}}), and as a shared value when the command runs after the map ({{shared.clean}}). A block follows the place it is called.{% endverbatim %}</p>
+    <p class="opacity-70">{% verbatim %}Inside for each sample, {{sample.r1}} is that sample's first file and {{sample.prefix}} is {{JobName}}_ plus the sample name. After it, {{samples.prefix}} lists every sample. An output name you choose, such as clean, is stored on the sample when the command runs for each sample ({{sample.clean}}), and once for the job when the command runs after that ({{shared.clean}}). A block stores its outputs the same way as the place it is called from.{% endverbatim %}</p>
   </div>
   {{ token_list|json_script:"ui3-tokens" }}
   {% include "ui3/protocols/_template_editor.html" %}

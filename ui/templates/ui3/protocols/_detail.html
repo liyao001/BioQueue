@@ -1,7 +1,7 @@
 {% load ui3_tags %}
 {% if not selected %}
   <div class="card bg-base-100 shadow-sm p-8 text-center opacity-70">
-    <p class="text-sm">Select a protocol to edit its steps.</p>
+    <p class="text-sm">Select a protocol.</p>
   </div>
 {% else %}
 <div class="card bg-base-100 shadow-sm p-5 space-y-5">
@@ -34,7 +34,7 @@
       <form method="post" action="{% url 'ui3:protocol_delete' selected.id %}"
             hx-post="{% url 'ui3:protocol_delete' selected.id %}"
             hx-target="#protocol-workspace" hx-swap="outerHTML"
-            hx-confirm="Delete protocol '{{ selected.name }}' and all of its steps?">
+            hx-confirm="Delete protocol '{{ selected.name }}'{% if not template_active %} and all of its steps{% endif %}?">
         {% csrf_token %}
         <button class="ui-btn icon-btn-danger" type="submit"><i class="fa-regular fa-trash-can"></i> Delete</button>
       </form>
@@ -73,7 +73,7 @@
       <input class="ui-input w-full" name="peer" maxlength="150" required
              placeholder="Enter a username" autocomplete="off">
     </label>
-    <p class="text-sm opacity-70">Copies this protocol and its steps onto that account, including references and environments that account does not already have. One account at a time.</p>
+    <p class="text-sm opacity-70">Copies this protocol{% if not template_active %} and its steps{% endif %} onto that account, including references and environments that account does not already have. One account at a time.</p>
     <button class="ui-btn ui-btn-primary" type="submit">Share with a peer</button>
   </form>
   {% endif %}
@@ -118,7 +118,8 @@
   <p class="text-sm opacity-70">This is a public protocol. Clone it to make your own editable copy.</p>
   {% endif %}
 
-  {% if template_active and not editor %}
+  {% if template_active %}
+  {% if not editor or not can_edit_selected %}
   <details class="tpl-entry">
     <summary>
       <span class="tpl-entry-title">Template</span>
@@ -141,7 +142,7 @@
   <details class="tpl-entry">
     <summary>
       <span class="tpl-entry-title">Expanded preview</span>
-      <span class="tpl-entry-meta">{{ template_preview|length }} step{{ template_preview|length|pluralize }} for two samples</span>
+      <span class="tpl-entry-meta">{{ template_preview|length }} command{{ template_preview|length|pluralize }} for two samples</span>
     </summary>
     <div class="tpl-entry-body">
     <div class="overflow-x-auto border border-base-300 rounded-md">
@@ -168,6 +169,7 @@
     </div>
     </div>
   </details>
+  {% endif %}
   {% endif %}
   {% else %}
   <div>

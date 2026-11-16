@@ -128,8 +128,10 @@ class TemplateEditorTests(Ui3TestCase):
         response = self.client.get(reverse("ui3:protocol_template_create"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "New Protocol Template")
-        self.assertContains(response, "Files per sample starts at 1")
-        self.assertContains(response, "A sample map is optional")
+        self.assertContains(response, "one input file per sample")
+        self.assertContains(response, "Add for each sample")
+        self.assertContains(response, "Add command (runs once)")
+        self.assertContains(response, "under <strong>Reusable blocks</strong>")
         self.assertContains(response, "Commands.")
         self.assertContains(response, "Rename block")
         self.assertContains(response, "class=\"tpl-entry\" open")
@@ -200,6 +202,29 @@ class TemplateEditorTests(Ui3TestCase):
         })
         self.assertContains(response, "pipeline", status_code=400)
         self.assertContains(response, '{"samples": {}}', status_code=400, html=True)
+
+    def test_save_keeps_a_typed_block_name(self):
+        response = self.client.post(reverse("ui3:protocol_update", args=[self.protocol.id]), {
+            "name": self.protocol.name,
+            "template": self.protocol.template,
+            "template_mode": "visual",
+            "br:align": "mapped",
+        }, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        self.protocol.refresh_from_db()
+        saved = json.loads(self.protocol.template)
+        self.assertIn("mapped", saved["blocks"])
+        self.assertNotIn("align", saved["blocks"])
+        self.assertEqual(saved["pipeline"][0]["steps"][0]["call"], "mapped")
+
+    def test_draft_keeps_a_typed_block_name_while_adding_a_command(self):
+        response = self.draft("add_step", ["blocks", "align", "steps"], **{"br:align": "mapped"})
+        self.assertEqual(response.status_code, 200)
+        source = json.loads(response.context["editor"]["source"])
+        self.assertEqual(len(source["blocks"]["mapped"]["steps"]), 2)
+        self.assertEqual(source["pipeline"][0]["steps"][0]["call"], "mapped")
+        self.protocol.refresh_from_db()
+        self.assertIn("align", json.loads(self.protocol.template)["blocks"])
 
     def test_rename_block_updates_calls(self):
         response = self.client.post(reverse("ui3:protocol_template_edit", args=[self.protocol.id]), {
@@ -273,12 +298,12 @@ class TemplateEditorTests(Ui3TestCase):
         body = response.content.decode()
         self.assertLess(body.index(">Pipeline<"), body.index(">Reusable blocks<"))
         self.assertIn("Expanded preview", body)
-        self.assertContains(response, "2 steps for 2 samples")
+        self.assertContains(response, "2 commands for 2 samples")
         response = self.draft("show_forms", **{
             'tf:["blocks","align","steps",0,"parameter"]': "preview this command",
         })
         self.assertContains(response, "preview this command")
-        self.assertContains(response, "2 steps for 2 samples")
+        self.assertContains(response, "2 commands for 2 samples")
 
     def test_name_value_rows_replace_json_objects_on_save(self):
         response = self.client.post(reverse("ui3:protocol_update", args=[self.protocol.id]), {

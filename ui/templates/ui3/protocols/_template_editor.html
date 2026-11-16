@@ -28,7 +28,7 @@
   <details class="tpl-entry" open data-tpl-key="preview">
     <summary>
       <span class="tpl-entry-title">Expanded preview</span>
-      <span class="tpl-entry-meta">{% if editor.preview %}{{ editor.preview|length }} step{{ editor.preview|length|pluralize }} for {{ editor.preview_samples }} sample{{ editor.preview_samples|pluralize }}{% elif editor.preview_error %}Preview needs a correction{% else %}No steps yet{% endif %}</span>
+      <span class="tpl-entry-meta">{% if editor.preview %}{{ editor.preview|length }} command{{ editor.preview|length|pluralize }} for {{ editor.preview_samples }} sample{{ editor.preview_samples|pluralize }}{% elif editor.preview_error %}Preview needs a correction{% else %}No commands yet{% endif %}</span>
     </summary>
     <div class="tpl-entry-body">
       <label class="form-control">
@@ -77,7 +77,7 @@
   <details class="tpl-entry" open data-tpl-key="samples">
     <summary><span class="tpl-entry-title">Sample grouping and fields</span><span class="tpl-entry-meta">How inputs become samples</span></summary>
     <div class="tpl-entry-body">
-    <p class="text-sm opacity-70">Files per sample groups the job's input files. Each sample already has index, name, prefix, r1, r2, and files.</p>
+    <p class="text-sm opacity-70">Files per sample groups the job's input files. Each sample already has index, name, prefix, r1, and files.{% if editor.group > 1 %} r2 is that sample's second file.{% endif %}</p>
     <label class="form-control"><span class="label">Files per sample</span>
       <input class="ui-input" type="number" min="1" name='ti:["samples","group"]' value="{{ editor.group }}">
       <span class="label-text-alt mt-1">Starts at 1: each input file is its own sample. 2 means file 1 and file 2 are sample 1 (paired reads). The number of input files must divide evenly by this value.</span>
@@ -95,31 +95,31 @@
   </details>
   <details class="tpl-entry" data-tpl-key="guide">
     <summary>
-      <span class="tpl-entry-title">How later steps use an output</span>
+      <span class="tpl-entry-title">How a later command uses an output</span>
       <span class="tpl-entry-meta">Names for files a command writes</span>
     </summary>
     <div class="tpl-entry-body tpl-guide text-sm">
       {% verbatim %}
-      <p>An output row names a file the command writes. The value is that path, for example <code>{{sample.prefix}}.fq.gz</code>. BioQueue does not scan the results folder for new files. A later command uses the name instead of typing the path again.</p>
-      <p>Each sample already has <code>index</code>, <code>name</code>, <code>prefix</code>, <code>r1</code>, <code>r2</code>, and <code>files</code>. An output adds another name on top of those.</p>
-      <p><strong>Inside a sample map</strong>, or in a block called from that map, the name is stored on the sample that is running.</p>
+      <p>An output row names a file the command writes. The name is a handle you choose. The value is the path, for example <code>{{sample.prefix}}.fq.gz</code>. BioQueue does not scan the results folder for new files. A later command uses the name instead of typing the path again.</p>
+      <p>Each sample already has <code>index</code>, <code>name</code>, <code>prefix</code>, <code>r1</code>, and <code>files</code>. <code>r2</code> exists when files per sample is 2 or more. An output adds another name on top of those.</p>
+      <p><strong>For each sample</strong>, or in a block called from there, the name is stored on the sample that is running. In the examples below, <code>clean</code> is a name you chose on an earlier command.</p>
       <ul>
         <li>The next command for that same sample uses <code>{{sample.clean}}</code>.</li>
-        <li>A command after the map uses <code>{{samples.clean}}</code> for every sample, separated by spaces.</li>
+        <li>A command after every sample uses <code>{{samples.clean}}</code> for every sample, separated by spaces.</li>
         <li><code>{{samples.first.clean}}</code> is the first sample, <code>{{samples.last.clean}}</code> is the last, and <code>{{samples.2.clean}}</code> is sample 2.</li>
       </ul>
-      <p><strong>After the map</strong>, or in a block called from there, the name is shared by the whole job. A later command uses <code>{{shared.merged_bam}}</code>.</p>
-      <p>Example. Inside the map, a trim command writes <code>{{sample.prefix}}.fq.gz</code> and records the output name <code>clean</code>. The align command for that sample reads <code>{{sample.clean}}</code>. After every sample is done, a merge command reads <code>{{samples.clean}}</code> and records <code>merged_bam</code>. The report command reads <code>{{shared.merged_bam}}</code>.</p>
-      <p>A block argument is not an output. On the call, a row <code>bam = {{sample.dedup_bam}}</code> is read inside the block as <code>{{bam}}</code>. The value is filled in at the call, before the block starts.</p>
+      <p><strong>After every sample</strong>, or in a block called from there, the name is stored once for the job. A later command uses <code>{{shared.merged_bam}}</code>. <code>merged_bam</code> is another name you choose.</p>
+      <p>Example. For each sample, a trim command writes <code>{{sample.prefix}}.fq.gz</code> and records the output name <code>clean</code>. The align command for that sample reads <code>{{sample.clean}}</code>. After every sample is done, a merge command reads <code>{{samples.clean}}</code> and records <code>merged_bam</code>. The report command reads <code>{{shared.merged_bam}}</code>.</p>
+      <p>A block argument is not an output. On the call, a row <code>label = {{sample.name}}</code> is read inside the block as <code>{{label}}</code>. The value is filled in at the call, before the block starts.</p>
       <p>Saving rejects a placeholder that is one edit away from a name you already declared, such as <code>{{sample.clen}}</code> when the output is <code>clean</code>. A new name such as <code>{{sample.condition}}</code> is kept, and the job asks for it under Samples.</p>
       {% endverbatim %}
     </div>
   </details>
   <h3 class="font-semibold">Pipeline</h3>
-  <p class="text-sm opacity-70">Entries run from top to bottom. A command runs once. A sample map is optional and runs its entries once per sample. Commands after a map see every sample. {% verbatim %}Inside the map use {{sample.r1}} and {{sample.prefix}}. After the map use {{samples.field}}.{% endverbatim %}</p>
+  <p class="text-sm opacity-70">Entries run from top to bottom. A command here runs once. For each sample repeats its commands for every sample. Commands after that see every sample. {% verbatim %}Inside for each sample, use {{sample.r1}} and {{sample.prefix}}. After it, use {{samples.prefix}}.{% endverbatim %}</p>
   {% include "ui3/protocols/_template_items.html" with group=editor.pipeline remove_vals="" remove_name="" show_save=1 %}
   <h3 class="font-semibold">Reusable blocks</h3>
-  <p class="text-sm opacity-70">Optional. A named list of commands the pipeline can call. Each command needs a software name. Rename a block here; calls to that name are updated with it.</p>
+  <p class="text-sm opacity-70">Optional. A named list of commands the pipeline can call. Each command needs a software name. A name you type here is kept when you save. Rename block updates calls to that name immediately.</p>
   {% for block in editor.blocks %}
   <details class="tpl-entry" open id="{{ block.anchor }}" data-tpl-key="block:{{ block.name }}">
     <summary><span class="tpl-entry-title">{{ block.name }}</span><span class="tpl-entry-meta">Reusable block</span></summary>

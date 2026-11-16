@@ -25,21 +25,13 @@ def _editor_chrome(selected=None):
             "editor_url": reverse("ui3:protocol_template_create_edit"),
             "editor_form": "#protocol-template-create-form",
             "editor_submit_label": "Create protocol",
-            "editor_hint": (
-                "Draft changes stay on this page until you create the protocol. "
-                "Environments use their names so exported templates can use matching "
-                "environments on another installation."
-            ),
+            "editor_hint": "The draft is stored when you select Create protocol.",
         }
     return {
         "editor_url": reverse("ui3:protocol_template_edit", args=[selected.id]),
         "editor_form": "#protocol-meta-form",
         "editor_submit_label": "Save protocol",
-        "editor_hint": (
-            "Changes are saved only when you select Save protocol. "
-            "Environments use their names so exported templates can use matching "
-            "environments on another installation."
-        ),
+        "editor_hint": "Changes are stored when you select Save protocol.",
     }
 
 
@@ -219,7 +211,7 @@ def protocol_template_create(request):
     name = (request.POST.get("name") or "").strip()
     document = None
     try:
-        document = services.read_template_form(request.POST)
+        document = services.apply_posted_block_names(services.read_template_form(request.POST), request.POST)
         template = services.normalize_template(document)
         user = delegate_for(request.user)
         services.resolve_template_environments(json.loads(template), user.id)
@@ -252,6 +244,7 @@ def protocol_template_create_edit(request):
             document, action, request.POST.get("editor_path", ""), request.POST.get("editor_block_name", ""),
             _posted_rename(request),
         )
+        document = services.apply_posted_block_names(document, request.POST)
         mode = "json" if action in ("show_json", "format") else "visual"
         context = _template_create_context(request, document, form=request.POST, mode=mode)
     except (ValueError, TypeError, KeyError, IndexError, services.ProtocolTemplateError) as exc:
@@ -276,7 +269,8 @@ def protocol_update(request, pk):
     if "template" in request.POST:
         try:
             incoming = request.POST.get("template") or ""
-            proto.template = services.normalize_template(services.read_template_form(request.POST)) if incoming.strip() else ""
+            document = services.apply_posted_block_names(services.read_template_form(request.POST), request.POST)
+            proto.template = services.normalize_template(document) if incoming.strip() else ""
             if proto.template:
                 services.resolve_template_environments(json.loads(proto.template), proto.user_id)
         except json.JSONDecodeError:
@@ -314,6 +308,7 @@ def protocol_template_edit(request, pk):
             document, action, request.POST.get("editor_path", ""), request.POST.get("editor_block_name", ""),
             _posted_rename(request),
         )
+        document = services.apply_posted_block_names(document, request.POST)
         mode = "json" if action in ("show_json", "format") else "visual"
         context = services.template_editor_context(
             document, services.visible_environments(request.user), mode, preview_samples=_preview_count(request),

@@ -1,9 +1,9 @@
-<div class="tpl-pairs" data-pairs data-path='{{ path }}'>
+<div class="tpl-pairs" data-pairs data-path='{{ path }}' data-key-placeholder="{{ key_placeholder|default:'Name' }}" data-value-placeholder="{{ value_placeholder|default:'Value' }}">
   <input type="hidden" name='tpset:{{ path }}' value="1">
   {% for row in rows %}
   <div class="tpl-pair">
-    <input class="ui-input" name='tp:{{ path }}:{{ forloop.counter0 }}:k' value="{{ row.key }}" aria-label="Name" placeholder="Name">
-    <input class="ui-input" name='tp:{{ path }}:{{ forloop.counter0 }}:v' value="{{ row.value }}" aria-label="Value" placeholder="Value" data-ui3-complete>
+    <input class="ui-input" name='tp:{{ path }}:{{ forloop.counter0 }}:k' value="{{ row.key }}" aria-label="{{ key_placeholder|default:'Name' }}" placeholder="{{ key_placeholder|default:'Name' }}">
+    <input class="ui-input" name='tp:{{ path }}:{{ forloop.counter0 }}:v' value="{{ row.value }}" aria-label="{{ value_placeholder|default:'Value' }}" placeholder="{{ value_placeholder|default:'Value' }}" data-ui3-complete>
     <button type="button" class="ui-btn" onclick="ui3.removePairRow(this)">Remove</button>
   </div>
   {% endfor %}

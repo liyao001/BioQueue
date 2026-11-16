@@ -352,6 +352,14 @@ class TemplateUiTests(Ui3TestCase):
             page,
             "merge -fh {{JobName}}_rep1.bam {{JobName}}_merged.bam {{JobName}}_rep1.bam {{JobName}}_rep2.bam",
         )
+        self.assertContains(page, "Template editor")
+        self.assertNotContains(page, 'id="protocol-steps"')
+        self.assertNotContains(page, ">Steps</h3>")
+        self.assertNotContains(page, "Add step")
+        plain = self.client.get(reverse("ui3:protocols") + "?select={}".format(self.protocol.id))
+        self.assertContains(plain, 'id="protocol-steps"')
+        self.assertContains(plain, ">Steps</h3>")
+        self.assertContains(plain, "Add step")
         exported = self.client.get(reverse("ui3:protocol_export", args=[proto.id]))
         body = json.loads(exported.content.decode())
         self.assertIn("pipeline", body)
@@ -375,6 +383,20 @@ class TemplateUiTests(Ui3TestCase):
         after = expand_job(restored, "a;b;c;d", sheet)
         signature = lambda steps: [(step.software, step.parameter, step.version_check, step.hash) for step in steps]
         self.assertEqual(signature(after), signature(before))
+
+    def test_public_template_shows_outline_without_step_editor(self):
+        public = ProtocolList.objects.create(
+            name="public-template",
+            user=None,
+            template=normalize_template(_procap()),
+        )
+        self.login()
+        page = self.client.get(reverse("ui3:protocol_detail", args=[public.id]))
+        self.assertContains(page, "Clone it to make your own")
+        self.assertContains(page, "for each sample")
+        self.assertNotContains(page, 'id="protocol-steps"')
+        self.assertNotContains(page, "Add step")
+        self.assertNotContains(page, "Template editor")
 
     def test_protocol_list_and_job_picker_mark_templates(self):
         self._import(_procap())

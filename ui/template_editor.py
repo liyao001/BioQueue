@@ -42,6 +42,36 @@ def _get(document, path):
     return document
 
 
+def apply_posted_block_names(document, form):
+    """Keep a block name typed in the form when the draft is redrawn or saved.
+
+    The name field is separate from the Rename block button. A later editor
+    action still addresses the block by the name it had when the page was drawn,
+    so callers apply this after that action.
+    """
+    if form.get("template_mode") == "json" or not isinstance(document, dict):
+        return document
+    if not isinstance(document.get("blocks"), dict):
+        return document
+    pending = []
+    for key, value in form.items():
+        if not str(key).startswith("br:"):
+            continue
+        old = str(key)[3:]
+        new = ("" if value is None else str(value)).strip()
+        if old and new and new != old:
+            pending.append((old, new))
+    for old, new in pending:
+        if old not in document.get("blocks", {}):
+            continue
+        if new in document["blocks"]:
+            raise ProtocolTemplateError("Enter a new, unique block name.")
+        document = edit_template_document(
+            document, "rename_block", json.dumps(["blocks", old]), rename_to=new,
+        )
+    return document
+
+
 def read_template_form(form):
     raw = form.get("template") or ""
     if len(raw.encode()) > 1024 * 1024:
@@ -284,7 +314,7 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
         for index, name in enumerate(document["blocks"], start=1)
     }
 
-    def items_context(items, path):
+    def items_context(items, path, place):
         if not isinstance(items, list):
             raise ProtocolTemplateError("Steps must be a list.")
         nodes = []
@@ -317,9 +347,22 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
                 "env_obj": env_by_name.get(item.get("env") or ""),
             }
             if kind == "map":
-                node["children"] = items_context(item.get("steps", []), here + ["steps"])
+                node["children"] = items_context(item.get("steps", []), here + ["steps"], "each")
             nodes.append(node)
-        return {"nodes": nodes, "add_step": action("add_step", path), "add_call": action("add_call", path), "add_map": action("add_map", path) if path == ["pipeline"] else ""}
+        labels = {
+            "pipeline": "Add command (runs once)",
+            "each": "Add command for each sample",
+            "block": "Add command",
+        }
+        return {
+            "nodes": nodes,
+            "add_step": action("add_step", path),
+            "add_call": action("add_call", path),
+            "add_command_label": labels[place],
+            "add_call_label": "Add block call for each sample" if place == "each" else "Add block call",
+            "add_map": action("add_map", path) if path == ["pipeline"] else "",
+            "add_map_label": "Add for each sample",
+        }
 
     blocks = []
     for name, block in document["blocks"].items():
@@ -328,7 +371,7 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
         blocks.append({
             "name": name,
             "anchor": block_anchors[name],
-            "body": items_context(block.get("steps", []), ["blocks", name, "steps"]),
+            "body": items_context(block.get("steps", []), ["blocks", name, "steps"], "block"),
             "remove": action("remove", ["blocks", name]),
             "rename": action("rename_block", ["blocks", name]),
         })
@@ -342,7 +385,7 @@ def template_editor_context(document, environments, mode="visual", preview_sampl
     return {"editor": {
         "source": json.dumps(document, indent=2), "mode": mode,
         "blocks": blocks, "block_names": list(document["blocks"]),
-        "pipeline": items_context(document["pipeline"], ["pipeline"]),
+        "pipeline": items_context(document["pipeline"], ["pipeline"], "pipeline"),
         "environments": envs, "environment_names": seen,
         "group": document["samples"].get("group", 1),
         "sample_name": document["samples"].get("name", "rep{{index}}"),

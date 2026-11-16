@@ -110,7 +110,7 @@ A block is a named list of commands. Call it from the pipeline instead of pastin
 }
 ```
 
-`outputs` records a filename under a name you choose. The value is the path the command is expected to write. BioQueue does not discover new filenames from the tool. The same explanation is on the protocol page, in **How later steps use an output**.
+`outputs` records a filename under a name you choose. The value is the path the command is expected to write. BioQueue does not discover new filenames from the tool. The same explanation is on the protocol page, in **How a later command uses an output**.
 
 Where the name is stored depends on where the command runs:
 
@@ -230,7 +230,7 @@ On a job card, **Samples** edits the same list later. The expanded step count fo
 
 Open **New Template** from the Protocols page or the Protocol menu.
 
-The page starts from a small sample-aware draft: one reusable block and a pipeline map that calls it once per sample. **Pipeline** is above **Reusable blocks**. Edit samples, commands, calls, and the sample map in the form. Sample fields, outputs, and block arguments are name/value rows. **How later steps use an output** explains how a filename recorded on one command is read later. **Advanced JSON** remains available for hand edits. Nothing is stored until **Create protocol**.
+The page starts from a small sample-aware draft: one reusable block and a pipeline entry that calls it for each sample. The example command is the `echo` line in **process_sample**, under **Reusable blocks**. **Pipeline** is above **Reusable blocks**. **Add command (runs once)** adds a command that runs a single time. **Add for each sample** repeats its commands for every sample. **Add command for each sample** adds a command inside that repeat. Sample fields, outputs, and block arguments are name/value rows. **How a later command uses an output** explains how a filename recorded on one command is read later. **Advanced JSON** remains available for hand edits. Nothing is stored until **Create protocol**. A block name typed in the form is kept at that point. **Rename block** updates calls to the new name immediately.
 
 You can still create a template by importing a JSON file with a `pipeline` key, or by editing an existing template after import.
 
@@ -240,7 +240,7 @@ On the Protocols page, select a template protocol.
 
 - **Expanded preview** is at the top of the editor and follows the unsaved draft. Change **Preview sample count** to redraw it. That number is not saved.
 - **Sample grouping and fields** edits files per sample (`samples.group`), the default name, and extra fields.
-- **Pipeline**, then **Reusable blocks**, edit commands, calls, and the sample map. Add, remove, and the arrow buttons change the draft. Adding a command, block call, sample map, or block scrolls to the new entry. Removing an entry or a block asks first. A block can be removed only after its calls are gone.
+- **Pipeline**, then **Reusable blocks**, edit commands, calls, and the for-each-sample entry. Add, remove, and the arrow buttons change the draft. Adding a command, block call, or for-each-sample entry scrolls to the new entry. Removing an entry or a block asks first. A block can be removed only after its calls are gone. A block name typed in its name box is kept when you save.
 - Collapsed commands show a short parameter or argument line, so two steps with the same software name can be told apart.
 - **Advanced JSON** edits the same draft as text. **Back to forms** applies it. **Format JSON** pretty-prints it.
 
