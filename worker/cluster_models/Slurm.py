@@ -176,6 +176,45 @@ def parse_sbatch_job_id(stdout):
     return 0
 
 
+def parse_array_task_states(stdout, job_id):
+    """Map ``<id>_<task>`` to a state.
+
+    Accepts squeue ``%i|%T`` and sacct ``JobID|State``. Step rows
+    (``241895_1.batch``) and the bare array id are ignored.
+    """
+    jid = str(job_id).strip()
+    prefix = jid + "_"
+    found = {}
+    for raw in _decode(stdout).splitlines():
+        line = raw.strip()
+        if "|" not in line or line.lower().startswith("jobid"):
+            continue
+        left, state = line.split("|", 1)
+        head = left.strip().split(".", 1)[0]
+        if not head.startswith(prefix):
+            continue
+        task = head[len(prefix):]
+        if not task.isdigit():
+            continue
+        normalized = _normalize_state(state)
+        if normalized:
+            found[head] = normalized
+    return found
+
+
+def _task_is_ready(state, requeue):
+    """A preempted task with --requeue will run again. Do not copy it yet."""
+    if requeue and state == "PREEMPTED":
+        return False
+    return state in TERMINAL_OK or state in TERMINAL_FAIL
+
+
+def _submission_is_array(extras):
+    if _text(extras.get("array")):
+        return True
+    return "--array" in _text(extras.get("sbatch_cli"))
+
+
 def parse_squeue_states(stdout):
     """Group squeue `%A|%T` lines by job id. Array tasks share the master id."""
     grouped = {}
@@ -844,6 +883,7 @@ def _embed_protocol_files(extras):
     extras["prologue"] = (existing + "\n" + unpack).strip() + "\n"
     return True
 
+
 def _stage_workspace(workspace, job_id, extras):
     extras = _extras(extras)
     remote = extras.get("remote") or {}
@@ -1404,13 +1444,6 @@ def _list_remote_result_dirs(remote, result_root, job_id):
     return _parse_ls_dirs(out if rc == 0 else "", result_root, job_id), rc, out
 
 
-def _array_task_dir(remote_dir, job_id):
-    """True when the remote directory is ``<sbatch id>_<task>``."""
-    base = posixpath.basename(_text(remote_dir).rstrip("/"))
-    jid = _safe_job_id(job_id)
-    return bool(jid) and base.startswith(jid + "_")
-
-
 def _missing_remote(output):
     text = output or ""
     return "No such file" in text or "not found" in text.lower()
@@ -1581,6 +1614,112 @@ def _copy_log(remote, remote_path, log_dest, err_dest):
     return _append_remote_file(remote, remote_path, dest)
 
 
+def _result_root_for(remote, job_id):
+    result_root = _text(remote.get("result_root")) or _text(remote.get("workdir"))
+    if result_root:
+        return result_root
+    user = _text(remote.get("user"))
+    result_root = "/home/%s/workdir" % user if user else "/tmp/bioqueue-workdir"
+    logger.info("remote job %s: defaulting result_root to %s", job_id, result_root)
+    return result_root
+
+
+def _copy_one_result(remote, remote_dir, dest_dir):
+    """Rsync one remote directory into ``dest_dir``.
+
+    Returns True, None when the remote directory is absent, or False.
+    """
+    spec = _remote_spec(remote)
+    argv = ["rsync", "-a", "--compress", "--partial", "-e", _rsync_rsh(remote)]
+    argv.extend(["%s:%s" % (spec, remote_dir), dest_dir])
+    rc, out = _run(argv, timeout=3600, retries=2)
+    if rc == 0:
+        return True, out
+    if _missing_remote(out):
+        logger.info("remote result dir absent: %s", remote_dir)
+        return None, out
+    logger.warning("rsync results failed (%s): %s", remote_dir, out)
+    return False, out
+
+
+def _array_task_states(job_id, extras):
+    """Per-task states. None when squeue itself could not be reached.
+
+    squeue -r is the live view. sacct supplies tasks that have already
+    left the queue. A live squeue row wins, so a requeued task is not
+    copied from a stale COMPLETED record.
+    """
+    prefix = _bin_prefix(extras)
+    jid = str(job_id).strip()
+    squeue_argv = [
+        _bin(prefix, "squeue"), "-h", "-r", "-j", jid, "-o", "%i|%T",
+    ]
+    rc, out = _slurm_cmd(squeue_argv, extras, timeout=60, retries=2)
+    if rc != 0 and not _INVALID_JOB.search(out or ""):
+        logger.warning("squeue array tasks rc=%s for %s: %s", rc, jid, out)
+        return None
+    live = parse_array_task_states(out, jid) if rc == 0 else {}
+    sacct_argv = [
+        _bin(prefix, "sacct"),
+        "-j",
+        jid,
+        "-n",
+        "-P",
+        "-X",
+        "-o",
+        "JobID,State",
+    ]
+    src, sout = _slurm_cmd(sacct_argv, extras, timeout=60, retries=2)
+    states = parse_array_task_states(sout, jid) if src == 0 else {}
+    states.update(live)
+    return states
+
+
+def fetch_finished_tasks(job_id, extras=None):
+    """Copy array slots that have already reached a terminal state.
+
+    The BioQueue job stays running until every task finishes. A copy
+    failure is retried on a later poll; the final fetch still reports it.
+    """
+    if not isinstance(extras, dict) or not _submission_is_array(extras):
+        return True
+    remote = extras.get("remote") or {}
+    if not remote:
+        return True
+    dest = _text(extras.get("fetch_dest"))
+    if not dest:
+        return True
+    states = _array_task_states(job_id, extras)
+    if not states:
+        return True
+    requeue = _requeue_enabled(extras)
+    ready = [
+        task
+        for task, state in sorted(states.items())
+        if _task_is_ready(state, requeue)
+    ]
+    fetched = extras.get("_fetched_array_tasks")
+    if not isinstance(fetched, set):
+        fetched = set()
+        extras["_fetched_array_tasks"] = fetched
+    pending = [task for task in ready if task not in fetched]
+    if not pending:
+        return True
+    result_root = _result_root_for(remote, job_id)
+    dest_dir = dest if dest.endswith(os.sep) else dest + os.sep
+    try:
+        os.makedirs(dest, exist_ok=True)
+    except OSError:
+        pass
+    for task in pending:
+        remote_dir = posixpath.join(result_root.rstrip("/"), task) + "/"
+        copied, _out = _copy_one_result(remote, remote_dir, dest_dir)
+        if copied is True:
+            fetched.add(task)
+            logger.info("fetched finished array task %s", task)
+    return True
+
+
 def fetch_results(job_id, extras=None):
     extras = _extras(extras)
     remote = extras.get("remote") or {}
@@ -1590,11 +1729,7 @@ def fetch_results(job_id, extras=None):
     # Always try logs first so failures still leave diagnostics on the worker.
     fetch_logs(job_id, extras)
     result_dir = _text(remote.get("result_dir"))
-    result_root = _text(remote.get("result_root")) or _text(remote.get("workdir"))
-    if not result_root:
-        user = _text(remote.get("user"))
-        result_root = "/home/%s/workdir" % user if user else "/tmp/bioqueue-workdir"
-        logger.info("remote job %s: defaulting result_root to %s", job_id, result_root)
+    result_root = _result_root_for(remote, job_id)
     if not dest:
         logger.error("remote job %s has no fetch_dest; cannot fetch", job_id)
         return False
@@ -1603,7 +1738,6 @@ def fetch_results(job_id, extras=None):
         os.makedirs(dest, exist_ok=True)
     except OSError:
         pass
-    spec = _remote_spec(remote)
     remote_dirs = []
     ls_out = ""
     if result_dir:
@@ -1616,30 +1750,16 @@ def fetch_results(job_id, extras=None):
     failed = False
     last_out = ls_out
     for remote_dir in remote_dirs:
-        # Array tasks share one sbatch id and publish side by side
-        # (269059_0, 269059_1, ...). Unpacking every task into the job
-        # folder overwrites the previous task. Keep each task directory.
-        target = dest_dir
-        if _array_task_dir(remote_dir, job_id):
-            target = os.path.join(
-                dest_dir, posixpath.basename(remote_dir.rstrip("/"))
-            )
-            target = target if target.endswith(os.sep) else target + os.sep
-            try:
-                os.makedirs(target, exist_ok=True)
-            except OSError:
-                pass
-        argv = ["rsync", "-a", "--compress", "--partial", "-e", _rsync_rsh(remote)]
-        argv.extend(["%s:%s" % (spec, remote_dir), target])
-        rc, out = _run(argv, timeout=3600, retries=2)
+        # Array tasks publish side by side (269059_0, 269059_1, ...).
+        # Unpack each slot into the job folder, so 269059_1/sample/ arrives
+        # as sample/. A later task replaces a file that shares its path.
+        copied, out = _copy_one_result(remote, remote_dir, dest_dir)
         last_out = out
-        if rc == 0:
+        if copied is True:
             synced = True
             continue
-        if _missing_remote(out):
-            logger.info("remote result dir absent: %s", remote_dir)
+        if copied is None:
             continue
-        logger.warning("rsync results failed (%s): %s", remote_dir, out)
         failed = True
     if failed:
         return False

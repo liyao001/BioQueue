@@ -997,8 +997,174 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
         self.assertEqual(len(rsync_calls), 2)
         self.assertTrue(any("/work/9_0/" in str(part) for part in rsync_calls[0]))
         self.assertTrue(any("/work/9_1/" in str(part) for part in rsync_calls[1]))
-        self.assertEqual(os.path.basename(rsync_calls[0][-1].rstrip(os.sep)), "9_0")
-        self.assertEqual(os.path.basename(rsync_calls[1][-1].rstrip(os.sep)), "9_1")
+        self.assertEqual(rsync_calls[0][-1], dest + os.sep)
+        self.assertEqual(rsync_calls[1][-1], dest + os.sep)
+
+    def test_parse_array_task_states_ignores_steps_and_bare_id(self):
+        states = Slurm.parse_array_task_states(
+            "\n".join(
+                [
+                    "241895|RUNNING",
+                    "241895_1.batch|FAILED",
+                    "241895_1|COMPLETED",
+                    "241895_2|RUNNING",
+                    "241895_3|CANCELLED by 9",
+                ]
+            ),
+            "241895",
+        )
+        self.assertEqual(
+            states,
+            {
+                "241895_1": "COMPLETED",
+                "241895_2": "RUNNING",
+                "241895_3": "CANCELLED",
+            },
+        )
+
+    def test_finished_array_task_is_copied_while_siblings_run(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-live-")
+        extras = {
+            "array": "1-2",
+            "remote": {"host": "h", "user": "u", "result_root": "/work"},
+            "fetch_dest": dest,
+        }
+        phase = {"text": "241895_1|COMPLETED\n241895_2|RUNNING\n"}
+        rsyncs = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                rsyncs.append(argv)
+                return (0, "")
+            if "squeue" in joined or "sacct" in joined:
+                return (0, phase["text"])
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            self.assertTrue(Slurm.fetch_finished_tasks("241895", extras))
+            self.assertTrue(Slurm.fetch_finished_tasks("241895", extras))
+            phase["text"] = "241895_1|COMPLETED\n241895_2|COMPLETED\n"
+            self.assertTrue(Slurm.fetch_finished_tasks("241895", extras))
+        self.assertEqual(len(rsyncs), 2)
+        self.assertTrue(any("/work/241895_1/" in str(part) for part in rsyncs[0]))
+        self.assertFalse(any("/work/241895_2/" in str(part) for part in rsyncs[0]))
+        self.assertTrue(any("/work/241895_2/" in str(part) for part in rsyncs[1]))
+        self.assertEqual(rsyncs[0][-1], dest + os.sep)
+        self.assertEqual(extras["_fetched_array_tasks"], {"241895_1", "241895_2"})
+
+    def test_task_that_left_the_queue_is_copied_from_sacct(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-sacct-")
+        extras = {
+            "array": "1-2",
+            "remote": {"host": "h", "result_root": "/work"},
+            "fetch_dest": dest,
+        }
+        rsyncs = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                rsyncs.append(argv)
+                return (0, "")
+            if "squeue" in joined:
+                return (0, "241895_2|RUNNING\n")
+            if "sacct" in joined:
+                return (0, "241895_1|COMPLETED\n241895_2|RUNNING\n")
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            Slurm.fetch_finished_tasks("241895", extras)
+        self.assertEqual(len(rsyncs), 1)
+        self.assertTrue(any("/work/241895_1/" in str(part) for part in rsyncs[0]))
+
+    def test_live_squeue_state_beats_stale_sacct(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-stale-")
+        extras = {
+            "array": "1-2",
+            "remote": {"host": "h", "result_root": "/work"},
+            "fetch_dest": dest,
+        }
+        rsyncs = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                rsyncs.append(argv)
+                return (0, "")
+            if "squeue" in joined:
+                return (0, "241895_1|RUNNING\n")
+            if "sacct" in joined:
+                return (0, "241895_1|COMPLETED\n")
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            Slurm.fetch_finished_tasks("241895", extras)
+        self.assertEqual(rsyncs, [])
+
+    def test_squeue_failure_does_not_copy_from_sacct_alone(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-nosqueue-")
+        extras = {
+            "sbatch_cli": "--array=1-2",
+            "remote": {"host": "h", "result_root": "/work"},
+            "fetch_dest": dest,
+        }
+        rsyncs = []
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                rsyncs.append(argv)
+                return (0, "")
+            if "squeue" in joined:
+                return (255, "ssh: connect failed")
+            if "sacct" in joined:
+                return (0, "241895_1|COMPLETED\n")
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            Slurm.fetch_finished_tasks("241895", extras)
+        self.assertEqual(rsyncs, [])
+
+    def test_missing_finished_task_dir_is_retried(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-missing-")
+        extras = {
+            "array": "1",
+            "remote": {"host": "h", "result_root": "/work"},
+            "fetch_dest": dest,
+        }
+        attempts = {"n": 0}
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            joined = " ".join(str(p) for p in argv)
+            if argv and argv[0] == "rsync":
+                attempts["n"] += 1
+                if attempts["n"] == 1:
+                    return (1, "No such file or directory")
+                return (0, "")
+            if "squeue" in joined or "sacct" in joined:
+                return (0, "9_1|COMPLETED\n")
+            return (0, "")
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            Slurm.fetch_finished_tasks("9", extras)
+            self.assertNotIn("9_1", extras.get("_fetched_array_tasks", ()))
+            Slurm.fetch_finished_tasks("9", extras)
+            Slurm.fetch_finished_tasks("9", extras)
+        self.assertEqual(attempts["n"], 2)
+        self.assertIn("9_1", extras["_fetched_array_tasks"])
+
+    def test_non_array_fetch_does_not_query_tasks(self):
+        dest = tempfile.mkdtemp(prefix="bq-fetch-not-array-")
+        with patch.object(Slurm, "_run") as run:
+            Slurm.fetch_finished_tasks(
+                "9",
+                extras={
+                    "remote": {"host": "h", "result_root": "/work"},
+                    "fetch_dest": dest,
+                },
+            )
+        run.assert_not_called()
 
     def test_failed_array_task_copy_is_not_hidden(self):
         dest = tempfile.mkdtemp(prefix="bq-fetch-array-fail-")
@@ -1528,3 +1694,38 @@ class ClusterSupportHardeningTests(unittest.TestCase):
             )
         self.assertEqual(rc, 0)
         slept.assert_called_once_with(30)
+
+    def test_running_array_copies_finished_tasks_before_the_final_fetch(self):
+        calls = {"n": 0}
+        order = []
+
+        def query(*_args, extras=None):
+            calls["n"] += 1
+            return 0 if calls["n"] > 1 else 1
+
+        fake_model = SimpleNamespace(
+            submit_job=lambda *_a, extras=None: "12",
+            query_job_status=query,
+            fetch_finished_tasks=lambda *_a, extras=None: order.append("partial"),
+            fetch_results=lambda *_a, extras=None: order.append("final") or True,
+            cancel_job=lambda *_a, extras=None: 1,
+        )
+        workspace = tempfile.mkdtemp(prefix="bq-partial-fetch-")
+        with patch("worker.cluster_support.dispatch", return_value=fake_model), patch(
+            "worker.cluster_support._sync_job_status", return_value=True
+        ), patch("worker.cluster_support.if_terminate", return_value=False):
+            rc = cluster_main(
+                "Slurm",
+                "echo hi",
+                4,
+                0,
+                1,
+                "1G",
+                "1G",
+                "q",
+                workspace,
+                os.path.join(workspace, "job.log"),
+                extras={"body": "echo hi", "array": "1-2"},
+            )
+        self.assertEqual(rc, 0)
+        self.assertEqual(order, ["partial", "final"])

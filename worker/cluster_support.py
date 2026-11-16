@@ -100,6 +100,19 @@ def _with_extras(fn, *args, extras=None):
     return fn(*args)
 
 
+def _maybe_fetch_finished(cluster_model, cluster_id, extras):
+    """Copy array tasks that have already finished. Never fail the step."""
+    fetch = getattr(cluster_model, "fetch_finished_tasks", None)
+    if not callable(fetch):
+        return
+    try:
+        fetch(cluster_id, extras)
+    except Exception:
+        logger.exception(
+            "incremental fetch failed for cluster job %s", cluster_id
+        )
+
+
 def _maybe_fetch(cluster_model, cluster_id, extras):
     fetch = getattr(cluster_model, "fetch_results", None)
     if not callable(fetch):
@@ -281,6 +294,11 @@ def _watch_cluster_job(
             if status_code == 1 and pending_tag == 1:
                 pending_tag = 0
                 _sync_job_status(job_id, _JS_RUNNING)
+
+            # Array tasks finish at different times. Copy each finished slot
+            # now; the final fetch still runs when the whole submission ends.
+            if status_code in (1, 2):
+                _maybe_fetch_finished(cluster_model, cluster_id, extras)
 
             if if_terminate(job_id):
                 _release_status_watch(cluster_model, cluster_id, extras)
