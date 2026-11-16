@@ -49,6 +49,7 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 SILENCED_SYSTEM_CHECKS = ["fields.E005"]
 PROTOCOL_FILES_ROOT = os.path.join(tempfile.gettempdir(), "bioqueue-worker-protocol-files")
+ARCHIVE_BUILD_ASYNC = False
 
 
 class _DisableMigrations(dict):

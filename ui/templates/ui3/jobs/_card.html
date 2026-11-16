@@ -312,10 +312,10 @@
           <div class="ui-combo-list ui-combo-menu flex flex-col">
             {% if job.ui3_can_write %}
             <button type="button" class="ui-combo-item whitespace-nowrap"
-                    title="Archive result files"
+                    title="Queue a tar of this job. Download it from Archives when it is ready."
                     onclick="ui3.closeCombos()"
                     hx-get="{% url 'ui3:job_archive' job.id %}" hx-target="#modal-root" hx-swap="innerHTML">
-              <i class="fa-solid fa-box-archive"></i> Archive result files
+              <i class="fa-solid fa-box-archive"></i> Archive job
             </button>
             {% endif %}
             <button type="button" class="ui-combo-item whitespace-nowrap"

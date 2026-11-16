@@ -5,12 +5,26 @@
     <p class="text-sm opacity-70 mt-1">{{ job.result|default:"(no result folder)" }}</p>
     {% include "ui3/jobs/_files_table.html" %}
     {% if job.ui3_can_write %}
-    <form id="job-archive-form-{{ job.id }}" class="mt-3 flex justify-end"
+    <form id="job-archive-form-{{ job.id }}" class="mt-3 flex flex-wrap justify-end gap-2"
           hx-post="{% url 'ui3:job_archive' job.id %}"
           hx-target="#toast-root"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          hx-include="#job-files-tbody-{{ job.id }}">
       {% csrf_token %}
-      <button class="ui-btn ui-btn-primary" type="submit">Queue selected for archive</button>
+      <button type="button" class="ui-btn"
+              hx-post="{% url 'ui3:job_archive' job.id %}"
+              hx-include="closest form"
+              hx-vals='{"scope": "job"}'
+              hx-target="#modal-root"
+              hx-swap="innerHTML"
+              hx-disabled-elt="this">
+        <span class="htmx-indicator loading loading-spinner loading-sm mr-1"></span>
+        Archive entire job
+      </button>
+      <button class="ui-btn ui-btn-primary" type="submit" hx-disabled-elt="this">
+        <span class="htmx-indicator loading loading-spinner loading-sm mr-1"></span>
+        Archive selected
+      </button>
     </form>
     {% endif %}
   </div>

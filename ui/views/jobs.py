@@ -26,6 +26,7 @@ from ..files import (
     resolve_listed_job_file,
     traces_to_archive_paths,
 )
+from ..job_archive import kick_archive_builder
 from ..http import (
     array_parent_from_request,
     combo_query,
@@ -1468,6 +1469,33 @@ def job_array_children(request, pk):
     return render_htmx(request, "ui3/jobs/list.html", "ui3/jobs/_results.html", ctx)
 
 
+def _archive_queued_response(request, job, archive):
+    """Tell the caller the tar was queued. Do not build it in this request."""
+    message = "Archive #{} is queued. Download it from Archives when it is ready.".format(archive.id)
+    services.audit_operation(job, "Queued archive", comment=str(archive.id))
+    if is_htmx(request):
+        target = (request.headers.get("HX-Target") or "").strip().lstrip("#")
+        scope = (request.POST.get("scope") or "").strip()
+        if target == "modal-root" or scope == "job":
+            response = render(
+                request,
+                "ui3/jobs/_archive_ready.html",
+                {"job": job, "archive": archive},
+            )
+            return with_toast(response, message)
+        close = '<div id="modal-root" hx-swap-oob="innerHTML"></div>'
+        if target == "toast-root":
+            response = HttpResponse(toast_html(message))
+            response.content = response.content + close.encode("utf-8")
+            return response
+        ctx = _job_list_context(request)
+        response = render(request, "ui3/jobs/_results.html", ctx)
+        response.content = response.content + close.encode("utf-8")
+        return with_toast(response, message)
+    messages.success(request, message)
+    return redirect("ui3:archives")
+
+
 @ui3_login_required
 @require_http_methods(["GET", "POST"])
 def job_archive(request, pk):
@@ -1484,17 +1512,26 @@ def job_archive(request, pk):
         return _bad(request, "Shared-with list is too long (max 500 characters).")
     if not services.valid_share_list(shared_with):
         return _bad(request, "Shared-with must be a comma-separated list of email addresses.")
+    scope = (request.POST.get("scope") or "").strip()
+    if scope not in ("", "job"):
+        return _bad(request, "Unknown archive scope.")
     traces = request.POST.getlist("traces") or request.POST.getlist("traces[]")
     raw_files = (request.POST.get("raw_files") or request.POST.get("input_files") or "").strip()
-    if traces:
+    whole_job = scope == "job"
+    paths = []
+    if whole_job:
+        paths = []
+    elif traces:
         paths, tokens = traces_to_archive_paths(job, traces)
         raw_files = ";".join(tokens)
         if not paths:
             return _bad(request, "No selected files could be resolved.")
-    else:
+    elif raw_files:
         job, paths, error = history_tokens_to_archive_paths(request.user, raw_files, expected_job=job)
         if error:
             return _bad(request, error)
+    else:
+        return _bad(request, "Select files to archive, or archive the whole job.")
     archive, error = services.create_file_archive(
         request.user,
         job,
@@ -1502,20 +1539,9 @@ def job_archive(request, pk):
         raw_files=raw_files,
         description=description,
         shared_with=shared_with,
+        whole_job=whole_job,
     )
     if error:
         return _bad(request, error)
-    message = "Archive #{} queued.".format(archive.id)
-    if is_htmx(request):
-        close = '<div id="modal-root" hx-swap-oob="innerHTML"></div>'
-        target = (request.headers.get("HX-Target") or "").strip().lstrip("#")
-        if target == "toast-root":
-            response = HttpResponse(toast_html(message))
-            response.content = response.content + close.encode("utf-8")
-            return response
-        ctx = _job_list_context(request)
-        response = render(request, "ui3/jobs/_results.html", ctx)
-        response.content = response.content + close.encode("utf-8")
-        return with_toast(response, message)
-    messages.success(request, message)
-    return redirect("ui3:archives")
+    kick_archive_builder()
+    return _archive_queued_response(request, job, archive)

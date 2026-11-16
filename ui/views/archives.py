@@ -1,8 +1,11 @@
-from django.shortcuts import render
-from django.views.decorators.http import require_http_methods
+import os
+
+from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.views.decorators.http import require_GET, require_http_methods
 
 from ..decorators import ui3_login_required
 from ..http import list_params, querystring, render_htmx
+from ..job_archive import present_archive, resolve_archive_download
 from .. import services
 
 
@@ -15,6 +18,7 @@ def archive_list(request):
     items = list(page.object_list)
     for archive in items:
         archive.ui3_status = services.archive_status_label(archive.status)
+        present_archive(archive)
     return render_htmx(
         request,
         "ui3/archives/list.html",
@@ -30,3 +34,15 @@ def archive_list(request):
             "item_label": "archive",
         },
     )
+
+
+@ui3_login_required
+@require_GET
+def archive_download(request, pk):
+    archive = services.get_visible_archive(request.user, pk)
+    if archive is None:
+        return HttpResponseForbidden("You cannot download this archive.")
+    path = resolve_archive_download(archive)
+    if path is None:
+        raise Http404("Archive file is not available.")
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=os.path.basename(path))

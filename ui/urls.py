@@ -78,6 +78,7 @@ urlpatterns = [
     path("jobs/<int:pk>/files/rename/", jobs.job_file_rename, name="job_file_rename"),
     path("jobs/<int:pk>/files/delete/", jobs.job_file_delete, name="job_file_delete"),
     path("archives/", archives.archive_list, name="archives"),
+    path("archives/<int:pk>/download/", archives.archive_download, name="archive_download"),
     path("protocols/options/environments/", protocols.environment_options, name="environment_options"),
     path("protocols/", protocols.protocol_list, name="protocols"),
     path("protocols/new/", protocols.protocol_create, name="protocol_create"),

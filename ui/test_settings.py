@@ -80,6 +80,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 SILENCED_SYSTEM_CHECKS = ["fields.E005"]
 UI3_PLUGINS = []
 PROTOCOL_FILES_ROOT = os.path.join(tempfile.gettempdir(), "bioqueue-ui-protocol-files")
+ARCHIVE_BUILD_ASYNC = False
 
 # Skip historical QueueDB migrations; build tables from current models.
 class _DisableMigrations(dict):

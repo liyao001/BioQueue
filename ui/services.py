@@ -2750,10 +2750,15 @@ def create_array_job(user, *, protocol, job_name, job_list, workspace=None, is_g
     return {"parent": parent_job, "created": len(children), "errors": errors}
 
 
+ARCHIVE_QUEUED = 0
+ARCHIVE_WORKING = -1
+ARCHIVE_DONE = 1
+ARCHIVE_FAILED = 2
 ARCHIVE_STATUS = {
-    0: "Queued",
-    -1: "Working",
-    1: "Done",
+    ARCHIVE_QUEUED: "Queued",
+    ARCHIVE_WORKING: "Working",
+    ARCHIVE_DONE: "Ready",
+    ARCHIVE_FAILED: "Failed",
 }
 
 HISTORY_TOKEN_RE = re.compile(r"\{\{History:(\d+)-(.*?)\}\}", re.IGNORECASE | re.DOTALL)
@@ -2979,6 +2984,10 @@ def visible_archives(user):
     return qs.filter(user=delegate_for(user))
 
 
+def get_visible_archive(user, pk):
+    return visible_archives(user).filter(pk=pk).first()
+
+
 def archive_status_label(status):
     try:
         status = int(status)
@@ -3001,12 +3010,18 @@ def valid_share_list(raw):
     return all(len(p) <= 254 and _SHARE_EMAIL_RE.match(p) for p in parts)
 
 
-def create_file_archive(user, job, file_paths, *, raw_files="", description="", shared_with=""):
+def create_file_archive(user, job, file_paths, *, raw_files="", description="", shared_with="", whole_job=False):
     if job is None or job.protocol_id is None:
         return None, "Job has no protocol; cannot archive."
-    paths = [p for p in (file_paths or []) if p]
-    if not paths:
-        return None, "No files to archive."
+    if whole_job:
+        payload = json.dumps({"scope": "result"})
+        stored_raw = raw_files or "result"
+    else:
+        paths = [p for p in (file_paths or []) if p]
+        if not paths:
+            return None, "No files to archive."
+        payload = json.dumps(paths)
+        stored_raw = raw_files or "ph"
     protocol_ver = job.protocol_ver or (job.protocol.ver if job.protocol else "") or ""
     if len(protocol_ver) > 33:
         return None, "Protocol version is too long to archive (max 33 characters)."
@@ -3015,14 +3030,14 @@ def create_file_archive(user, job, file_paths, *, raw_files="", description="", 
         protocol=job.protocol,
         protocol_ver=protocol_ver,
         inputs=job.input_file or "",
-        files=json.dumps(paths),
+        files=payload,
         file_md5s="ph",
         job=job,
-        raw_files=raw_files or "ph",
+        raw_files=stored_raw,
         description=description or "",
         shared_with=shared_with or "",
         archive_file="ph",
-        status=0,
+        status=ARCHIVE_QUEUED,
     )
     return archive, None
 

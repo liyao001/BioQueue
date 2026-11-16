@@ -1,0 +1,12 @@
+<div class="ui-overlay">
+  <div class="ui-modal" role="dialog" aria-modal="true" aria-labelledby="archive-ready-title">
+    <button type="button" class="ui-modal-x" data-ui3-close aria-label="Close">&times;</button>
+    <h3 id="archive-ready-title" class="font-bold text-lg pr-8">Archive #{{ archive.id }} is queued</h3>
+    <p class="text-sm opacity-70 mt-1">Job #{{ job.id }} {{ job.job_name }}</p>
+    <p class="text-sm mt-3">The tar is built in the background. Open Archives and download it when the status is Ready.</p>
+    <div class="flex flex-wrap justify-end gap-2 mt-4">
+      <button class="ui-btn" type="button" data-ui3-close>Close</button>
+      <a class="ui-btn ui-btn-primary" href="{% url 'ui3:archives' %}">Archives</a>
+    </div>
+  </div>
+</div>

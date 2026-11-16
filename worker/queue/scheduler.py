@@ -16,6 +16,21 @@ from worker.queue.job_queue import (
 )
 
 logger = logging.getLogger("BioQueue")
+_ARCHIVE_KICK_FAILED = False
+
+
+def _kick_archive_builder():
+    """Build one queued job archive without stopping the scheduler if it fails."""
+    global _ARCHIVE_KICK_FAILED
+    if _ARCHIVE_KICK_FAILED:
+        return
+    try:
+        from ui.job_archive import kick_archive_builder
+
+        kick_archive_builder()
+    except Exception:
+        _ARCHIVE_KICK_FAILED = True
+        logger.exception("Archive builder is unavailable")
 
 
 def validate_worker_settings(settings):
@@ -80,6 +95,7 @@ def run_worker_main(n_retries=3, slave=None, schedule=None, predict=None):
 
     while True:
         try:
+            _kick_archive_builder()
             settings = bases.get_all_config()
             job_queue.refresh_runtime_settings(settings)
             host_cpu_available = bases.get_cpu_available()
