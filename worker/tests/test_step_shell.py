@@ -58,6 +58,20 @@ class ShellStepTests(unittest.TestCase):
         values = {"umi": "{{UMI_LEN||6}}", "UMI_LEN": "8", "ref": "{{genome}}", "genome": "/ref.fa"}
         self.assertEqual(_Step._special_parameter_map("{{umi}} {{ref}}", values), "8 /ref.fa")
 
+    def test_or_true_glob_is_tokenized_and_run_as_shell(self):
+        run_folder = tempfile.mkdtemp(prefix="bq-step-")
+        step = _Step("rm", "pybedtools*.tmp || true", "", "h", None, 0, "", _settings())
+        step.translate_step_to_runnable(_job(run_folder))
+        self.assertEqual(step.command, ["rm", "pybedtools*.tmp", "||", "true"])
+        self.assertEqual(step.run_as_shell, 1)
+
+    def test_parameter_default_is_not_a_shell_operator(self):
+        run_folder = tempfile.mkdtemp(prefix="bq-step-")
+        step = _Step("fastp", "--umi_len={{UMI_LEN||6}} -i in.fq", "", "h", None, 0, "", _settings())
+        step.translate_step_to_runnable(_job(run_folder))
+        self.assertEqual(step.command, ["fastp", "--umi_len=6", "-i", "in.fq"])
+        self.assertEqual(step.run_as_shell, 0)
+
     def test_is_shell_from_software_name(self):
         step = _Step("__SHELL__", "echo hi", "", "h", None, 0, "", _settings())
         self.assertTrue(step.is_shell)

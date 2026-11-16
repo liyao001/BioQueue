@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
@@ -66,6 +67,90 @@ class ProcessRunnerTests(unittest.TestCase):
         args, kwargs = popen.call_args
         self.assertEqual(args[0], ["echo", "hi"])
         self.assertFalse(kwargs["shell"])
+
+    def test_check_shell_sig_treats_or_and_glob_as_shell(self):
+        from worker import bases
+
+        shell_commands = (
+            ["rm", "pybedtools*.tmp", "||", "true"],
+            ["ls", "*.bam"],
+            ["echo", '"hello world"'],
+            ["echo", "'hello", "world'"],
+            ["cmd", "2>&1"],
+            ["cmd", ">out"],
+            ["cmd", "2>err.txt"],
+            ["echo", "${HOME}"],
+            ["echo", "$HOME"],
+            ["echo", "`date`"],
+            ["diff", "<(sort", "a)"],
+            ["cmd", "&"],
+            ["cmd1", "|&", "cmd2"],
+            ["cat", "<<EOF"],
+            ["cat", "<<<", "text"],
+            ["ls", "~/data"],
+            ["echo", "hi||true"],
+            ["source", "/opt/conda.sh"],
+        )
+        for command in shell_commands:
+            with self.subTest(command=command):
+                self.assertEqual(bases.check_shell_sig(command), 1)
+
+        literal_commands = (
+            ["echo", "hi"],
+            ["fastp", "--umi_len={{UMI_LEN||6}}", "-i", "in.fq"],
+            ["wget", "http://x.com/a?b=1&c=2"],
+            ["tool", "--in", "a;b"],
+            ["echo", "a;", "echo", "b"],
+            ["ls", "file?.fq"],
+            ["echo", "{a,b}.txt"],
+            ["grep", "-E", "foo|bar", "file"],
+            ["echo", "gene$"],
+            ["echo", "y~x"],
+            ["echo", "a->b"],
+            ["echo", "a<=b"],
+        )
+        for command in literal_commands:
+            with self.subTest(command=command):
+                self.assertEqual(bases.check_shell_sig(command), 0)
+
+    def test_variable_and_redirect_run_through_bash(self):
+        run_dir = tempfile.mkdtemp(prefix="bq-shell-sig-")
+        step = MagicMock()
+        step.is_shell = False
+        step.command = ["echo", "${HOME}"]
+        proc = ProcessRunner.spawn_step(step, run_dir, subprocess.PIPE, subprocess.PIPE)
+        out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, err)
+        self.assertEqual(out.decode().strip(), os.environ.get("HOME", ""))
+
+        step.command = ["echo", "err", "1>&2"]
+        proc = ProcessRunner.spawn_step(step, run_dir, subprocess.PIPE, subprocess.PIPE)
+        out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, err)
+        self.assertEqual(out, b"")
+        self.assertEqual(err.decode().strip(), "err")
+
+    def test_spawn_step_uses_shell_for_or_true_glob(self):
+        run_dir = tempfile.mkdtemp(prefix="bq-or-")
+        matched = os.path.join(run_dir, "pybedtools123.tmp")
+        with open(matched, "w") as fh:
+            fh.write("x")
+        step = MagicMock()
+        step.is_shell = False
+        step.command = ["rm", "pybedtools*.tmp", "||", "true"]
+
+        proc = ProcessRunner.spawn_step(
+            step, run_dir, subprocess.PIPE, subprocess.PIPE
+        )
+        _out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, err)
+        self.assertFalse(os.path.exists(matched))
+
+        proc = ProcessRunner.spawn_step(
+            step, run_dir, subprocess.PIPE, subprocess.PIPE
+        )
+        _out, err = proc.communicate(timeout=10)
+        self.assertEqual(proc.returncode, 0, err)
 
     def test_spawn_step_writes_and_runs_shell_script(self):
         run_dir = tempfile.mkdtemp(prefix="bq-shell-")
