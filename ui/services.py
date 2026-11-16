@@ -1081,7 +1081,126 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
     return dest
 
 
-PROTOCOL_WILDCARD_RE = re.compile(r"\{\{(.*?)\}\}", re.IGNORECASE | re.DOTALL)
+def _placeholder_bodies(text):
+    """Interiors of outermost {{...}} tokens, keeping a nested {{reference}}.
+
+    A non-greedy match stops at the first }}, so
+    {{GenomeFasta||{{HG38_PRIMARY_FA}}}} used to be read as
+    GenomeFasta||{{HG38_PRIMARY_FA and the reference default was lost.
+    """
+    bodies = []
+    raw = text or ""
+    index = 0
+    length = len(raw)
+    while index < length:
+        start = raw.find("{{", index)
+        if start < 0:
+            break
+        depth = 1
+        cursor = start + 2
+        while cursor < length and depth:
+            if raw.startswith("{{", cursor):
+                depth += 1
+                cursor += 2
+            elif raw.startswith("}}", cursor):
+                depth -= 1
+                cursor += 2
+            else:
+                cursor += 1
+        if depth:
+            break
+        bodies.append(raw[start + 2:cursor - 2])
+        index = cursor
+    return bodies
+
+
+def _stray_braces(text):
+    """True when { or } appears outside a balanced {{...}} token."""
+    raw = text or ""
+    index = 0
+    length = len(raw)
+    while index < length:
+        if raw.startswith("{{", index):
+            depth = 1
+            index += 2
+            while index < length and depth:
+                if raw.startswith("{{", index):
+                    depth += 1
+                    index += 2
+                elif raw.startswith("}}", index):
+                    depth -= 1
+                    index += 2
+                elif raw[index] in "{}":
+                    return True
+                else:
+                    index += 1
+            if depth:
+                return True
+            continue
+        if raw[index] in "{}":
+            return True
+        index += 1
+    return False
+
+
+def _parameter_default_text(default):
+    """Default that can be stored as one key=value entry.
+
+    Semicolons separate entries. A {{Reference}} default is kept so the
+    worker can resolve it; a stray brace is not part of one value.
+    """
+    if ";" in (default or "") or _stray_braces(default):
+        return ""
+    return default or ""
+
+
+def _scaffold_name_ok(name, *, legacy):
+    """Reject keys that cannot be one parameter entry.
+
+    Legacy keys are Key||default, and that default may be {{Reference}}.
+    The key itself still cannot contain braces.
+    """
+    if not name or ";" in name:
+        return False
+    key = name.split("||", 1)[0]
+    if "{" in key or "}" in key:
+        return False
+    if not legacy and ("{" in name or "}" in name):
+        return False
+    if legacy and "||" in name and _stray_braces(name.split("||", 1)[1]):
+        return False
+    return True
+
+
+def _placeholder_names(body):
+    """Parameter or reference names in one token, including a nested default."""
+    head, separator, default = (body or "").partition("||")
+    name = head.split(":")[0].strip()
+    if name:
+        yield name
+    if separator:
+        for inner in _placeholder_bodies(default):
+            yield from _placeholder_names(inner)
+
+
+def _reference_names_in_text(text):
+    names = []
+    seen = set()
+    for ref_name in _placeholder_names_in_text(text):
+        root = ref_name.split(".")[0]
+        if not ref_name or root in ("sample", "samples", "shared", "index"):
+            continue
+        if any(char in ref_name for char in "{};"):
+            continue
+        if ref_name not in seen:
+            seen.add(ref_name)
+            names.append(ref_name)
+    return names
+
+
+def _placeholder_names_in_text(text):
+    for body in _placeholder_bodies(text):
+        yield from _placeholder_names(body)
 
 
 def _cluster_parameter_assignments(text):
@@ -1143,17 +1262,7 @@ def _needs_owned_named_copy(model, owner_id, name):
 
 
 def _reference_token_names(text):
-    names = []
-    seen = set()
-    for token in PROTOCOL_WILDCARD_RE.findall(text or ""):
-        ref_name = (token or "").split(":")[0].split("||")[0].strip()
-        root = ref_name.split(".")[0]
-        if not ref_name or root in ("sample", "samples", "shared", "index"):
-            continue
-        if ref_name not in seen:
-            seen.add(ref_name)
-            names.append(ref_name)
-    return names
+    return _reference_names_in_text(text)
 
 
 def _clone_environment(src, recipient):
@@ -1342,12 +1451,8 @@ def protocol_json_payload(protocol, user=None):
         refs = {}
         if user is not None:
             known = {r.name: (r.description or "") for r in visible_references(user)}
-            for token in PROTOCOL_WILDCARD_RE.findall(raw_template):
-                ref_name = (token or "").split(":")[0].split("||")[0].strip()
-                root = ref_name.split(".")[0]
-                if root in ("sample", "samples", "shared", "index"):
-                    continue
-                if ref_name and ref_name in known and ref_name not in refs:
+            for ref_name in _reference_names_in_text(raw_template):
+                if ref_name in known and ref_name not in refs:
                     refs[ref_name] = known[ref_name]
         data["reference"] = refs
         data["environment"] = protocol_environment_section(protocol)
@@ -1368,9 +1473,8 @@ def protocol_json_payload(protocol, user=None):
     if user is not None:
         known = {r.name: (r.description or "") for r in visible_references(user)}
         for step in steps_out:
-            for token in PROTOCOL_WILDCARD_RE.findall(step.get("parameter") or ""):
-                ref_name = (token or "").split(":")[0].strip()
-                if ref_name and ref_name in known and ref_name not in refs:
+            for ref_name in _reference_names_in_text(step.get("parameter") or ""):
+                if ref_name in known and ref_name not in refs:
                     refs[ref_name] = known[ref_name]
     return {
         "name": protocol.name,
@@ -1729,6 +1833,7 @@ def import_protocol_from_upload(user, upload):
     except json.JSONDecodeError:
         raise ProtocolImportError("Invalid protocol JSON.")
     return import_protocol_from_json(user, payload)
+
 
 def running_job_count(user):
     return owned_jobs(user).filter(status=JobStatus.RUNNING).count()
@@ -2467,22 +2572,19 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
     entries = []
     seen = set()
     for text in texts:
-        for match in PROTOCOL_WILDCARD_RE.finditer(text):
-            raw = match.group(1) or ""
+        for raw in _placeholder_bodies(text):
             if legacy:
                 name = raw.split(":")[0].strip()
-                if "{{" in name and "}}" not in name:
-                    name += "}}"
             else:
                 token, separator, default = raw.partition("||")
                 name = token.split(":")[0].strip()
             root = name.split("||", 1)[0].split(".")[0]
             if root in ("sample", "samples", "shared", "index"):
                 continue
-            if not name or ";" in name or "{" in name or "}" in name:
+            if not _scaffold_name_ok(name, legacy=legacy):
                 continue
-            bare = name.split("||", 1)[0]
-            if bare in predef or bare.casefold() in ("script", "asset"):
+            bare_name = name.split("||", 1)[0]
+            if bare_name in predef or bare_name.casefold() in ("script", "asset"):
                 continue
             if legacy:
                 if name in seen:
@@ -2508,11 +2610,11 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
         return "".join(entries)
     rendered = []
     for name, values in defaults.items():
-        # Conflicting per-step defaults must stay local to their tokens. A
-        # semicolon cannot be represented in the job parameter field either.
+        # Conflicting per-step defaults must stay local to their tokens.
+        # A semicolon cannot be stored in the job parameter field. A
+        # {{Reference}} default can: the worker resolves it on a later pass.
         default = next(iter(values)) if len(values) == 1 else ""
-        if any(char in default for char in ";{}"):
-            default = ""
+        default = _parameter_default_text(default)
         rendered.append("{}={};".format(name, default))
     return "".join(rendered)
 

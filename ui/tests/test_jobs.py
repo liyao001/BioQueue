@@ -1346,6 +1346,28 @@ class JobTests(Ui3TestCase):
         self.assertEqual(parameter_scaffold(self.protocol, self.user), "UMI_LEN=6;")
         self.assertEqual(parameter_scaffold(self.protocol, self.user, legacy=True), "UMI_LEN||6=;")
 
+    def test_parameter_scaffold_keeps_reference_defaults(self):
+        from QueueDB.models import Reference, Step
+        from ui.services import parameter_scaffold
+
+        Reference.objects.create(name="HG38_PRIMARY_FA", path="/refs/hg38.fa", user=self.user)
+        Step.objects.create(
+            parent=self.protocol,
+            software="bwa",
+            parameter="mem {{GenomeFasta||{{HG38_PRIMARY_FA}}}} {{HG38_PRIMARY_FA}} {{ThreadN}}",
+            step_order=1,
+            hash="ref-default",
+            user=self.user,
+        )
+        self.assertEqual(
+            parameter_scaffold(self.protocol, self.user),
+            "GenomeFasta={{HG38_PRIMARY_FA}};",
+        )
+        self.assertEqual(
+            parameter_scaffold(self.protocol, self.user, legacy=True),
+            "GenomeFasta||{{HG38_PRIMARY_FA}}=;",
+        )
+
     def test_parameter_scaffold_reads_cluster_assignments(self):
         from QueueDB.models import Step
         from ui.services import parameter_scaffold

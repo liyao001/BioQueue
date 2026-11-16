@@ -58,6 +58,23 @@ class ShellStepTests(unittest.TestCase):
         values = {"umi": "{{UMI_LEN||6}}", "UMI_LEN": "8", "ref": "{{genome}}", "genome": "/ref.fa"}
         self.assertEqual(_Step._special_parameter_map("{{umi}} {{ref}}", values), "8 /ref.fa")
 
+    def test_reference_default_resolves_from_the_step_and_from_the_job_value(self):
+        text = "{{GenomeFasta||{{HG38_PRIMARY_FA}}}}"
+        refs = {"HG38_PRIMARY_FA": "/refs/hg38.fa"}
+        self.assertEqual(_Step._special_parameter_map(text, refs), "/refs/hg38.fa")
+        self.assertEqual(
+            _Step._special_parameter_map(text, dict(refs, GenomeFasta="")),
+            "/refs/hg38.fa",
+        )
+        self.assertEqual(
+            _Step._special_parameter_map(text, dict(refs, GenomeFasta="{{HG38_PRIMARY_FA}}")),
+            "/refs/hg38.fa",
+        )
+        self.assertEqual(
+            _Step._special_parameter_map(text, dict(refs, GenomeFasta="/custom.fa")),
+            "/custom.fa",
+        )
+
     def test_or_true_glob_is_tokenized_and_run_as_shell(self):
         run_folder = tempfile.mkdtemp(prefix="bq-step-")
         step = _Step("rm", "pybedtools*.tmp || true", "", "h", None, 0, "", _settings())

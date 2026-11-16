@@ -684,9 +684,9 @@ class ProtocolTests(Ui3TestCase):
         Step.objects.create(
             parent=self.protocol,
             software="bwa",
-            parameter="mem {{hg38}} {InputFile}",
+            parameter="mem {{GenomeFasta||{{hg38}}}} {InputFile}",
             step_order=1,
-            hash=compute_step_hash("bwa", "mem {{hg38}} {InputFile}"),
+            hash=compute_step_hash("bwa", "mem {{GenomeFasta||{{hg38}}}} {InputFile}"),
             version_check="bwa --version",
             user=self.user,
         )
@@ -703,7 +703,8 @@ class ProtocolTests(Ui3TestCase):
         self.assertEqual(data["description"], "demo")
         self.assertEqual(len(data["step"]), 1)
         self.assertEqual(data["step"][0]["software"], "bwa")
-        self.assertEqual(data["step"][0]["parameter"], "mem {{hg38}} {InputFile}")
+        self.assertEqual(data["step"][0]["parameter"], "mem {{GenomeFasta||{{hg38}}}} {InputFile}")
+        self.assertNotIn("GenomeFasta", data["reference"])
         self.assertEqual(data["step"][0]["version_check"], "bwa --version")
         self.assertEqual(data["reference"]["hg38"], "human genome")
 
