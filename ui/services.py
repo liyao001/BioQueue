@@ -1051,6 +1051,7 @@ def share_protocol(src, recipient):
             env = _recipient_environment(step.env.name, recipient.id) or step.env
         _copy_step(step, dest, recipient, env)
     _recompute_protocol_ver(dest)
+    _copy_protocol_bundle(src.id, dest.id)
     return dest, added_envs, added_refs
 
 
@@ -1074,6 +1075,7 @@ def clone_protocol(src, name, user, copy_description=True, copy_shortcuts=False)
         clone_shortcuts(src, dest, user)
     if (getattr(dest, "template", "") or "").strip():
         _recompute_protocol_ver(dest)
+    _copy_protocol_bundle(src.id, dest.id)
     return dest
 
 
@@ -1471,13 +1473,251 @@ def import_protocol_from_json(user, payload):
     return proto, missing, env_notes
 
 
-def import_protocol_from_upload(user, upload):
+def _copy_protocol_bundle(src_id, dest_id):
+    from QueueDB.protocol_bundle import copy_bundle, delete_bundle
+
+    try:
+        copy_bundle(src_id, dest_id)
+    except Exception:
+        delete_bundle(dest_id)
+        raise
+
+
+def list_protocol_bundle(protocol):
+    from QueueDB.protocol_bundle import list_files
+
+    if protocol is None:
+        return {"scripts": [], "assets": []}
+    listed = list_files(protocol.id)
+    for role, token_kind in (("scripts", "Script"), ("assets", "Asset")):
+        for item in listed[role]:
+            item["token"] = "{{{{{}:{}}}}}".format(token_kind, item["name"])
+            item["bare"] = "{}/{}".format(role, item["name"])
+    return listed
+
+
+def save_protocol_bundle_file(protocol, role, upload):
+    from QueueDB.protocol_bundle import MAX_FILE_BYTES, ProtocolBundleError, clean_relative, write_file
+
     if upload is None:
-        raise ProtocolImportError("Choose a protocol JSON file.")
+        raise ProtocolBundleError("Choose a file.")
     size = getattr(upload, "size", None) or 0
-    if size > MAX_PROTOCOL_JSON_BYTES:
-        raise ProtocolImportError("File is too large (max 1 MB).")
+    if size > MAX_FILE_BYTES:
+        raise ProtocolBundleError("File is too large (max 8 MB).")
+    raw_name = (getattr(upload, "name", None) or "").replace("\\", "/").strip()
+    if "/" in raw_name:
+        raise ProtocolBundleError("That file name is not allowed.")
+    name = clean_relative(raw_name)
+    data = upload.read()
+    if len(data) > MAX_FILE_BYTES:
+        raise ProtocolBundleError("File is too large (max 8 MB).")
+    return write_file(protocol.id, role, name, data)
+
+
+def delete_protocol_bundle_file(protocol, role, name):
+    from QueueDB.protocol_bundle import delete_file
+
+    delete_file(protocol.id, role, name)
+
+
+def delete_protocol_bundle(protocol_id):
+    from QueueDB.protocol_bundle import delete_bundle
+
+    delete_bundle(protocol_id)
+
+
+def protocol_bundle_filename(name):
+    json_name = protocol_json_filename(name)
+    if json_name.endswith(".json"):
+        return json_name[: -len(".json")] + ".zip"
+    return json_name + ".zip"
+
+
+def _bundle_reference_document(protocol, user):
+    payload = protocol_json_payload(protocol, user)
+    described = payload.get("reference") or {}
+    known = {}
+    if user is not None:
+        known = {row.name: row for row in visible_references(user)}
+    document = {}
+    for name, description in described.items():
+        row = known.get(name)
+        document[name] = {
+            "description": "" if description is None else str(description),
+            "path": row.path if row is not None else "",
+        }
+    return document
+
+
+def _safe_env_filename(name):
+    if re.match(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,50}$", name or ""):
+        return name + ".txt"
+    return ""
+
+
+def protocol_bundle_bytes(protocol, user=None):
+    """Zip of protocol.json, recipes, reference hints, scripts, and assets."""
+    import io
+    import zipfile
+
+    from QueueDB.protocol_bundle import resolve_file
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        payload = protocol_json_payload(protocol, user)
+        archive.writestr("protocol.json", json.dumps(payload, indent=4, sort_keys=True))
+        archive.writestr(
+            "references.json",
+            json.dumps(_bundle_reference_document(protocol, user), indent=4, sort_keys=True),
+        )
+        for env_name, entry in (payload.get("environment") or {}).items():
+            filename = _safe_env_filename(env_name)
+            recipe = "" if not isinstance(entry, dict) else (entry.get("recipe") or "")
+            if filename and str(recipe).strip():
+                archive.writestr("env/" + filename, str(recipe))
+        for role, items in list_protocol_bundle(protocol).items():
+            for item in items:
+                path = resolve_file(protocol.id, role, item["name"])
+                if path is None:
+                    continue
+                with open(path, "rb") as handle:
+                    archive.writestr("{}/{}".format(role, item["name"]), handle.read())
+    return buffer.getvalue()
+
+
+def _zip_member_name(name):
+    relative = (name or "").replace("\\", "/").lstrip("/")
+    if not relative or relative.endswith("/"):
+        return ""
+    parts = relative.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise ProtocolImportError("Bundle contains an unsafe path.")
+    if parts[0] == "__MACOSX" or parts[-1] == ".DS_Store":
+        return ""
+    return relative
+
+
+def _read_protocol_bundle(raw):
+    import io
+    import zipfile
+
+    from QueueDB.protocol_bundle import MAX_BUNDLE_BYTES, MAX_FILE_BYTES, MAX_FILES, clean_relative
+
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        raise ProtocolImportError("Invalid protocol bundle.")
+    payload = None
+    references = {}
+    scripts = []
+    assets = []
+    total = 0
+    members = [info for info in archive.infolist() if not info.is_dir()]
+    if len(members) > MAX_FILES + 32:
+        raise ProtocolImportError("Bundle has too many files.")
+    for info in members:
+        relative = _zip_member_name(info.filename)
+        if not relative:
+            continue
+        if info.file_size > MAX_FILE_BYTES:
+            raise ProtocolImportError("A file in the bundle is too large.")
+        data = archive.read(info)
+        if len(data) > MAX_FILE_BYTES:
+            raise ProtocolImportError("A file in the bundle is too large.")
+        total += len(data)
+        if total > MAX_BUNDLE_BYTES:
+            raise ProtocolImportError("Bundle is too large (max 32 MB).")
+        parts = relative.split("/")
+        if relative == "protocol.json":
+            try:
+                payload = json.loads(data.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise ProtocolImportError("protocol.json is not valid JSON.")
+            continue
+        if relative == "references.json":
+            try:
+                references = json.loads(data.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise ProtocolImportError("references.json is not valid JSON.")
+            if not isinstance(references, dict):
+                raise ProtocolImportError("references.json must be an object.")
+            continue
+        if parts[0] == "env":
+            continue
+        if parts[0] in ("scripts", "assets") and len(parts) > 1:
+            try:
+                stored = clean_relative("/".join(parts[1:]))
+            except ValueError as exc:
+                raise ProtocolImportError(str(exc))
+            (scripts if parts[0] == "scripts" else assets).append((stored, data))
+            continue
+        raise ProtocolImportError("Bundle contains an unexpected file: {}.".format(relative))
+    if not isinstance(payload, dict):
+        raise ProtocolImportError("Bundle is missing protocol.json.")
+    return payload, references, scripts, assets
+
+
+def _import_bundle_references(owner, document):
+    created = []
+    for raw_name, spec in (document or {}).items():
+        name = str(raw_name or "").strip()
+        if not name or len(name) > 255:
+            continue
+        if isinstance(spec, str):
+            description, path = spec, ""
+        elif isinstance(spec, dict):
+            description = "" if spec.get("description") is None else str(spec.get("description"))
+            path = "" if spec.get("path") is None else str(spec.get("path")).strip()
+        else:
+            raise ProtocolImportError("Reference '{}' must be an object.".format(name))
+        if not path:
+            continue
+        if len(path) > 500:
+            raise ProtocolImportError("Reference path for '{}' is too long.".format(name))
+        if Reference.objects.filter(Q(user=owner) | Q(user=None), name=name).exists():
+            continue
+        Reference.objects.create(name=name, path=path, description=description, user=owner)
+        created.append(name)
+    return created
+
+
+def import_protocol_bundle(user, raw):
+    """Create a protocol from a bundle zip. Does not run scripts or recipes."""
+    from QueueDB.protocol_bundle import ProtocolBundleError, delete_bundle, write_file
+
+    payload, references, scripts, assets = _read_protocol_bundle(raw)
+    proto = None
+    try:
+        with transaction.atomic():
+            proto, missing, env_notes = import_protocol_from_json(user, payload)
+            for name, data in scripts:
+                write_file(proto.id, "scripts", name, data)
+            for name, data in assets:
+                write_file(proto.id, "assets", name, data)
+            created = _import_bundle_references(delegate_for(user), references)
+        missing = [name for name in missing if name not in created]
+        return proto, missing, env_notes
+    except ProtocolBundleError as exc:
+        if proto is not None:
+            delete_bundle(proto.id)
+        raise ProtocolImportError(str(exc))
+
+
+def _upload_is_zip(raw, name):
+    filename = (name or "").lower()
+    return filename.endswith(".zip") or raw.startswith(b"PK\x03\x04") or raw.startswith(b"PK\x05\x06")
+
+
+def import_protocol_from_upload(user, upload):
+    from QueueDB.protocol_bundle import MAX_BUNDLE_BYTES
+
+    if upload is None:
+        raise ProtocolImportError("Choose a protocol file.")
     raw = upload.read()
+    if _upload_is_zip(raw, getattr(upload, "name", "")):
+        if len(raw) > MAX_BUNDLE_BYTES:
+            raise ProtocolImportError("File is too large (max 32 MB).")
+        return import_protocol_bundle(user, raw)
     if len(raw) > MAX_PROTOCOL_JSON_BYTES:
         raise ProtocolImportError("File is too large (max 1 MB).")
     try:
@@ -1487,7 +1727,6 @@ def import_protocol_from_upload(user, upload):
     except json.JSONDecodeError:
         raise ProtocolImportError("Invalid protocol JSON.")
     return import_protocol_from_json(user, payload)
-
 
 def running_job_count(user):
     return owned_jobs(user).filter(status=JobStatus.RUNNING).count()
@@ -1943,6 +2182,8 @@ BUILTIN_PARAM_TOKENS = frozenset(
         "Workspace",
         "UserBin",
         "JobName",
+        "Script",
+        "Asset",
     }
 )
 
@@ -2238,7 +2479,8 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
                 continue
             if not name or ";" in name or "{" in name or "}" in name:
                 continue
-            if name.split("||", 1)[0] in predef:
+            bare = name.split("||", 1)[0]
+            if bare in predef or bare.casefold() in ("script", "asset"):
                 continue
             if legacy:
                 if name in seen:

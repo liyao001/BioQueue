@@ -1331,6 +1331,21 @@ class JobTests(Ui3TestCase):
             "SAME=;SAME||6=;DIFFERENT||6=;DIFFERENT||8=;",
         )
 
+    def test_parameter_scaffold_ignores_bundle_file_tokens(self):
+        from QueueDB.models import Step
+        from ui.services import parameter_scaffold
+
+        Step.objects.create(
+            parent=self.protocol,
+            software="__SHELL__",
+            parameter="python {{Script:abc.py}} {{Asset:regions.csv}} {{script:other.py}} {{UMI_LEN||6}}",
+            step_order=1,
+            hash="bundle-scaffold",
+            user=self.user,
+        )
+        self.assertEqual(parameter_scaffold(self.protocol, self.user), "UMI_LEN=6;")
+        self.assertEqual(parameter_scaffold(self.protocol, self.user, legacy=True), "UMI_LEN||6=;")
+
     def test_parameter_scaffold_reads_cluster_assignments(self):
         from QueueDB.models import Step
         from ui.services import parameter_scaffold

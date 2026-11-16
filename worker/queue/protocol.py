@@ -8,6 +8,7 @@ class Protocol(object):
     def __init__(self, poj, settings):
         super(Protocol, self).__init__()
         # super(Protocol, self).__init__(poj, settings)
+        self.id = poj.id
         self._ver = poj.ver
         self.raw_steps = Step.objects.filter(parent=poj).order_by("step_order")
         self._steps = []

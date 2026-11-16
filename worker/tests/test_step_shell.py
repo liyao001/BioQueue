@@ -107,6 +107,35 @@ class ShellStepTests(unittest.TestCase):
         self.assertIn("\npython run.py", step.shell_script)
         self.assertTrue(step.shell_script.rstrip().endswith("conda deactivate"))
 
+    def test_bundle_paths_expand_to_stored_files(self):
+        from types import SimpleNamespace
+
+        from QueueDB.protocol_bundle import delete_bundle, resolve_file, write_file
+
+        protocol_id = 4242
+        write_file(protocol_id, "scripts", "deconv.sh", b"echo bundle\n")
+        write_file(protocol_id, "assets", "regions.csv", b"a,b\n")
+        self.addCleanup(lambda: delete_bundle(protocol_id))
+        run_folder = tempfile.mkdtemp(prefix="bq-step-")
+        job = _job(run_folder)
+        job.job_protocol = SimpleNamespace(id=protocol_id)
+        step = _Step(
+            "__SHELL__",
+            "bash {{Script:deconv.sh}} assets/regions.csv",
+            "",
+            "h",
+            None,
+            0,
+            "bash scripts/deconv.sh --version",
+            _settings(),
+        )
+        step.translate_step_to_runnable(job)
+        script_path = resolve_file(protocol_id, "scripts", "deconv.sh")
+        asset_path = resolve_file(protocol_id, "assets", "regions.csv")
+        self.assertIn("bash " + script_path + " " + asset_path, step.shell_script)
+        self.assertNotIn("{{Script:", step.shell_script)
+        self.assertIn("bash " + script_path + " --version", step.version_check)
+
     def test_output_placeholder_keeps_colon(self):
         step = _Step("echo", "{{Output:1-1}}", "", "h", None, 0, "", _settings())
         mapped = _Step._output_file_map("use {{Output:1-1}}", {1: ["/tmp/a.fq"]})

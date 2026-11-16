@@ -1,6 +1,7 @@
 """Slurm backend: render a self-contained sbatch script, submit locally or over SSH."""
 from __future__ import print_function
 
+import base64
 import hashlib
 import logging
 import os
@@ -680,6 +681,169 @@ def _rsync_to_remote(remote, local_path, remote_path, is_dir=False):
     return _run(argv, timeout=3600, retries=2)
 
 
+def _protocol_files_root():
+    try:
+        from QueueDB.protocol_bundle import files_root
+    except Exception:
+        logger.debug("protocol files root unavailable", exc_info=True)
+        return ""
+    try:
+        return _normalize_local(files_root())
+    except Exception:
+        logger.debug("protocol files root unavailable", exc_info=True)
+        return ""
+
+
+# Absolute path of a protocol scripts/ or assets/ directory inside a command.
+_BUNDLE_DIR = re.compile(
+    r"/protocol_files/(\d+)/(scripts|assets)(?=/)"
+)
+
+
+def _referenced_bundle_dirs(body):
+    """Protocol ``scripts`` and ``assets`` directories named in a command.
+
+    A step that calls ``run_cgap.sh`` also needs the helpers beside it. The
+    command only names the entry script, so the whole directory is packed.
+    """
+    if not isinstance(body, str) or not body:
+        return []
+    found = []
+    seen = set()
+    root = _protocol_files_root()
+
+    def add(written, local_dir, protocol_id, role):
+        written = written.rstrip("/\\")
+        local_dir = local_dir.rstrip("/\\")
+        if not os.path.isdir(local_dir) and root:
+            fallback = os.path.join(root, str(protocol_id), role)
+            if os.path.isdir(fallback):
+                local_dir = fallback
+        key = (_normalize_local(written), str(protocol_id), role)
+        if key in seen:
+            return
+        seen.add(key)
+        found.append((written, local_dir, str(protocol_id), role))
+
+    for match in _BUNDLE_DIR.finditer(body):
+        protocol_id, role = match.group(1), match.group(2)
+        head = body[: match.start()]
+        cut = max(head.rfind(ch) for ch in " \t\n\"'`")
+        written = body[cut + 1 : match.end()]
+        add(written, written, protocol_id, role)
+    if root:
+        rooted = re.compile(
+            re.escape(root) + r"[/\\](\d+)[/\\](scripts|assets)(?=[/\\]|$)"
+        )
+        for match in rooted.finditer(body):
+            protocol_id, role = match.group(1), match.group(2)
+            local_dir = os.path.join(root, protocol_id, role)
+            add(local_dir, local_dir, protocol_id, role)
+    found.sort(key=lambda item: len(item[0]), reverse=True)
+    return found
+
+
+def _bundle_file_list(local_dir):
+    files = []
+    for dirpath, dirnames, filenames in os.walk(local_dir):
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if not os.path.islink(os.path.join(dirpath, name))
+        ]
+        for name in filenames:
+            full = os.path.join(dirpath, name)
+            if os.path.islink(full) or not os.path.isfile(full):
+                continue
+            relative = os.path.relpath(full, local_dir).replace(os.sep, "/")
+            if not relative or relative.startswith("../") or "/../" in relative:
+                continue
+            files.append((relative, full))
+    files.sort()
+    return files
+
+
+def _rewrite_dir_prefix(body, local_dir, shell_var):
+    local_dir = local_dir.rstrip("/\\")
+    replacement = "$" + shell_var
+    for variant in (local_dir + "/", local_dir + os.sep, local_dir):
+        if not variant or variant not in body:
+            continue
+        if variant.endswith("/") or variant.endswith(os.sep):
+            body = body.replace(variant, replacement + "/")
+        else:
+            body = body.replace(variant, replacement)
+    return body
+
+
+def _embed_protocol_files(extras):
+    """Pack referenced protocol files into the batch script.
+
+    ``{{Script:}}`` expands to a path on the BioQueue machine. Slurm runs the
+    batch script on a compute node, which often cannot see that path. The
+    script unpacks the whole directory into node-local scratch and the command
+    uses that copy, so helpers next to the entry script come along.
+    """
+    extras = _extras(extras)
+    body = extras.get("body")
+    if not isinstance(body, str) or not body:
+        return True
+    refs = _referenced_bundle_dirs(body)
+    if not refs:
+        return True
+    chunks = []
+    rewritten = body
+    for written, local_dir, protocol_id, role in refs:
+        if not os.path.isdir(local_dir):
+            logger.error(
+                "protocol bundle %s/%s is not on the worker: %s",
+                protocol_id,
+                role,
+                written,
+            )
+            return False
+        files = _bundle_file_list(local_dir)
+        if not files:
+            logger.error("protocol bundle %s/%s is empty: %s", protocol_id, role, local_dir)
+            return False
+        var = "BQ_PROTOCOL_%s_%s" % (protocol_id, role)
+        chunks.append(
+            '%s="${SLURM_TMPDIR:-${TMPDIR:-/tmp}}/bq-${SLURM_JOB_ID:-$$}-%s-%s"'
+            % (var, protocol_id, role)
+        )
+        chunks.append('mkdir -p "$%s"' % var)
+        for relative, full in files:
+            try:
+                with open(full, "rb") as handle:
+                    payload = handle.read()
+            except OSError as exc:
+                logger.error("could not read protocol file %s: %s", full, exc)
+                return False
+            encoded = base64.b64encode(payload).decode("ascii")
+            wrapped = "\n".join(encoded[i : i + 76] for i in range(0, len(encoded), 76))
+            parent = posixpath.dirname(relative)
+            if parent:
+                chunks.append('mkdir -p "$%s/%s"' % (var, parent))
+            chunks.append("base64 -d > \"$%s/%s\" <<'BQEOF'" % (var, relative))
+            chunks.append(wrapped)
+            chunks.append("BQEOF")
+            if relative.endswith(".sh") or os.access(full, os.X_OK):
+                chunks.append('chmod +x "$%s/%s"' % (var, relative))
+        rewritten = _rewrite_dir_prefix(rewritten, written, var)
+        if local_dir != written:
+            rewritten = _rewrite_dir_prefix(rewritten, local_dir, var)
+        logger.info(
+            "embedding protocol %s %s (%d files) into the batch script",
+            protocol_id,
+            role,
+            len(files),
+        )
+    extras["body"] = rewritten
+    unpack = "\n".join(chunks) + "\n"
+    existing = _text(extras.get("prologue"))
+    extras["prologue"] = (existing + "\n" + unpack).strip() + "\n"
+    return True
+
 def _stage_workspace(workspace, job_id, extras):
     extras = _extras(extras)
     remote = extras.get("remote") or {}
@@ -769,6 +933,13 @@ def submit_job(
     extras=None,
 ):
     extras = _extras(extras)
+    if not isinstance(extras.get("body"), str) or not str(extras.get("body") or "").strip():
+        if isinstance(protocol, str):
+            extras["body"] = protocol
+    # Pack protocol files before workspace rewriting, while the command still
+    # names the worker-local protocol_files directory.
+    if not _embed_protocol_files(extras):
+        return 0
     if extras.get("remote") and not _stage_workspace(workspace, job_id, extras):
         return 0
     content = render_script(

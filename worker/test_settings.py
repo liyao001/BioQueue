@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 import types
 
 from django.db import models as dj_models
@@ -47,6 +48,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 SILENCED_SYSTEM_CHECKS = ["fields.E005"]
+PROTOCOL_FILES_ROOT = os.path.join(tempfile.gettempdir(), "bioqueue-worker-protocol-files")
 
 
 class _DisableMigrations(dict):

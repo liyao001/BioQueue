@@ -2,6 +2,7 @@
 
 import os
 import sys
+import tempfile
 import types
 
 from django.db import models as dj_models
@@ -78,6 +79,7 @@ STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 SILENCED_SYSTEM_CHECKS = ["fields.E005"]
 UI3_PLUGINS = []
+PROTOCOL_FILES_ROOT = os.path.join(tempfile.gettempdir(), "bioqueue-ui-protocol-files")
 
 # Skip historical QueueDB migrations; build tables from current models.
 class _DisableMigrations(dict):

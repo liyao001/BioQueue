@@ -10,9 +10,9 @@
     <form method="post" action="{% url 'ui3:protocol_import' %}" enctype="multipart/form-data"
           class="inline-flex items-center gap-2">
       {% csrf_token %}
-      <input class="ui-input" type="file" name="file" accept=".json,application/json"
-             required aria-label="Protocol JSON file">
-      <button class="ui-btn" type="submit"><i class="fa-solid fa-file-import"></i> Import JSON</button>
+      <input class="ui-input" type="file" name="file" accept=".json,.zip,application/json,application/zip"
+             required aria-label="Protocol JSON or bundle">
+      <button class="ui-btn" type="submit"><i class="fa-solid fa-file-import"></i> Import</button>
     </form>
     <a class="ui-btn" href="{% url 'ui3:protocol_template_create' %}"><i class="fas fa-layer-group"></i> New Template</a>
     <a class="ui-btn ui-btn-primary" href="{% url 'ui3:protocol_create' %}"><i class="fas fa-plus"></i> New Protocol</a>

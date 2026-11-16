@@ -20,6 +20,9 @@
       <a class="ui-btn" href="{% url 'ui3:protocol_export' selected.id %}">
         <i class="fa-solid fa-file-export"></i> Export JSON
       </a>
+      <a class="ui-btn" href="{% url 'ui3:protocol_bundle_export' selected.id %}">
+        <i class="fa-solid fa-box-archive"></i> Export bundle
+      </a>
       <button type="button" class="ui-btn"
               onclick="document.getElementById('clone-form').classList.toggle('hidden')">
         <i class="fa-regular fa-copy"></i> Clone
@@ -73,7 +76,7 @@
       <input class="ui-input w-full" name="peer" maxlength="150" required
              placeholder="Enter a username" autocomplete="off">
     </label>
-    <p class="text-sm opacity-70">Copies this protocol{% if not template_active %} and its steps{% endif %} onto that account, including references and environments that account does not already have. One account at a time.</p>
+    <p class="text-sm opacity-70">Copies this protocol{% if not template_active %}, its steps,{% endif %} and its scripts and assets onto that account, including references and environments that account does not already have. One account at a time.</p>
     <button class="ui-btn ui-btn-primary" type="submit">Share with a peer</button>
   </form>
   {% endif %}
@@ -117,6 +120,8 @@
   {% else %}
   <p class="text-sm opacity-70">This is a public protocol. Clone it to make your own editable copy.</p>
   {% endif %}
+
+  {% include "ui3/protocols/_bundle.html" %}
 
   {% if template_active %}
   {% if not editor or not can_edit_selected %}

@@ -373,6 +373,21 @@ class _Step(object):
         parameters = list(parameter_string)
         return parameters
 
+    @staticmethod
+    def _expand_bundle(job, command, version_check):
+        protocol = getattr(job, "job_protocol", None)
+        protocol_id = getattr(protocol, "id", None)
+        try:
+            protocol_id = int(protocol_id)
+        except (TypeError, ValueError):
+            return command, version_check
+        from QueueDB.protocol_bundle import expand_bundle_paths
+
+        return (
+            expand_bundle_paths(command, protocol_id),
+            expand_bundle_paths(version_check or "", protocol_id),
+        )
+
     def translate_step_to_runnable(self, job):
         """
 
@@ -422,6 +437,7 @@ class _Step(object):
                 self._command = self._command.replace("{{ThreadN}}", str(self._settings["env"]["cpu"]))
         else:
             self._command = self._command.replace("{{ThreadN}}", str(self._settings["env"]["cpu"]))
+        self._command, self._ver_check = _Step._expand_bundle(job, self._command, self._ver_check)
 
         conda_activate = ""
         if self._env is not None and self._env.ve_type != "":

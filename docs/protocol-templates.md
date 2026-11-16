@@ -4,7 +4,7 @@ A normal BioQueue protocol is a list of commands. That list gets long when the s
 
 The worker still runs an ordered list of commands. When a job starts, BioQueue expands the template for that job's samples and runs the result. Resume, logs, and the step counter use that expanded list.
 
-An ordinary protocol JSON file, one with a `step` list and no `pipeline`, is unchanged. Import a template from the Protocols page with **Import JSON**.
+An ordinary protocol JSON file, one with a `step` list and no `pipeline`, is unchanged. Import a template from the Protocols page with **Import**. A `.json` file is still the template itself. A `.zip` bundle can also carry scripts and assets beside `protocol.json`.
 
 ## The shape of a template
 

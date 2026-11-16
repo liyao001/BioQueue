@@ -1,0 +1,95 @@
+<div class="border-t border-base-300 pt-4 space-y-4">
+  <div>
+    <h3 class="font-semibold">Scripts and assets</h3>
+    <p class="text-sm opacity-70 mt-1">
+      These files travel with Export bundle, clone, and share. A step can call
+      <span class="font-mono">{% verbatim %}{{Script:name}}{% endverbatim %}</span>
+      or <span class="font-mono">scripts/name</span>, and
+      <span class="font-mono">{% verbatim %}{{Asset:name}}{% endverbatim %}</span>
+      or <span class="font-mono">assets/name</span>.
+      The worker fills in the stored path when the job runs. Recipes and reference data stay listed in the bundle and are not installed or copied as bytes.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="space-y-2">
+      <div class="text-sm font-medium">Scripts</div>
+      <ul class="border border-base-300 rounded-md text-sm">
+        {% for item in bundle_files.scripts %}
+        <li class="flex items-center justify-between gap-2 px-3 py-2 border-b border-base-200 last:border-b-0">
+          <div class="min-w-0">
+            <div class="font-mono text-xs break-all">{{ item.name }}</div>
+            <div class="text-xs opacity-60 font-mono break-all">{{ item.token }}</div>
+          </div>
+          {% if can_edit_selected %}
+          <form method="post" action="{% url 'ui3:protocol_bundle_delete_file' selected.id %}"
+                hx-post="{% url 'ui3:protocol_bundle_delete_file' selected.id %}"
+                hx-target="#protocol-detail"
+                hx-confirm="Remove {{ item.name }} from this protocol?">
+            {% csrf_token %}
+            <input type="hidden" name="role" value="scripts">
+            <input type="hidden" name="name" value="{{ item.name }}">
+            <button class="icon-btn icon-btn-danger" type="submit" title="Remove"><i class="fa-regular fa-trash-can"></i></button>
+          </form>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="px-3 py-3 text-sm opacity-60">No scripts</li>
+        {% endfor %}
+      </ul>
+      {% if can_edit_selected %}
+      <form method="post" action="{% url 'ui3:protocol_bundle_upload' selected.id %}"
+            enctype="multipart/form-data"
+            hx-post="{% url 'ui3:protocol_bundle_upload' selected.id %}"
+            hx-encoding="multipart/form-data"
+            hx-target="#protocol-detail"
+            class="flex items-center gap-2 flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="role" value="scripts">
+        <input class="ui-input" type="file" name="file" required aria-label="Script file">
+        <button class="ui-btn" type="submit">Add script</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="space-y-2">
+      <div class="text-sm font-medium">Assets</div>
+      <ul class="border border-base-300 rounded-md text-sm">
+        {% for item in bundle_files.assets %}
+        <li class="flex items-center justify-between gap-2 px-3 py-2 border-b border-base-200 last:border-b-0">
+          <div class="min-w-0">
+            <div class="font-mono text-xs break-all">{{ item.name }}</div>
+            <div class="text-xs opacity-60 font-mono break-all">{{ item.token }}</div>
+          </div>
+          {% if can_edit_selected %}
+          <form method="post" action="{% url 'ui3:protocol_bundle_delete_file' selected.id %}"
+                hx-post="{% url 'ui3:protocol_bundle_delete_file' selected.id %}"
+                hx-target="#protocol-detail"
+                hx-confirm="Remove {{ item.name }} from this protocol?">
+            {% csrf_token %}
+            <input type="hidden" name="role" value="assets">
+            <input type="hidden" name="name" value="{{ item.name }}">
+            <button class="icon-btn icon-btn-danger" type="submit" title="Remove"><i class="fa-regular fa-trash-can"></i></button>
+          </form>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="px-3 py-3 text-sm opacity-60">No assets</li>
+        {% endfor %}
+      </ul>
+      {% if can_edit_selected %}
+      <form method="post" action="{% url 'ui3:protocol_bundle_upload' selected.id %}"
+            enctype="multipart/form-data"
+            hx-post="{% url 'ui3:protocol_bundle_upload' selected.id %}"
+            hx-encoding="multipart/form-data"
+            hx-target="#protocol-detail"
+            class="flex items-center gap-2 flex-wrap">
+        {% csrf_token %}
+        <input type="hidden" name="role" value="assets">
+        <input class="ui-input" type="file" name="file" required aria-label="Asset file">
+        <button class="ui-btn" type="submit">Add asset</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -1,4 +1,5 @@
 """Cluster extras, Slurm script rendering, and GPU/array request merging."""
+import base64
 import os
 import tempfile
 import threading
@@ -270,6 +271,67 @@ class SlurmRenderTests(unittest.TestCase):
         self.assertTrue(any("sbatch" in str(part) for part in ssh_sbatch))
         self.assertIn("ControlMaster=auto", ssh_mkdir)
         self.assertIn("ControlMaster=auto", scp)
+
+    def _protocol_scripts(self, protocol_id):
+        from QueueDB.protocol_bundle import delete_bundle, files_root, write_file
+
+        write_file(protocol_id, "scripts", "run_cgap.sh", b"#!/bin/bash\necho cgap\n")
+        write_file(protocol_id, "scripts", "run_cgap_cnn.py", b"print(1)\n")
+        write_file(protocol_id, "scripts", "run_cgap_hmm.R", b"1\n")
+        self.addCleanup(lambda: delete_bundle(protocol_id))
+        script = os.path.join(files_root(), str(protocol_id), "scripts", "run_cgap.sh")
+        return script
+
+    def test_local_submit_embeds_protocol_scripts(self):
+        if not _DJANGO_OK:
+            self.skipTest("worker django deps unavailable: %s" % _DJANGO_ERR)
+        script = self._protocol_scripts(463)
+        workspace = tempfile.mkdtemp(prefix="bq-slurm-")
+        extras = {"body": "bash %s --plus /data/plus.bw\n" % script}
+        with patch.object(Slurm, "_run", return_value=(0, "Submitted batch job 77")):
+            cluster_id = Slurm.submit_job("bash", 12, 0, workspace=workspace, extras=extras)
+        self.assertEqual(str(cluster_id), "77")
+        with open(os.path.join(workspace, "12-0.sbatch")) as handle:
+            rendered = handle.read()
+        self.assertNotIn(script, rendered)
+        self.assertIn("bash $BQ_PROTOCOL_463_scripts/run_cgap.sh --plus /data/plus.bw", rendered)
+        self.assertIn('base64 -d > "$BQ_PROTOCOL_463_scripts/run_cgap_cnn.py"', rendered)
+        self.assertIn('base64 -d > "$BQ_PROTOCOL_463_scripts/run_cgap_hmm.R"', rendered)
+        self.assertIn(base64.b64encode(b"print(1)\n").decode("ascii"), rendered)
+
+    def test_remote_submit_embeds_protocol_scripts(self):
+        if not _DJANGO_OK:
+            self.skipTest("worker django deps unavailable: %s" % _DJANGO_ERR)
+        script = self._protocol_scripts(465)
+        workspace = tempfile.mkdtemp(prefix="bq-slurm-")
+        extras = {
+            "remote": {"host": "hpc", "user": "bob", "scripts_dir": "/tmp/scripts"},
+            "body": 'bash "%s" --plus /data/plus.bw\n' % script,
+        }
+
+        def fake_run(argv, timeout=60, cwd=None, retries=3):
+            if argv and argv[0] == "ssh" and "sbatch" in str(argv[-1]):
+                return 0, "Submitted batch job 78"
+            return 0, ""
+
+        with patch.object(Slurm, "_run", side_effect=fake_run):
+            cluster_id = Slurm.submit_job("bash", 14, 0, workspace=workspace, extras=extras)
+        self.assertEqual(str(cluster_id), "78")
+        with open(os.path.join(workspace, "14-0.sbatch")) as handle:
+            rendered = handle.read()
+        self.assertNotIn(script, rendered)
+        self.assertIn('bash "$BQ_PROTOCOL_465_scripts/run_cgap.sh"', rendered)
+        self.assertIn("/data/plus.bw", rendered)
+
+    def test_submit_fails_when_protocol_scripts_are_missing(self):
+        workspace = tempfile.mkdtemp(prefix="bq-slurm-")
+        extras = {
+            "body": "bash /home/exouser/BioQueue/protocol_files/999991/scripts/run_cgap.sh\n"
+        }
+        with patch.object(Slurm, "_run", return_value=(0, "Submitted batch job 1")) as run:
+            cluster_id = Slurm.submit_job("bash", 13, 0, workspace=workspace, extras=extras)
+        self.assertEqual(cluster_id, 0)
+        run.assert_not_called()
 
     def test_ssh_scp_and_rsync_share_one_control_socket(self):
         remote = {"host": "hpc", "user": "bob", "key": "/tmp/key"}

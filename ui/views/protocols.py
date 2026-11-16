@@ -65,6 +65,7 @@ def _protocol_page_context(request, selected=None):
         "page_size": page.paginator.per_page,
         "page_size_choices": (12, 24, 36, 48),
         "item_label": "protocol",
+        "bundle_files": services.list_protocol_bundle(selected),
     }
     ctx.update(services.template_context(selected))
     if ctx["template_active"]:
@@ -327,7 +328,9 @@ def protocol_delete(request, pk):
     if proto is None:
         return _forbidden(request)
     name = proto.name
+    protocol_id = proto.id
     proto.delete()
+    services.delete_protocol_bundle(protocol_id)
     if is_htmx(request):
         ctx = _protocol_page_context(request)
         response = render(request, "ui3/protocols/_workspace.html", ctx)
@@ -418,6 +421,72 @@ def protocol_export(request, pk):
     response = HttpResponse(body, content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="{}"'.format(filename.replace('"', ""))
     return response
+
+
+@ui3_login_required
+@require_http_methods(["GET"])
+def protocol_bundle_export(request, pk):
+    proto = services.get_visible_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    body = services.protocol_bundle_bytes(proto, request.user)
+    filename = services.protocol_bundle_filename(proto.name)
+    response = HttpResponse(body, content_type="application/zip")
+    response["Content-Disposition"] = 'attachment; filename="{}"'.format(filename.replace('"', ""))
+    return response
+
+
+def _bundle_error(request, message):
+    if is_htmx(request):
+        return htmx_error(message)
+    messages.error(request, message)
+    return None
+
+
+@ui3_login_required
+@require_POST
+def protocol_bundle_upload(request, pk):
+    from QueueDB.protocol_bundle import ProtocolBundleError
+
+    proto = services.get_owned_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    try:
+        name = services.save_protocol_bundle_file(proto, request.POST.get("role") or "", request.FILES.get("file"))
+    except ProtocolBundleError as exc:
+        failed = _bundle_error(request, str(exc))
+        if failed is not None:
+            return failed
+        return redirect(reverse("ui3:protocols") + "?select={}".format(pk))
+    ctx = _protocol_page_context(request, selected=proto)
+    if is_htmx(request):
+        response = render(request, "ui3/protocols/_detail.html", ctx)
+        return with_toast(response, "Saved {}.".format(name))
+    messages.success(request, "Saved {}.".format(name))
+    return redirect(reverse("ui3:protocols") + "?select={}".format(pk))
+
+
+@ui3_login_required
+@require_POST
+def protocol_bundle_delete_file(request, pk):
+    from QueueDB.protocol_bundle import ProtocolBundleError
+
+    proto = services.get_owned_protocol(request.user, pk)
+    if proto is None:
+        return _forbidden(request)
+    try:
+        services.delete_protocol_bundle_file(proto, request.POST.get("role") or "", request.POST.get("name") or "")
+    except ProtocolBundleError as exc:
+        failed = _bundle_error(request, str(exc))
+        if failed is not None:
+            return failed
+        return redirect(reverse("ui3:protocols") + "?select={}".format(pk))
+    ctx = _protocol_page_context(request, selected=proto)
+    if is_htmx(request):
+        response = render(request, "ui3/protocols/_detail.html", ctx)
+        return with_toast(response, "Removed the file.")
+    messages.success(request, "Removed the file.")
+    return redirect(reverse("ui3:protocols") + "?select={}".format(pk))
 
 
 @ui3_login_required

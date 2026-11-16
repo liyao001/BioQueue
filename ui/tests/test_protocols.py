@@ -6,13 +6,20 @@ from ui.tests import Ui3TestCase
 
 
 class ProtocolTests(Ui3TestCase):
+    def tearDown(self):
+        from QueueDB.protocol_bundle import delete_bundle
+
+        for protocol_id in ProtocolList.objects.values_list("id", flat=True):
+            delete_bundle(protocol_id)
+        super().tearDown()
+
     def test_list_hides_other_users_protocols(self):
         self.login()
         response = self.client.get(reverse("ui3:protocols"))
         self.assertContains(response, "RNA-seq")
         self.assertNotContains(response, "secret-proto")
         self.assertContains(response, "page-head")
-        self.assertContains(response, "Import JSON")
+        self.assertContains(response, "Import")
         self.assertContains(response, reverse("ui3:protocol_import"))
         self.assertContains(response, reverse("ui3:protocol_template_create"))
         self.assertContains(response, "New Template")
@@ -903,3 +910,173 @@ class ProtocolTests(Ui3TestCase):
         notes = [str(message) for message in get_messages(response.wsgi_request)]
         self.assertTrue(any("shared" in note and "left unchanged" in note for note in notes))
         self.assertFalse(any("py310" in note and "left unchanged" in note for note in notes))
+
+    def test_bundle_upload_export_and_import(self):
+        import io
+        import json
+        import zipfile
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from QueueDB.models import Reference
+        from QueueDB.protocol_bundle import list_files, resolve_file
+
+        self.login()
+        page = self.client.get(reverse("ui3:protocol_detail", args=[self.protocol.id]))
+        self.assertContains(page, "Export bundle")
+        self.assertContains(page, "Add script")
+        uploaded = self.client.post(
+            reverse("ui3:protocol_bundle_upload", args=[self.protocol.id]),
+            {
+                "role": "scripts",
+                "file": SimpleUploadedFile("deconv.sh", b"echo hello\n", content_type="text/plain"),
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(uploaded.status_code, 200)
+        self.assertContains(uploaded, "deconv.sh")
+        self.assertContains(uploaded, "{{Script:deconv.sh}}")
+        asset = self.client.post(
+            reverse("ui3:protocol_bundle_upload", args=[self.protocol.id]),
+            {
+                "role": "assets",
+                "file": SimpleUploadedFile("regions.csv", b"a,b\n", content_type="text/csv"),
+            },
+        )
+        self.assertEqual(asset.status_code, 302)
+        Reference.objects.create(name="hg38", path="/refs/hg38.fa", description="human", user=self.user)
+        env = VirtualEnvironment.objects.create(
+            name="reg",
+            ve_type="conda",
+            value="reg",
+            recipe="name: reg\ndependencies:\n  - python\n",
+            user=self.user,
+        )
+        Step.objects.create(
+            parent=self.protocol,
+            software="__SHELL__",
+            parameter="bash {{Script:deconv.sh}} {{hg38}}",
+            step_order=1,
+            hash=compute_step_hash("__SHELL__", "bash {{Script:deconv.sh}} {{hg38}}"),
+            user=self.user,
+            env=env,
+        )
+
+        exported = self.client.get(reverse("ui3:protocol_bundle_export", args=[self.protocol.id]))
+        self.assertEqual(exported.status_code, 200)
+        self.assertEqual(exported["Content-Type"], "application/zip")
+        self.assertIn("RNA-seq.zip", exported["Content-Disposition"])
+        archive = zipfile.ZipFile(io.BytesIO(exported.content))
+        names = set(archive.namelist())
+        self.assertIn("protocol.json", names)
+        self.assertIn("references.json", names)
+        self.assertIn("scripts/deconv.sh", names)
+        self.assertIn("assets/regions.csv", names)
+        self.assertIn("env/reg.txt", names)
+        self.assertEqual(archive.read("scripts/deconv.sh"), b"echo hello\n")
+        payload = json.loads(archive.read("protocol.json"))
+        self.assertEqual(payload["name"], "RNA-seq")
+        self.assertEqual(payload["step"][0]["parameter"], "bash {{Script:deconv.sh}} {{hg38}}")
+        refs = json.loads(archive.read("references.json"))
+        self.assertEqual(refs["hg38"]["path"], "/refs/hg38.fa")
+        self.assertIn("python", archive.read("env/reg.txt").decode())
+
+        payload["name"] = "RNA-seq bundle"
+        rebuilt = io.BytesIO()
+        with zipfile.ZipFile(rebuilt, "w") as out:
+            for info in archive.infolist():
+                data = archive.read(info)
+                if info.filename == "protocol.json":
+                    data = json.dumps(payload).encode()
+                out.writestr(info.filename, data)
+        Reference.objects.filter(name="hg38", user=self.user).delete()
+        imported = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("rna.zip", rebuilt.getvalue(), content_type="application/zip")},
+            follow=True,
+        )
+        self.assertEqual(imported.status_code, 200)
+        dest = ProtocolList.objects.get(name="RNA-seq bundle", user=self.user)
+        self.assertEqual(resolve_file(dest.id, "scripts", "deconv.sh") and open(resolve_file(dest.id, "scripts", "deconv.sh"), "rb").read(), b"echo hello\n")
+        self.assertEqual(list_files(dest.id)["assets"][0]["name"], "regions.csv")
+        copied_ref = Reference.objects.get(name="hg38", user=self.user)
+        self.assertEqual(copied_ref.path, "/refs/hg38.fa")
+        self.assertEqual(protocol_steps(dest).get().parameter, "bash {{Script:deconv.sh}} {{hg38}}")
+
+        removed = self.client.post(
+            reverse("ui3:protocol_bundle_delete_file", args=[self.protocol.id]),
+            {"role": "scripts", "name": "deconv.sh"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(removed.status_code, 200)
+        self.assertIsNone(resolve_file(self.protocol.id, "scripts", "deconv.sh"))
+
+    def test_bundle_rejects_unsafe_names_and_other_owners(self):
+        import io
+        import json
+        import zipfile
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from QueueDB.protocol_bundle import ProtocolBundleError, write_file
+
+        self.login()
+        bad = self.client.post(
+            reverse("ui3:protocol_bundle_upload", args=[self.protocol.id]),
+            {"role": "scripts", "file": SimpleUploadedFile(".secret.sh", b"echo\n")},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(bad.status_code, 400)
+        with self.assertRaises(ProtocolBundleError):
+            write_file(self.protocol.id, "scripts", "../secret.sh", b"echo\n")
+        slipped = io.BytesIO()
+        with zipfile.ZipFile(slipped, "w") as archive:
+            archive.writestr("protocol.json", json.dumps({"name": "slipped", "step": []}).encode())
+            archive.writestr("../secret.sh", b"echo\n")
+        rejected = self.client.post(
+            reverse("ui3:protocol_import"),
+            {"file": SimpleUploadedFile("bad.zip", slipped.getvalue(), content_type="application/zip")},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertFalse(ProtocolList.objects.filter(name="slipped").exists())
+        foreign = self.client.post(
+            reverse("ui3:protocol_bundle_upload", args=[self.other_protocol.id]),
+            {"role": "scripts", "file": SimpleUploadedFile("ok.sh", b"echo\n")},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(foreign.status_code, 403)
+        forbidden = self.client.get(reverse("ui3:protocol_bundle_export", args=[self.other_protocol.id]))
+        self.assertEqual(forbidden.status_code, 403)
+
+    def test_share_and_clone_copy_bundle_files(self):
+        from QueueDB.protocol_bundle import resolve_file, write_file
+
+        write_file(self.protocol.id, "scripts", "helper.sh", b"echo helper\n")
+        self.login()
+        cloned = self.client.post(
+            reverse("ui3:protocol_clone", args=[self.protocol.id]),
+            {"name": "RNA-seq with files", "copy_description": "1"},
+        )
+        self.assertEqual(cloned.status_code, 302)
+        copy = ProtocolList.objects.get(name="RNA-seq with files", user=self.user)
+        self.assertEqual(open(resolve_file(copy.id, "scripts", "helper.sh"), "rb").read(), b"echo helper\n")
+
+        shared = self.client.post(
+            reverse("ui3:protocol_share", args=[self.protocol.id]),
+            {"peer": "bob"},
+        )
+        self.assertEqual(shared.status_code, 302)
+        dest = ProtocolList.objects.get(name="RNA-seq", user=self.other)
+        self.assertEqual(open(resolve_file(dest.id, "scripts", "helper.sh"), "rb").read(), b"echo helper\n")
+
+    def test_delete_protocol_removes_bundle_files(self):
+        import os
+
+        from QueueDB.protocol_bundle import resolve_file, write_file
+
+        write_file(self.protocol.id, "assets", "note.txt", b"keep\n")
+        path = resolve_file(self.protocol.id, "assets", "note.txt")
+        self.assertTrue(os.path.isfile(path))
+        self.login()
+        response = self.client.post(reverse("ui3:protocol_delete", args=[self.protocol.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(os.path.exists(path))
