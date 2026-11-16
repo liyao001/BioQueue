@@ -1,0 +1,40 @@
+{% extends "ui3/base.html" %}
+{% block title %}Cross access – BioQueue{% endblock %}
+{% block content %}
+<div class="page-head mb-4">
+  <h1 class="text-2xl font-semibold">Cross access</h1>
+  <p class="text-sm opacity-70 page-head-sub">Let another account open your jobs under Scope → Shared and use your result files in a CrossAccess token. Write is stored on the grant. Editing or rerunning a job still requires the owner or a staff account.</p>
+</div>
+
+{% include "ui3/access/_panel.html" %}
+
+<div class="card bg-base-100 shadow-sm p-5 mt-6">
+  <h2 class="text-lg font-semibold">Grant access</h2>
+  <p class="text-sm opacity-70 mt-1">Enter the username of the account that should use your jobs.</p>
+  <form class="mt-3 space-y-3" method="post" action="{% url 'ui3:cross_access_create' %}"
+        hx-post="{% url 'ui3:cross_access_create' %}"
+        hx-target="#access-panel"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) this.reset()">
+    {% csrf_token %}
+    <label class="form-control">
+      <div class="label"><span class="label-text">Username</span></div>
+      <input class="ui-input w-full" name="username" maxlength="150" placeholder="lab-account" required autocomplete="off">
+    </label>
+    <div class="flex flex-wrap gap-4">
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="checkbox checkbox-sm" name="allow_read" value="1" checked>
+        Read
+      </label>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" class="checkbox checkbox-sm" name="allow_write" value="1">
+        Write
+      </label>
+    </div>
+    <p class="text-sm opacity-70">Read is what the job list and result-file tokens check. Write is recorded for the grant and does not change who can edit a job.</p>
+    <div class="flex justify-end">
+      <button class="ui-btn ui-btn-primary" type="submit">Grant access</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,96 @@
+<div id="access-panel" class="space-y-6">
+  <div class="card bg-base-100 shadow-sm">
+    <div class="px-4 pt-4 pb-2">
+      <h2 class="text-lg font-semibold">People who can use your jobs</h2>
+    </div>
+    {% for grant in outgoing %}
+    <div class="px-4 py-3 border-t border-base-300">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-medium">{{ grant.grantee.username }}</span>
+        <span class="text-sm opacity-70">Read</span>
+        {% if grant.allow_read %}
+        <span class="badge badge-success badge-sm">Allow</span>
+        {% else %}
+        <span class="badge badge-ghost badge-sm">Deny</span>
+        {% endif %}
+        <span class="text-sm opacity-70">Write</span>
+        {% if grant.allow_write %}
+        <span class="badge badge-success badge-sm">Allow</span>
+        {% else %}
+        <span class="badge badge-ghost badge-sm">Deny</span>
+        {% endif %}
+      </div>
+      <div class="flex flex-wrap gap-1 mt-2">
+        <form method="post" action="{% url 'ui3:cross_access_update' grant.id %}"
+              hx-post="{% url 'ui3:cross_access_update' grant.id %}"
+              hx-target="#access-panel"
+              hx-swap="outerHTML">
+          {% csrf_token %}
+          <button class="ui-btn" type="submit" name="allow_read" value="{% if grant.allow_read %}0{% else %}1{% endif %}">
+            {% if grant.allow_read %}Turn read off{% else %}Turn read on{% endif %}
+          </button>
+        </form>
+        <form method="post" action="{% url 'ui3:cross_access_update' grant.id %}"
+              hx-post="{% url 'ui3:cross_access_update' grant.id %}"
+              hx-target="#access-panel"
+              hx-swap="outerHTML">
+          {% csrf_token %}
+          <button class="ui-btn" type="submit" name="allow_write" value="{% if grant.allow_write %}0{% else %}1{% endif %}">
+            {% if grant.allow_write %}Turn write off{% else %}Turn write on{% endif %}
+          </button>
+        </form>
+        <form method="post" action="{% url 'ui3:cross_access_delete' grant.id %}"
+              hx-post="{% url 'ui3:cross_access_delete' grant.id %}"
+              hx-target="#access-panel"
+              hx-swap="outerHTML"
+              hx-confirm="Revoke {{ grant.grantee.username|escapejs }}'s access to your jobs?">
+          {% csrf_token %}
+          <button class="ui-btn icon-btn-danger" type="submit">Revoke</button>
+        </form>
+      </div>
+    </div>
+    {% empty %}
+    <p class="px-4 pb-4 opacity-70">No one else can open your jobs yet. Grant access below.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card bg-base-100 shadow-sm overflow-x-auto">
+    <div class="px-4 pt-4">
+      <h2 class="text-lg font-semibold">Shared with you</h2>
+    </div>
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Read</th>
+          <th>Write</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for grant in incoming %}
+        <tr>
+          <td>{{ grant.user.username }}</td>
+          <td>
+            {% if grant.allow_read %}
+            <span class="badge badge-success badge-sm">Allow</span>
+            {% else %}
+            <span class="badge badge-ghost badge-sm">Deny</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if grant.allow_write %}
+            <span class="badge badge-success badge-sm">Allow</span>
+            {% else %}
+            <span class="badge badge-ghost badge-sm">Deny</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="opacity-70">No other account has shared jobs with you.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

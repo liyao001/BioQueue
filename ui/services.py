@@ -16,6 +16,7 @@ from django.db.models import Q
 
 from QueueDB.models import (
     Audition,
+    CrossAccess,
     FileArchive,
     Job,
     JobStatus,
@@ -3342,3 +3343,106 @@ def update_notification_hook(hook, post):
         setattr(hook, key, value)
     hook.save()
     return hook
+
+
+class CrossAccessError(ValueError):
+    """User-facing failure while managing a CrossAccess grant."""
+
+
+def outgoing_cross_access(user):
+    """Grants this account has given. Jobs are owned by the profile delegate."""
+    owner = delegate_for(user)
+    return (
+        CrossAccess.objects.filter(user=owner)
+        .select_related("grantee")
+        .order_by("grantee__username", "id")
+    )
+
+
+def incoming_cross_access(user):
+    """Grants that let this account read someone else's jobs."""
+    delegate = delegate_for(user)
+    return (
+        CrossAccess.objects.filter(grantee=delegate)
+        .select_related("user")
+        .order_by("user__username", "id")
+    )
+
+
+def get_owned_cross_access(user, pk):
+    return outgoing_cross_access(user).filter(pk=pk).first()
+
+
+def _access_bit(allowed):
+    return 1 if allowed else 0
+
+
+def _collapse_cross_access(owner_id, grantee_id, keep_id):
+    """The worker looks up one row per owner/grantee pair."""
+    CrossAccess.objects.filter(user_id=owner_id, grantee_id=grantee_id).exclude(pk=keep_id).delete()
+
+
+def grant_cross_access(user, username, allow_read=True, allow_write=False):
+    """
+    Let another account use this account's jobs.
+
+    The grantee is that user's profile delegate, which is the id the job list
+    and the worker check. Returns (grant, created).
+    """
+    owner = delegate_for(user)
+    try:
+        recipient = find_share_recipient(username)
+    except ShareProtocolError as exc:
+        raise CrossAccessError(str(exc))
+    grantee = delegate_for(recipient)
+    if grantee.id == owner.id:
+        raise CrossAccessError("That account already owns these jobs.")
+    read = _access_bit(allow_read)
+    write = _access_bit(allow_write)
+    if not read and not write:
+        raise CrossAccessError("Allow read or write access.")
+    with transaction.atomic():
+        rows = list(
+            CrossAccess.objects.filter(user=owner, grantee=grantee).order_by("id")
+        )
+        if rows:
+            grant = rows[0]
+            grant.allow_read = read
+            grant.allow_write = write
+            grant.save(update_fields=["allow_read", "allow_write"])
+            _collapse_cross_access(owner.id, grantee.id, grant.id)
+            created = False
+        else:
+            grant = CrossAccess.objects.create(
+                user=owner,
+                grantee=grantee,
+                allow_read=read,
+                allow_write=write,
+            )
+            created = True
+    grant.grantee = grantee
+    return grant, created
+
+
+def set_cross_access_flag(grant, name, allowed):
+    if name not in ("allow_read", "allow_write"):
+        raise CrossAccessError("Unknown access flag.")
+    value = _access_bit(allowed)
+    with transaction.atomic():
+        setattr(grant, name, value)
+        grant.save(update_fields=[name])
+        _collapse_cross_access(grant.user_id, grant.grantee_id, grant.id)
+    return grant
+
+
+def revoke_cross_access(grant):
+    """Remove every grant from this owner to this grantee."""
+    name = grant.grantee.username
+    CrossAccess.objects.filter(user_id=grant.user_id, grantee_id=grant.grantee_id).delete()
+    return name
+
+
+def cross_access_summary(grant):
+    read = "read on" if grant.allow_read else "read off"
+    write = "write on" if grant.allow_write else "write off"
+    return "{}, {}".format(read, write)

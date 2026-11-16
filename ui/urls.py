@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .views import access
 from .views import archives
 from .views import auth
 from .views import dag
@@ -26,6 +27,10 @@ urlpatterns = [
     path("notifications/<int:pk>/edit/", notifications.notification_edit, name="notification_edit"),
     path("notifications/<int:pk>/delete/", notifications.notification_delete, name="notification_delete"),
     path("notifications/<int:pk>/test/", notifications.notification_test, name="notification_test"),
+    path("cross-access/", access.cross_access_list, name="cross_access"),
+    path("cross-access/new/", access.cross_access_create, name="cross_access_create"),
+    path("cross-access/<int:pk>/update/", access.cross_access_update, name="cross_access_update"),
+    path("cross-access/<int:pk>/delete/", access.cross_access_delete, name="cross_access_delete"),
     path("users/", users.user_list, name="users"),
     path("users/new/", users.user_create, name="user_create"),
     path("users/<int:pk>/activate/", users.user_activate, name="user_activate"),

@@ -70,6 +70,7 @@ use this module; keep their interpretation consistent.
 | Worker startup, CLI, import problems | `worker/cli.py`, `bioqueue.py`, `_bootstrap.py`, `django_initial.py` | `worker/tests/test_cli.py`, `test_bootstrap.py` |
 | Site-specific pages and shortcuts | `ui/plugins/`, `ProtocolShortcut` | `ui/tests/test_plugins.py` |
 | Job status notifications | `QueueDB/notifications.py`, `worker/queue/job_queue.py`, `ui/views/notifications.py` | `ui/tests/test_notifications.py`, `worker/tests/test_notifications.py` |
+| Cross-access grants | `ui/views/access.py`, `ui/services.py` | `ui/tests/test_access.py` |
 
 ## Rules and compatibility to preserve
 
