@@ -1399,6 +1399,7 @@ class JobTests(Ui3TestCase):
         self.assertContains(response, 'id="picker-insert"')
         self.assertNotContains(response, 'id="picker-insert" disabled')
         self.assertNotContains(response, "Type a job name or id to search")
+        self.assertNotContains(response, 'aria-label="Job pages"')
 
     def test_job_results_picker_filters_by_name(self):
         self.make_job(job_name="alpha-run")
@@ -1411,6 +1412,62 @@ class JobTests(Ui3TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "alpha-run")
         self.assertNotContains(response, "beta-run")
+
+    def test_job_results_picker_paginates_past_the_first_page(self):
+        oldest = self.make_job(job_name="oldest-picker")
+        for i in range(20):
+            self.make_job(job_name="newer-picker-{:02d}".format(i))
+        self.login()
+        first = self.client.get(reverse("ui3:job_results_picker"), {"target": "id_input_file"})
+        self.assertEqual(first.status_code, 200)
+        self.assertContains(first, "newer-picker-19")
+        self.assertNotContains(first, "oldest-picker")
+        self.assertContains(first, 'aria-label="Job pages"')
+        self.assertContains(first, "1 / 2")
+        self.assertContains(first, '"page": "2"')
+        second = self.client.get(
+            reverse("ui3:job_results_picker"),
+            {"page": "2", "target": "id_input_file"},
+        )
+        self.assertContains(second, "oldest-picker")
+        self.assertContains(second, "#{}".format(oldest.id))
+        self.assertNotContains(second, "newer-picker-19")
+        self.assertContains(second, "2 / 2")
+        self.assertContains(second, '"page": "2"')
+        kept = self.client.get(
+            reverse("ui3:job_results_picker"),
+            {"page": "2", "job": oldest.id, "target": "id_input_file"},
+        )
+        self.assertContains(kept, "oldest-picker")
+        self.assertContains(kept, "2 / 2")
+        self.assertContains(kept, '"page": "1"')
+        clamped = self.client.get(
+            reverse("ui3:job_results_picker"),
+            {"page": "nope", "target": "id_input_file"},
+        )
+        self.assertEqual(clamped.status_code, 200)
+        self.assertContains(clamped, "newer-picker-19")
+        self.assertNotContains(clamped, "oldest-picker")
+
+    def test_job_results_picker_pages_shared_jobs_after_own_jobs(self):
+        from QueueDB.models import CrossAccess
+
+        CrossAccess.objects.create(user=self.other, grantee=self.user, allow_read=1, allow_write=0)
+        for i in range(20):
+            self.make_job(job_name="own-picker-{:02d}".format(i))
+        shared = self.make_job(user=self.other, protocol=self.other_protocol, job_name="shared-picker")
+        self.login()
+        first = self.client.get(reverse("ui3:job_results_picker"), {"target": "id_input_file"})
+        self.assertContains(first, "own-picker-19")
+        self.assertNotContains(first, "shared-picker")
+        second = self.client.get(
+            reverse("ui3:job_results_picker"),
+            {"page": "2", "target": "id_input_file"},
+        )
+        self.assertContains(second, "shared-picker")
+        self.assertContains(second, "#{}".format(shared.id))
+        self.assertContains(second, "(shared)")
+        self.assertNotContains(second, "own-picker-")
 
     def test_batch_create_from_tsv(self):
         self.login()

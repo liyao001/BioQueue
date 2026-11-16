@@ -574,15 +574,8 @@ def workspace_uploads(request):
 @require_http_methods(["GET"])
 def job_results_picker(request):
     q = (request.GET.get("q") or "").strip()
-    if q.isdigit():
-        params = {"id": q, "scope": "own"}
-    elif q:
-        params = {"job_name": q, "scope": "own"}
-    else:
-        # Default: recent own jobs so the modal is usable without typing first.
-        params = {"scope": "own"}
-    own_jobs = list(services.search_jobs(request.user, params)[:20])
-    shared_jobs = list(services.shared_search_jobs(request.user, q, limit=20))
+    page = request.GET.get("page") or 1
+    picker_jobs, job_page = services.page_results_picker_jobs(request.user, q, page=page)
     selected_job = None
     job_id = int_or_none(request.GET.get("job"))
     files_page = None
@@ -606,8 +599,8 @@ def job_results_picker(request):
         "ui3/jobs/_results_picker_modal.html",
         {
             "q": q,
-            "own_jobs": own_jobs,
-            "shared_jobs": shared_jobs,
+            "picker_jobs": picker_jobs,
+            "job_page": job_page,
             "selected_job": selected_job,
             "files_page": files_page,
             "is_shared": is_shared,

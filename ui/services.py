@@ -58,6 +58,7 @@ from .template_editor import (
 
 PAGE_SIZE_DEFAULT = 12
 PAGE_SIZE_MAX = 100
+RESULTS_PICKER_PAGE_SIZE = 20
 
 STATUS_BADGE = {
     JobStatus.WRONG: "badge-error",
@@ -2574,7 +2575,64 @@ def shared_search_jobs(user, q, limit=50):
             qs = qs.filter(id=int(q))
         else:
             qs = qs.filter(job_name__icontains=q)
-    return qs.order_by("-id")[:limit]
+    qs = qs.order_by("-id")
+    if limit is None:
+        return qs
+    return qs[:limit]
+
+
+def page_results_picker_jobs(user, q, page=1, page_size=RESULTS_PICKER_PAGE_SIZE):
+    """One page of picker jobs: the user's own jobs first, then shared jobs.
+
+    ``page`` is clamped. A non-numeric page is treated as page 1.
+    """
+    q = (q or "").strip()
+    if q.isdigit():
+        params = {"id": q, "scope": "own"}
+    elif q:
+        params = {"job_name": q, "scope": "own"}
+    else:
+        params = {"scope": "own"}
+    own_qs = search_jobs(user, params)
+    shared_qs = shared_search_jobs(user, q, limit=None)
+    try:
+        page_size = int(page_size)
+    except (TypeError, ValueError):
+        page_size = RESULTS_PICKER_PAGE_SIZE
+    page_size = max(1, page_size)
+    try:
+        page = int(page or 1)
+    except (TypeError, ValueError):
+        page = 1
+    own_count = own_qs.count()
+    shared_count = shared_qs.count()
+    total = own_count + shared_count
+    num_pages = max(1, (total + page_size - 1) // page_size) if total else 1
+    if page < 1:
+        page = 1
+    if page > num_pages:
+        page = num_pages
+    start = (page - 1) * page_size
+    end = start + page_size
+    jobs = []
+    if start < own_count:
+        for job in own_qs[start:min(end, own_count)]:
+            job.picker_shared = False
+            jobs.append(job)
+    if end > own_count and shared_count:
+        shared_start = max(0, start - own_count)
+        for job in shared_qs[shared_start:end - own_count]:
+            job.picker_shared = True
+            jobs.append(job)
+    return jobs, {
+        "number": page,
+        "num_pages": num_pages,
+        "count": total,
+        "has_previous": page > 1,
+        "has_next": page < num_pages,
+        "previous_page_number": page - 1,
+        "next_page_number": page + 1,
+    }
 
 
 def create_jobs_batch(user, tsv_content, workspace=None):

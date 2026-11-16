@@ -28,35 +28,47 @@
         <div>
           <div class="text-sm font-medium mb-1">Jobs</div>
           <div class="border border-base-300 rounded max-h-64 overflow-y-auto">
-            {% for job in own_jobs %}
+            {% for job in picker_jobs %}
             <button type="button"
                     class="w-full text-left px-2 py-1.5 text-sm hover:bg-base-200 {% if selected_job and selected_job.id == job.id %}bg-base-200{% endif %}"
                     hx-get="{% url 'ui3:job_results_picker' %}"
-                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ job.id }}", "target": "{{ target_id }}"}'
+                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ job.id }}", "target": "{{ target_id }}", "page": "{{ job_page.number }}"}'
                     hx-target="#picker-body"
                     hx-select="#picker-body"
                     hx-swap="innerHTML">
-              #{{ job.id }} {{ job.job_name }}
-            </button>
-            {% endfor %}
-            {% for job in shared_jobs %}
-            <button type="button"
-                    class="w-full text-left px-2 py-1.5 text-sm hover:bg-base-200 {% if selected_job and selected_job.id == job.id %}bg-base-200{% endif %}"
-                    hx-get="{% url 'ui3:job_results_picker' %}"
-                    hx-vals='{"q": "{{ q|escapejs }}", "job": "{{ job.id }}", "target": "{{ target_id }}"}'
-                    hx-target="#picker-body"
-                    hx-select="#picker-body"
-                    hx-swap="innerHTML">
-              #{{ job.id }} {{ job.job_name }} <span class="opacity-50">(shared)</span>
+              #{{ job.id }} {{ job.job_name }}{% if job.picker_shared %} <span class="opacity-50">(shared)</span>{% endif %}
             </button>
             {% empty %}
-            {% endfor %}
-            {% if not own_jobs and not shared_jobs %}
             <div class="px-2 py-3 text-sm opacity-60 text-center">
               {% if q %}No matching jobs{% else %}No jobs available{% endif %}
             </div>
+            {% endfor %}
+          </div>
+          {% if job_page.num_pages > 1 %}
+          <div class="mt-2 flex items-center justify-between gap-1" aria-label="Job pages">
+            {% if job_page.has_previous %}
+            <button type="button" class="ui-btn" aria-label="Previous page"
+                    hx-get="{% url 'ui3:job_results_picker' %}"
+                    hx-vals='{"q": "{{ q|escapejs }}", "target": "{{ target_id }}", "page": "{{ job_page.previous_page_number }}"{% if selected_job %}, "job": "{{ selected_job.id }}", "fq": "{{ fq|escapejs }}"{% endif %}}'
+                    hx-target="#picker-body"
+                    hx-select="#picker-body"
+                    hx-swap="innerHTML">Prev</button>
+            {% else %}
+            <span class="ui-btn opacity-40" aria-disabled="true">Prev</span>
+            {% endif %}
+            <span class="text-xs opacity-70">{{ job_page.number }} / {{ job_page.num_pages }}</span>
+            {% if job_page.has_next %}
+            <button type="button" class="ui-btn" aria-label="Next page"
+                    hx-get="{% url 'ui3:job_results_picker' %}"
+                    hx-vals='{"q": "{{ q|escapejs }}", "target": "{{ target_id }}", "page": "{{ job_page.next_page_number }}"{% if selected_job %}, "job": "{{ selected_job.id }}", "fq": "{{ fq|escapejs }}"{% endif %}}'
+                    hx-target="#picker-body"
+                    hx-select="#picker-body"
+                    hx-swap="innerHTML">Next</button>
+            {% else %}
+            <span class="ui-btn opacity-40" aria-disabled="true">Next</span>
             {% endif %}
           </div>
+          {% endif %}
         </div>
 
         <div>
