@@ -37,15 +37,17 @@ def if_terminate(job_id):
     """
     Return True if this cluster submission should be cancelled.
 
-    That is a stop flag, or a row the user already moved off Running
-    (for example by resuming). On DB errors, returns False so we do not
-    spuriously cancel cluster work.
+    That is a stop flag, a row the user already moved off Running
+    (for example by resuming), or a row that no longer exists. On DB
+    errors, returns False so we do not spuriously cancel cluster work.
     """
     try:
         job = Job.objects.get(id=job_id)
         # Resume clears ter and sets Waiting. This cluster job is the previous
         # run and must be cancelled before a new claim starts the step again.
         return bool(job.ter) or job.status not in (_JS_RUNNING, _JS_RESOURCELOCK)
+    except Job.DoesNotExist:
+        return True
     except Exception as e:
         logger.warning("if_terminate(%s): %s", job_id, e)
         return False

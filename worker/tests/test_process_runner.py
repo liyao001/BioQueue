@@ -240,3 +240,49 @@ class ProcessRunnerTests(unittest.TestCase):
             rc = runner.wait_for_completion(proc, job_id=7)
         self.assertEqual(rc, 0)
         self.assertEqual(killed, [])
+
+    def test_deleted_job_stops_the_live_process(self):
+        from types import SimpleNamespace
+
+        from QueueDB.models import Job
+        from worker.queue.constants import STEP_USER_INTERRUPTED
+
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.pid = 42
+        killed = []
+        runner = ProcessRunner(n_retries=3, kill_process_fn=lambda proc_info: killed.append(proc_info))
+        with patch("worker.queue.process_runner.psutil.pids", return_value=[42]), patch(
+            "worker.queue.process_runner.psutil.Process",
+            return_value=SimpleNamespace(is_running=lambda: True),
+        ), patch("worker.queue.process_runner.close_old_connections"), patch(
+            "worker.queue.process_runner.time.sleep"
+        ) as slept, patch("worker.queue.process_runner.Job") as job_model:
+            job_model.DoesNotExist = Job.DoesNotExist
+            job_model.objects.get.side_effect = Job.DoesNotExist
+            rc = runner.wait_for_completion(proc, job_id=7)
+        self.assertEqual(rc, STEP_USER_INTERRUPTED)
+        self.assertEqual(len(killed), 1)
+        self.assertEqual(slept.call_count, 0)
+
+    def test_database_blip_does_not_stop_a_running_process(self):
+        from types import SimpleNamespace
+
+        proc = MagicMock()
+        proc.poll.side_effect = [None, 0]
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.pid = 42
+        killed = []
+        runner = ProcessRunner(n_retries=1, kill_process_fn=lambda proc_info: killed.append(proc_info))
+        with patch("worker.queue.process_runner.psutil.pids", return_value=[42]), patch(
+            "worker.queue.process_runner.psutil.Process",
+            return_value=SimpleNamespace(is_running=lambda: True),
+        ), patch("worker.queue.process_runner.close_old_connections"), patch(
+            "worker.queue.process_runner.time.sleep"
+        ), patch("worker.queue.process_runner.Job") as job_model:
+            job_model.DoesNotExist = type("DoesNotExist", (Exception,), {})
+            job_model.objects.get.side_effect = RuntimeError("db down")
+            rc = runner.wait_for_completion(proc, job_id=7)
+        self.assertEqual(rc, 0)
+        self.assertEqual(killed, [])

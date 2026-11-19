@@ -1752,3 +1752,27 @@ class ClusterSupportHardeningTests(unittest.TestCase):
             )
         self.assertEqual(rc, 0)
         self.assertEqual(order, ["partial", "final"])
+
+
+class IfTerminateTests(unittest.TestCase):
+    def test_missing_job_row_is_a_stop(self):
+        if not _DJANGO_OK:
+            self.skipTest(_DJANGO_ERR)
+        from QueueDB.models import Job
+        from worker.cluster_support import if_terminate
+
+        with patch("worker.cluster_support.Job") as job_model:
+            job_model.DoesNotExist = Job.DoesNotExist
+            job_model.objects.get.side_effect = Job.DoesNotExist
+            self.assertTrue(if_terminate(9))
+
+    def test_database_error_does_not_cancel_cluster_work(self):
+        if not _DJANGO_OK:
+            self.skipTest(_DJANGO_ERR)
+        from QueueDB.models import Job
+        from worker.cluster_support import if_terminate
+
+        with patch("worker.cluster_support.Job") as job_model:
+            job_model.DoesNotExist = Job.DoesNotExist
+            job_model.objects.get.side_effect = RuntimeError("db down")
+            self.assertFalse(if_terminate(9))

@@ -98,6 +98,11 @@ class ProcessRunner(object):
                                 _JS_RESOURCELOCK,
                             )
                             break
+                        except Job.DoesNotExist:
+                            # The row is gone. Keep going and this process has
+                            # no record left that can stop it.
+                            terminate_requested = True
+                            break
                         except Exception as e:
                             logger.warning(f"Failed to retrieve job (id: {job_id}) status from the database")
                             logger.exception(e)
