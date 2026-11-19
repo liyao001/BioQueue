@@ -89,6 +89,7 @@ def _job_list_context(request, extra_params=None):
     workspace_id = int_or_none(params.get("workspace"))
     jobs = list(page.object_list)
     services.shortcuts_for_jobs(request.user, jobs)
+    live_parents = services.parent_ids_with_live_jobs([job.id for job in jobs])
     step_map = services.protocol_steps_by_parent([j.protocol_id for j in jobs])
     delegate = delegate_for(request.user)
     staff = bool(getattr(request.user, "is_staff", False))
@@ -110,6 +111,7 @@ def _job_list_context(request, extra_params=None):
             if 0 <= idx < len(steps):
                 job.ui3_step_command = services.step_command_preview(steps[idx])
         job.ui3_can_write = staff or job.user_id == getattr(delegate, "id", None)
+        job.ui3_live_child = job.id in live_parents
     return {
         "page_obj": page,
         "paginator": paginator,
@@ -838,16 +840,11 @@ def job_delete(request, pk):
     job, err = _require_writable_job(request, pk)
     if err:
         return err
-    if job.locked:
-        return _bad(request, "This job is locked, please unlock first.")
-    n_archive = services.job_has_archives(job)
-    if n_archive > 0:
-        return _bad(request, "Job is under protection ({} dependent archives).".format(n_archive))
     job_id = job.id
-    services.audit_operation(job, "Deleted a job")
-    job.delete()
-    # In-memory job still holds run_dir/user_id/result for filesystem cleanup.
-    services.maybe_delete_job_files(job)
+    try:
+        services.delete_job(job)
+    except services.JobActionError as exc:
+        return _bad(request, str(exc))
     if is_htmx(request):
         ctx = _job_list_context(request)
         response = render(request, "ui3/jobs/_results.html", ctx)
@@ -1088,6 +1085,7 @@ def job_bulk(request):
 
     done = 0
     skipped_locked = 0
+    skipped_live = 0
     skipped_other = 0
     for pk in ids:
         job = services.get_writable_job(request.user, pk)
@@ -1109,16 +1107,27 @@ def job_bulk(request):
                 job.rerun_job(insitu=1)
                 done += 1
             elif action == "delete":
-                if services.job_has_archives(job) > 0:
-                    skipped_other += 1
-                    continue
-                services.audit_operation(job, "Deleted a job")
-                job.delete()
-                services.maybe_delete_job_files(job)
-                done += 1
+                try:
+                    if services.delete_job(job):
+                        done += 1
+                except services.JobActionError as exc:
+                    if exc.code == "locked":
+                        skipped_locked += 1
+                    elif exc.code == "live":
+                        skipped_live += 1
+                    else:
+                        skipped_other += 1
             elif action == "purge":
                 if services.job_has_archives(job) > 0:
                     skipped_other += 1
+                    continue
+                try:
+                    services.ensure_job_not_live(job, action="purge")
+                except services.JobActionError as exc:
+                    if exc.code == "live":
+                        skipped_live += 1
+                    else:
+                        skipped_other += 1
                     continue
                 delete_job_file_tree(job)
                 services.audit_operation(job, "Purged job result files")
@@ -1129,6 +1138,8 @@ def job_bulk(request):
     parts = ["Bulk {}: {} job(s).".format(action, done)]
     if skipped_locked:
         parts.append("Skipped {} locked.".format(skipped_locked))
+    if skipped_live:
+        parts.append("Skipped {} still active.".format(skipped_live))
     if skipped_other:
         parts.append("Skipped {} other.".format(skipped_other))
     message = " ".join(parts)
@@ -1440,6 +1451,10 @@ def job_purge(request, pk):
         return err
     if job.locked:
         return _bad(request, "This job is locked, please unlock first.")
+    try:
+        services.ensure_job_not_live(job, action="purge")
+    except services.JobActionError as exc:
+        return _bad(request, str(exc))
     n_archive = services.job_has_archives(job)
     if n_archive > 0:
         return _bad(request, "Job is under protection ({} dependent archives).".format(n_archive))

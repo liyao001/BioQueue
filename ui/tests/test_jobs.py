@@ -265,6 +265,147 @@ class JobTests(Ui3TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Job.objects.filter(pk=job.id).exists())
 
+    def test_model_refuses_live_job_delete_from_any_caller(self):
+        from django.db import transaction
+
+        from QueueDB.models import LiveJobError, blocking_live_jobs
+
+        running = self.make_job(status=JobStatus.RUNNING)
+        with self.assertRaises(LiveJobError):
+            running.delete()
+        self.assertTrue(Job.objects.filter(pk=running.id).exists())
+
+        with self.assertRaises(LiveJobError):
+            with transaction.atomic():
+                Job.objects.filter(pk=running.id).delete()
+        self.assertTrue(Job.objects.filter(pk=running.id).exists())
+
+        parent = self.make_job(status=JobStatus.FINISHED, is_executable=0, job_name="model-parent")
+        child = self.make_job(
+            parent_job=parent,
+            status=JobStatus.RESOURCELOCK,
+            job_name="model-child",
+        )
+        with self.assertRaises(LiveJobError):
+            with transaction.atomic():
+                parent.delete()
+        self.assertTrue(Job.objects.filter(pk=parent.id).exists())
+        self.assertTrue(Job.objects.filter(pk=child.id).exists())
+        self.assertEqual({job.id for job in blocking_live_jobs([parent])}, {child.id})
+        self.assertEqual(
+            {job.id for job in blocking_live_jobs([parent.protocol])},
+            {running.id, child.id},
+        )
+
+        idle = self.make_job(status=JobStatus.INTERRUPTED)
+        idle.delete()
+        self.assertFalse(Job.objects.filter(pk=idle.id).exists())
+
+    def test_running_and_resource_locked_jobs_cannot_be_deleted(self):
+        from unittest.mock import patch
+
+        self.login()
+        running = self.make_job(job_name="live-delete", status=JobStatus.RUNNING)
+        with patch("ui.files.delete_job_file_tree") as mocked:
+            response = self.client.post(reverse("ui3:job_delete", args=[running.id]))
+            mocked.assert_not_called()
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "still running", status_code=400)
+        self.assertTrue(Job.objects.filter(pk=running.id).exists())
+        htmx = self.client.post(
+            reverse("ui3:job_delete", args=[running.id]),
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(htmx.status_code, 400)
+        self.assertContains(htmx, "still running", status_code=400)
+        self.assertEqual(htmx["HX-Retarget"], "#toast-root")
+
+        waiting_resources = self.make_job(status=JobStatus.RESOURCELOCK)
+        blocked = self.client.post(reverse("ui3:job_delete", args=[waiting_resources.id]))
+        self.assertEqual(blocked.status_code, 400)
+        self.assertContains(blocked, "waiting for resources", status_code=400)
+        self.assertTrue(Job.objects.filter(pk=waiting_resources.id).exists())
+
+        interrupted = self.make_job(status=JobStatus.INTERRUPTED)
+        gone = self.client.post(reverse("ui3:job_delete", args=[interrupted.id]))
+        self.assertEqual(gone.status_code, 302)
+        self.assertFalse(Job.objects.filter(pk=interrupted.id).exists())
+
+    def test_cannot_delete_array_parent_while_a_child_is_live(self):
+        parent = self.make_job(
+            job_name="arr-parent",
+            is_executable=0,
+            status=JobStatus.FINISHED,
+        )
+        child = self.make_job(
+            job_name="arr-child",
+            parent_job=parent,
+            status=JobStatus.RUNNING,
+        )
+        self.login()
+        response = self.client.post(reverse("ui3:job_delete", args=[parent.id]))
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "array task #{}".format(child.id), status_code=400)
+        self.assertTrue(Job.objects.filter(pk=parent.id).exists())
+        self.assertTrue(Job.objects.filter(pk=child.id).exists())
+
+    def test_live_job_cards_disable_delete_and_purge(self):
+        self.make_job(job_name="live-delete", status=JobStatus.RUNNING)
+        parent = self.make_job(
+            job_name="parent-live-child",
+            is_executable=0,
+            status=JobStatus.FINISHED,
+        )
+        self.make_job(
+            job_name="hidden-child",
+            parent_job=parent,
+            status=JobStatus.RUNNING,
+            visibility=0,
+        )
+        self.make_job(job_name="done-delete", status=JobStatus.FINISHED)
+        self.login()
+        running = self.client.get(reverse("ui3:jobs"), {"q": "live-delete"})
+        self.assertContains(running, "Stop the job before deleting it. It is still running.")
+        self.assertContains(running, "Stop the job before purging its result files. It is still running.")
+        self.assertNotContains(running, 'title="Delete"')
+        array = self.client.get(reverse("ui3:jobs"), {"q": "parent-live-child"})
+        self.assertContains(array, "Stop running array tasks before deleting this job.")
+        finished = self.client.get(reverse("ui3:jobs"), {"q": "done-delete"})
+        self.assertContains(finished, 'title="Delete"')
+
+    def test_bulk_delete_skips_live_jobs(self):
+        live = self.make_job(status=JobStatus.RUNNING, job_name="bulk-live")
+        done = self.make_job(status=JobStatus.FINISHED, job_name="bulk-done")
+        self.login()
+        response = self.client.post(
+            reverse("ui3:job_bulk"),
+            {"action": "delete", "ids": "{},{}".format(live.id, done.id)},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Skipped 1 still active")
+        self.assertTrue(Job.objects.filter(pk=live.id).exists())
+        self.assertFalse(Job.objects.filter(pk=done.id).exists())
+
+    def test_purge_blocked_while_running(self):
+        import os
+        import shutil
+        import tempfile
+
+        tmp = tempfile.mkdtemp()
+        try:
+            job = self.make_job(status=JobStatus.RUNNING, result="out", run_dir=tmp)
+            folder = os.path.join(tmp, str(self.user.id), "out")
+            os.makedirs(folder)
+            self.login()
+            response = self.client.post(reverse("ui3:job_purge", args=[job.id]))
+            self.assertEqual(response.status_code, 400)
+            self.assertContains(response, "still running", status_code=400)
+            self.assertTrue(os.path.isdir(folder))
+            self.assertTrue(Job.objects.filter(pk=job.id).exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_cannot_rerun_other_users_job(self):
         job = self.make_job(user=self.other, protocol=self.other_protocol)
         self.login()
@@ -1594,7 +1735,6 @@ class JobTests(Ui3TestCase):
         self.assertEqual(ready.status_code, 302)
         parent.refresh_from_db()
         self.assertEqual(parent.status, JobStatus.FINISHED)
-
 
     def test_card_inline_workspace_runner_array(self):
         from QueueDB.models import Slave

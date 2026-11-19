@@ -290,8 +290,8 @@
               hx-get="{% url 'ui3:job_resume' job.id %}" hx-target="#modal-root" hx-swap="innerHTML"><i class="fa-solid fa-timeline"></i></button>
       {% endif %}
       <button type="button" class="icon-btn icon-btn-danger"
-              title="{% if job.locked %}Locked — unlock to delete{% else %}Delete{% endif %}"
-              {% if job.locked %}disabled{% endif %}
+              title="{% if job.locked %}Locked — unlock to delete{% elif job.status == 1 %}Stop the job before deleting it. It is still running.{% elif job.status == -2 %}Stop the job before deleting it. It is waiting for resources.{% elif job.ui3_live_child %}Stop running array tasks before deleting this job.{% else %}Delete{% endif %}"
+              {% if job.locked or job.status == 1 or job.status == -2 or job.ui3_live_child %}disabled{% endif %}
               hx-post="{% url 'ui3:job_delete' job.id %}" hx-include="#job-filters"
               hx-target="#job-results" hx-swap="outerHTML"
               hx-indicator="closest .job-card" hx-sync="#job-results:abort"
@@ -335,8 +335,8 @@
             </a>
             {% if job.ui3_can_write %}
             <button type="button" class="ui-combo-item whitespace-nowrap icon-btn-warn"
-                    title="{% if job.locked %}Locked — unlock to purge results{% else %}Purge result files (keep job){% endif %}"
-                    {% if job.locked %}disabled{% endif %}
+                    title="{% if job.locked %}Locked — unlock to purge results{% elif job.status == 1 %}Stop the job before purging its result files. It is still running.{% elif job.status == -2 %}Stop the job before purging its result files. It is waiting for resources.{% elif job.ui3_live_child %}Stop running array tasks before purging this job's result files.{% else %}Purge result files (keep job){% endif %}"
+                    {% if job.locked or job.status == 1 or job.status == -2 or job.ui3_live_child %}disabled{% endif %}
                     onclick="ui3.closeCombos()"
                     hx-post="{% url 'ui3:job_purge' job.id %}" hx-include="#job-filters"
                     hx-target="#job-results" hx-swap="outerHTML"

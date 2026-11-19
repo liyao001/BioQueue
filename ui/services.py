@@ -13,6 +13,8 @@ from functools import reduce
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.db.utils import NotSupportedError
+from django.utils import timezone
 
 from QueueDB.models import (
     Audition,
@@ -20,6 +22,8 @@ from QueueDB.models import (
     FileArchive,
     Job,
     JobStatus,
+    LIVE_JOB_STATUSES,
+    LiveJobError,
     NotificationHook,
     ProtocolList,
     ProtocolShortcut,
@@ -757,6 +761,10 @@ def step_command_preview(step, max_len=STEP_COMMAND_MAX):
 class JobActionError(ValueError):
     """User-facing job mutation failure."""
 
+    def __init__(self, message, code=""):
+        super().__init__(message)
+        self.code = code
+
 
 def mark_job_finished(job, *, snapshot=True):
     """Mark a job finished (audit + optional ``.snapshot.ini``), matching legacy mark-finished."""
@@ -878,6 +886,7 @@ def shortcut_is_mark_finished(href):
 
     path = (urlparse(href).path or "").rstrip("/").lower()
     return path.endswith("mark-finished")
+
 
 def shortcut_card_entry(sc, job):
     """Shape a shortcut for the job card menu (external link or in-app HTMX action)."""
@@ -1857,6 +1866,166 @@ def job_has_archives(job):
         return FileArchive.objects.filter(job=job).count()
     except Exception:
         return 0
+
+
+def _descendant_jobs(root_id):
+    """``(id, status)`` for every job that cascade-deletes with ``root_id``."""
+    found = []
+    frontier = [root_id]
+    seen = {root_id}
+    while frontier:
+        rows = Job.objects.filter(parent_job_id__in=frontier).values_list("id", "status")
+        frontier = []
+        for kid_id, status in rows:
+            if kid_id in seen:
+                continue
+            seen.add(kid_id)
+            found.append((kid_id, status))
+            frontier.append(kid_id)
+    return found
+
+
+def parent_ids_with_live_jobs(root_ids):
+    """Ids from ``root_ids`` that have a running or resource-locked descendant."""
+    roots = []
+    seen_roots = set()
+    for raw in root_ids:
+        if raw is None or raw in seen_roots:
+            continue
+        seen_roots.add(raw)
+        roots.append(raw)
+    if not roots:
+        return set()
+    blocked = set()
+    frontier = list(roots)
+    seen = set(roots)
+    origin = {pk: pk for pk in roots}
+    while frontier:
+        rows = Job.objects.filter(parent_job_id__in=frontier).values_list(
+            "id", "parent_job_id", "status"
+        )
+        frontier = []
+        for kid_id, parent_id, status in rows:
+            root = origin.get(parent_id)
+            if root is None or kid_id in seen:
+                continue
+            seen.add(kid_id)
+            origin[kid_id] = root
+            if status in LIVE_JOB_STATUSES:
+                blocked.add(root)
+            else:
+                frontier.append(kid_id)
+    return blocked
+
+
+def _live_block_message(status, descendants, action):
+    if action == "purge":
+        own_verb = "purging its result files"
+        child_verb = "purging this job's result files"
+    else:
+        own_verb = "deleting it"
+        child_verb = "deleting this job"
+    if status == JobStatus.RUNNING:
+        return "Stop the job before {}. It is still running.".format(own_verb)
+    if status == JobStatus.RESOURCELOCK:
+        return "Stop the job before {}. It is waiting for resources.".format(own_verb)
+    for kid_id, kid_status in descendants:
+        if kid_status == JobStatus.RUNNING:
+            return "Stop running array task #{} before {}.".format(kid_id, child_verb)
+        if kid_status == JobStatus.RESOURCELOCK:
+            return "Stop array task #{} before {}. It is waiting for resources.".format(
+                kid_id, child_verb
+            )
+    return ""
+
+
+def _raise_if_live(status, descendants, action):
+    message = _live_block_message(status, descendants, action)
+    if message:
+        raise JobActionError(message, code="live")
+
+
+def _raise_if_archives(job_ids):
+    try:
+        n_archive = FileArchive.objects.filter(job_id__in=job_ids).count()
+    except Exception:
+        n_archive = 0
+    if n_archive:
+        raise JobActionError(
+            "Job is under protection ({} dependent archives).".format(n_archive),
+            code="archive",
+        )
+
+
+def ensure_job_not_live(job, action="delete"):
+    """Raise when the worker may still be executing this job or an array child."""
+    current = Job.objects.filter(pk=job.pk).only("id", "status").first()
+    if current is None:
+        return
+    _raise_if_live(current.status, _descendant_jobs(current.id), action)
+
+
+def delete_job(job):
+    """Delete a job the worker is not executing, then its result folder.
+
+    Running and resource-locked jobs stay. So does an array parent that still
+    has a live child, because ``parent_job`` cascades. The check and the
+    delete commit together, so a job that starts in between is left in place.
+    """
+    if job.locked:
+        raise JobActionError("This job is locked, please unlock first.", code="locked")
+
+    with transaction.atomic():
+        current = Job.objects.filter(pk=job.pk).first()
+        if current is None:
+            return False
+        if current.locked:
+            raise JobActionError("This job is locked, please unlock first.", code="locked")
+        descendants = _descendant_jobs(current.id)
+        _raise_if_live(current.status, descendants, "delete")
+        tree_ids = [current.id] + [kid_id for kid_id, _status in descendants]
+        _raise_if_archives(tree_ids)
+        # Lock the rows we checked. A claim that flips one to Running makes
+        # this update match fewer rows, and the delete is rolled back.
+        pinned = (
+            Job.objects.filter(pk__in=tree_ids)
+            .exclude(status__in=LIVE_JOB_STATUSES)
+            .update(update_time=timezone.now())
+        )
+        if pinned != len(tree_ids):
+            raise JobActionError(
+                "Stop the job before deleting it. It is still running.",
+                code="live",
+            )
+        try:
+            list(Job.objects.select_for_update().filter(pk__in=tree_ids))
+        except NotSupportedError:
+            pass
+        current.refresh_from_db(fields=["status", "locked"])
+        fresh = _descendant_jobs(current.id)
+        fresh_ids = {kid_id for kid_id, _status in fresh}
+        if fresh_ids - set(tree_ids):
+            raise JobActionError(
+                "This job changed while deleting. Try again.",
+                code="changed",
+            )
+        _raise_if_live(current.status, fresh, "delete")
+        audit_operation(current, "Deleted a job")
+        try:
+            deleted, _details = (
+                Job.objects.filter(pk=current.pk)
+                .exclude(status__in=LIVE_JOB_STATUSES)
+                .delete()
+            )
+        except LiveJobError as exc:
+            raise JobActionError(str(exc), code="live") from exc
+        if not deleted:
+            raise JobActionError(
+                "Stop the job before deleting it. It is still running.",
+                code="live",
+            )
+    maybe_delete_job_files(job)
+    return True
 
 
 def maybe_delete_job_files(job):

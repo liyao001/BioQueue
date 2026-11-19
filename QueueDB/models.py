@@ -59,6 +59,22 @@ _JS_WAITING = JobStatus.WAITING.value
 _JS_RUNNING = JobStatus.RUNNING.value
 _JS_INTERRUPTED = JobStatus.INTERRUPTED.value
 JOB_STATUS = JobStatus.choices
+# The worker still owns a job in these states. Deleting the row leaves the
+# process or cluster submission with nothing that can stop it.
+LIVE_JOB_STATUSES = (JobStatus.RUNNING, JobStatus.RESOURCELOCK)
+
+
+class LiveJobError(Exception):
+    """Deleting this job would orphan a process the worker is still running."""
+
+    def __init__(self, job_id, status):
+        self.job_id = job_id
+        self.status = status
+        if status == JobStatus.RESOURCELOCK:
+            detail = "It is waiting for resources."
+        else:
+            detail = "It is still running."
+        super().__init__("Stop job #{} before deleting it. {}".format(job_id, detail))
 
 
 class _OwnerModel(models.Model):
@@ -385,6 +401,17 @@ class Job(_OwnerModel):
 
     def __str__(self):
         return str(self.id) + "-" + self.job_name
+
+    def delete(self, using=None, keep_parents=False):
+        self._refuse_live_delete()
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    def _refuse_live_delete(self):
+        # Re-read. The in-memory status can be stale, and QuerySet.delete()
+        # never calls Job.delete(); the pre_delete signal uses this too.
+        status = Job.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+        if status in LIVE_JOB_STATUSES:
+            raise LiveJobError(self.pk, status)
 
     def _sync_array_parent(self):
         try:
@@ -1022,6 +1049,44 @@ def step_changed(sender, instance, created, **kwargs):
         _recompute_protocol_ver(instance.parent)
     except Exception:
         pass
+
+
+def blocking_live_jobs(instances):
+    """Live jobs that deleting ``instances`` would remove, including cascades."""
+    job_ids = []
+    protocol_ids = []
+    for obj in instances:
+        if isinstance(obj, Job) and obj.pk:
+            job_ids.append(obj.pk)
+        elif isinstance(obj, ProtocolList) and obj.pk:
+            protocol_ids.append(obj.pk)
+    found = {}
+    if protocol_ids:
+        for job in Job.objects.filter(protocol_id__in=protocol_ids, status__in=LIVE_JOB_STATUSES):
+            found[job.pk] = job
+    if job_ids:
+        seen = set(job_ids)
+        frontier = list(job_ids)
+        for job in Job.objects.filter(pk__in=job_ids, status__in=LIVE_JOB_STATUSES):
+            found[job.pk] = job
+        while frontier:
+            children = list(Job.objects.filter(parent_job_id__in=frontier))
+            frontier = []
+            for child in children:
+                if child.pk in seen:
+                    continue
+                seen.add(child.pk)
+                if child.status in LIVE_JOB_STATUSES:
+                    found[child.pk] = child
+                frontier.append(child.pk)
+    return list(found.values())
+
+
+@receiver(pre_delete, sender=Job, dispatch_uid="job_refuse_live_delete")
+def job_refuse_live_delete(sender, instance, **kwargs):
+    # Covers instance.delete(), QuerySet.delete(), and cascades from a parent
+    # job, a protocol, or the owning user. Runs before any DELETE SQL.
+    instance._refuse_live_delete()
 
 
 @receiver(pre_delete, sender=Sample, dispatch_uid="sample_delete_signal")

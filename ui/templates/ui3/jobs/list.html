@@ -209,9 +209,9 @@
             hx-confirm="Rerun selected jobs in situ?">Rerun in-situ</button>
     <button type="submit" name="action" value="compare" class="ui-btn">Compare two</button>
     <button type="submit" name="action" value="purge" class="ui-btn"
-            hx-confirm="Purge result folders for selected jobs? Jobs themselves are kept.">Purge results</button>
+            hx-confirm="Purge result folders for selected jobs? Running jobs are left untouched. Jobs themselves are kept.">Purge results</button>
     <button type="submit" name="action" value="delete" class="ui-btn icon-btn-danger"
-            hx-confirm="Delete selected jobs? This cannot be undone.">Delete</button>
+            hx-confirm="Delete selected jobs? Jobs that are still running are left in place. This cannot be undone.">Delete</button>
     <button type="button" class="ui-btn" onclick="ui3.clearSelection()">Clear</button>
   </div>
 </form>
