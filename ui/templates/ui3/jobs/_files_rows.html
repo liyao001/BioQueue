@@ -1,7 +1,9 @@
+{% load ui3_tags %}
 {% for f in items %}
 <tr>
   <td class="job-files-check">
     <input type="checkbox" class="job-file-select checkbox checkbox-sm" name="traces" value="{{ f.trace }}"
+           data-igv-role="{{ f.name|igv_role }}"
            aria-label="Select {{ f.name }}"
            {% if job.locked %}disabled{% endif %}>
   </td>
@@ -23,6 +25,17 @@
               hx-target="#modal-root" hx-swap="innerHTML">
         <i class="fa-regular fa-eye"></i>
       </button>
+      {% with role=f.name|igv_role %}
+      {% if role == "track" %}
+      <a class="icon-btn" title="Open in IGV" href="{% url 'ui3:igv' %}?add={{ job.id }}:{{ f.trace|urlencode }}">
+        <i class="fa-solid fa-dna"></i>
+      </a>
+      {% elif role == "reference" %}
+      <a class="icon-btn" title="Use as IGV reference" href="{% url 'ui3:igv' %}?reference={{ job.id }}:{{ f.trace|urlencode }}">
+        <i class="fa-solid fa-dna"></i>
+      </a>
+      {% endif %}
+      {% endwith %}
       <button type="button" class="icon-btn"
               title="{% if job.locked %}Locked — unlock to rename files{% else %}Rename{% endif %}"
               {% if job.locked %}disabled{% endif %}

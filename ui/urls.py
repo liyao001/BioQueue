@@ -5,6 +5,7 @@ from .views import archives
 from .views import auth
 from .views import dag
 from .views import environments
+from .views import igv
 from .views import jobs
 from .views import notifications
 from .views import protocols
@@ -79,6 +80,7 @@ urlpatterns = [
     path("jobs/<int:pk>/logs/", jobs.job_logs, name="job_logs"),
     path("jobs/<int:pk>/files/", jobs.job_files, name="job_files"),
     path("jobs/<int:pk>/files/download/", jobs.job_file_download, name="job_file_download"),
+    path("jobs/<int:pk>/files/bytes/", jobs.job_file_bytes, name="job_file_bytes"),
     path("jobs/<int:pk>/files/preview/", jobs.job_file_preview, name="job_file_preview"),
     path("jobs/<int:pk>/files/rename/", jobs.job_file_rename, name="job_file_rename"),
     path("jobs/<int:pk>/files/delete/", jobs.job_file_delete, name="job_file_delete"),
@@ -126,6 +128,10 @@ urlpatterns = [
     path("references/new/", references.reference_create, name="reference_create"),
     path("references/<int:pk>/edit/", references.reference_edit, name="reference_edit"),
     path("references/<int:pk>/delete/", references.reference_delete, name="reference_delete"),
+    path("igv/", igv.igv_page, name="igv"),
+    path("igv/track/", igv.igv_track, name="igv_track"),
+    path("igv/jobs/", igv.igv_jobs, name="igv_jobs"),
+    path("igv/files/", igv.igv_files, name="igv_files"),
     path("dag/", dag.dag_page, name="dag"),
     path("dag/graph/", dag.dag_graph, name="dag_graph"),
     path("dag/search/", dag.dag_search, name="dag_search"),

@@ -14,6 +14,7 @@ from ..files import (
     MAX_FILE_NAME,
     delete_job_file_tree,
     delete_job_files,
+    byte_range_response,
     download_response,
     history_tokens_to_archive_paths,
     listed_display_name,
@@ -1285,6 +1286,19 @@ def job_files(request, pk):
     else:
         template = "ui3/jobs/_files_modal.html"
     return render(request, template, ctx)
+
+
+@ui3_login_required
+@require_http_methods(["GET", "HEAD"])
+def job_file_bytes(request, pk):
+    """Raw bytes with Range support so igv.js can read indexed tracks."""
+    job, err = _require_readable_job(request, pk)
+    if err:
+        return err
+    trace = request.GET.get("trace")
+    if not trace:
+        return _bad(request, "trace is required")
+    return byte_range_response(request, job, trace)
 
 
 @ui3_login_required

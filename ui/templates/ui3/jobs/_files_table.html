@@ -40,6 +40,13 @@
       </label>
       <div class="inline-flex items-center gap-2">
         <span class="job-files-selected-count text-sm font-medium"></span>
+        <button type="button" class="ui-btn job-files-igv-selected" disabled
+                data-job="{{ job.id }}"
+                data-igv-url="{% url 'ui3:igv' %}"
+                title="Open selected genome files in IGV"
+                onclick="ui3.openSelectedInIgv(this)">
+          <i class="fa-solid fa-dna"></i> IGV
+        </button>
         <button type="button" class="ui-btn icon-btn-danger job-files-delete-selected"
                 data-locked="{% if job.locked %}1{% else %}0{% endif %}"
                 title="{% if job.locked %}Locked — unlock to delete files{% else %}Delete selected files{% endif %}"

@@ -96,6 +96,17 @@ def running_badge(context):
     return {"count": count, "label": label}
 
 
+@register.filter
+def igv_role(name):
+    """track, reference, or empty when the file is not an IGV target."""
+    from ui.genome import classify
+
+    spec = classify(name)
+    if not spec or spec.get("role") == "index":
+        return ""
+    return spec["role"]
+
+
 @register.inclusion_tag("ui3/partials/plugin_nav.html", takes_context=True)
 def plugin_nav(context):
     """Header links contributed by site plugins."""

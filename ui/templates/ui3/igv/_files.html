@@ -1,0 +1,20 @@
+{% if error %}
+<p class="text-sm opacity-70">{{ error }}</p>
+{% elif not job %}
+<p class="text-sm opacity-70">Choose a job to list genome files.</p>
+{% else %}
+<p class="text-xs opacity-60 mb-1">Job #{{ job.id }} {{ job.job_name }}</p>
+<div class="border border-base-300 rounded max-h-64 overflow-y-auto">
+  {% for item in items %}
+  <button type="button" class="igv-file-hit" data-job="{{ job.id }}" data-trace="{{ item.trace }}" data-role="{{ item.role }}">
+    <span class="break-all">{{ item.name }}</span>
+    <span class="opacity-50 whitespace-nowrap">{{ item.format }}{% if item.role == "reference" %} · reference{% endif %} · {{ item.size_label }}</span>
+  </button>
+  {% empty %}
+  <div class="px-2 py-3 text-sm opacity-60 text-center">No BAM, VCF, BED, bigWig, or FASTA files in this job.</div>
+  {% endfor %}
+</div>
+{% if truncated %}
+<p class="text-xs opacity-60 mt-1">Showing the first 200 matching files.</p>
+{% endif %}
+{% endif %}

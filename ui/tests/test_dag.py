@@ -49,6 +49,8 @@ class DagExplorerTests(Ui3TestCase):
         page = self.client.get(reverse("ui3:dag"))
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, 'id="dag-cy"')
+        self.assertContains(page, '<summary class="is-active">')
+        self.assertContains(page, "<i class=\"fas fa-ellipsis\"></i> More")
         self.assertContains(page, "Build DAG")
         self.assertContains(page, "ui3/dag.js")
         self.assertContains(page, "cytoscape")

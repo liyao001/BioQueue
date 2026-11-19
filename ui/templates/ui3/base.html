@@ -62,9 +62,15 @@
           <i class="fas fa-server"></i> Runners
         </a>
         {% endif %}
-        <a href="{% url 'ui3:dag' %}" class="{% if request.resolver_match.url_name|slice:':3' == 'dag' %}is-active{% endif %}">
-          <i class="fas fa-diagram-project"></i> DAG
-        </a>
+        <details>
+          <summary class="{% if request.resolver_match.url_name|slice:':3' == 'dag' or request.resolver_match.url_name|slice:':3' == 'igv' %}is-active{% endif %}">
+            <i class="fas fa-ellipsis"></i> More <i class="fas fa-caret-down text-xs opacity-80"></i>
+          </summary>
+          <ul>
+            <li><a href="{% url 'ui3:dag' %}"><i class="fas fa-diagram-project"></i> DAG</a></li>
+            <li><a href="{% url 'ui3:igv' %}"><i class="fas fa-dna"></i> IGV</a></li>
+          </ul>
+        </details>
         {% plugin_nav %}
       </nav>
       <details class="bq-user">
@@ -266,10 +272,39 @@
           var msg = selected.length === 1 ? "Delete this file?" : ("Delete " + selected.length + " selected files?");
           btn.setAttribute("hx-confirm", msg);
         }
+        var igvBtn = root.querySelector(".job-files-igv-selected");
+        if (igvBtn) {
+          var viewable = 0;
+          selected.forEach(function (box) {
+            if (box.getAttribute("data-igv-role")) viewable += 1;
+          });
+          igvBtn.disabled = viewable === 0;
+        }
         if (all && !all.disabled) {
           all.checked = boxes.length > 0 && selected.length === boxes.length;
           all.indeterminate = selected.length > 0 && selected.length < boxes.length;
         }
+      },
+      openSelectedInIgv: function (btn) {
+        var root = window.ui3.fileSelectRoot(btn);
+        if (!root) return;
+        var jobId = btn.getAttribute("data-job");
+        var params = new URLSearchParams();
+        var tracks = 0;
+        var reference = "";
+        root.querySelectorAll(".job-file-select:checked").forEach(function (box) {
+          var role = box.getAttribute("data-igv-role") || "";
+          if (role === "reference" && !reference) reference = box.value;
+          else if (role === "track") {
+            tracks += 1;
+            if (tracks <= 40) params.append("add", jobId + ":" + box.value);
+          }
+        });
+        if (reference) params.set("reference", jobId + ":" + reference);
+        if (tracks > 40) window.alert("IGV will open the first 40 selected tracks.");
+        var query = params.toString();
+        if (!query) return;
+        window.location = btn.getAttribute("data-igv-url") + "?" + query;
       },
       updateBulkBar: function () {
         var selected = document.querySelectorAll(".job-select:checked");

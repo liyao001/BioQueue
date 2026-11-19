@@ -1,0 +1,94 @@
+{% extends "ui3/base.html" %}
+{% load static %}
+{% block title %}Genome browser – BioQueue{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/igv@3.8.10/dist/igv.min.js"></script>
+{% endblock %}
+{% block content %}
+<div id="igv-app"
+     data-track-url="{% url 'ui3:igv_track' %}"
+     data-page-url="{% url 'ui3:igv' %}"
+     data-genomes="{% for gid, label in genomes %}{{ gid }}{% if not forloop.last %},{% endif %}{% endfor %}">
+  <div class="page-head mb-4">
+    <h1 class="text-2xl font-semibold">Genome browser</h1>
+    <p class="text-sm opacity-70 page-head-sub">Open BAM, VCF, BED, and other results in the browser. Save a session in this browser, export it as a file, or open it in another window.</p>
+  </div>
+
+  <div class="igv-layout">
+    <aside class="igv-side">
+      <label class="text-sm font-medium" for="igv-genome">Reference genome</label>
+      <select id="igv-genome" class="ui-select w-full mt-1">
+        {% for gid, label in genomes %}
+        <option value="{{ gid }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+      <p id="igv-reference" class="text-xs mt-2 hidden"></p>
+      <p class="text-xs opacity-60 mt-2">BAM, CRAM, and gzipped VCF or BED files need an index (.bai, .crai, or .tbi) in the same folder. Built-in genomes load from igv.org in your browser. For a private assembly, pick a FASTA with a .fai beside it.</p>
+
+      <div class="flex items-center justify-between gap-2 mt-4 mb-1">
+        <span class="text-sm font-medium">Tracks</span>
+        <span class="inline-flex gap-1">
+          <button type="button" class="icon-btn" id="igv-copy" title="Copy a link to this session"><i class="fa-solid fa-link"></i></button>
+          <button type="button" class="icon-btn" id="igv-clear" title="Remove all tracks"><i class="fa-solid fa-xmark"></i></button>
+        </span>
+      </div>
+      <div id="igv-tracks" class="text-sm opacity-70">No tracks yet.</div>
+      <p id="igv-note" class="text-xs mt-2 hidden"></p>
+
+      <div class="mt-4">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span class="text-sm font-medium">Sessions</span>
+          <span class="inline-flex gap-1">
+            <button type="button" class="icon-btn" id="igv-export" title="Export this session"><i class="fa-solid fa-file-arrow-down"></i></button>
+            <button type="button" class="icon-btn" id="igv-import" title="Import a session file"><i class="fa-solid fa-file-arrow-up"></i></button>
+            <button type="button" class="icon-btn" id="igv-window" title="Open this session in a new window"><i class="fa-solid fa-up-right-from-square"></i></button>
+          </span>
+        </div>
+        <div class="flex gap-1">
+          <input id="igv-session-name" class="ui-input flex-1 min-w-0" type="text" maxlength="80" placeholder="Session name" autocomplete="off">
+          <button type="button" class="ui-btn" id="igv-save">Save</button>
+        </div>
+        <p class="text-xs opacity-60 mt-1">Saved sessions stay in this browser. A downloaded file can be imported on another computer.</p>
+        <div id="igv-saved" class="mt-2 text-xs opacity-60">No saved sessions.</div>
+        <input id="igv-session-file" type="file" accept="application/json,.json" class="hidden">
+      </div>
+
+      <div class="mt-4">
+        <label class="text-sm font-medium" for="igv-job-filter">Add from a job</label>
+        <input id="igv-job-filter" class="ui-input w-full mt-1" type="search" name="q" value=""
+               placeholder="Job name or id"
+               hx-get="{% url 'ui3:igv_jobs' %}"
+               hx-trigger="input changed delay:300ms, search"
+               hx-target="#igv-job-results"
+               hx-swap="innerHTML"
+               hx-include="this"
+               autocomplete="off">
+        <div id="igv-job-results" class="mt-2">
+          {% include "ui3/igv/_jobs.html" %}
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <input type="hidden" id="igv-current-job" name="job" value="">
+        <input id="igv-file-filter" class="ui-input w-full" type="search" name="fq" value=""
+               placeholder="Filter files in the selected job"
+               hx-get="{% url 'ui3:igv_files' %}"
+               hx-trigger="input changed delay:250ms, search"
+               hx-target="#igv-file-results"
+               hx-swap="innerHTML"
+               hx-include="this, #igv-current-job"
+               autocomplete="off">
+        <div id="igv-file-results" class="mt-2"></div>
+      </div>
+    </aside>
+
+    <div class="min-w-0">
+      <p id="igv-error" class="hidden alert alert-error mb-3 text-sm"></p>
+      <div id="igv-browser" class="igv-browser" role="region" aria-label="IGV genome browser"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'ui3/igv.js' %}"></script>
+{% endblock %}

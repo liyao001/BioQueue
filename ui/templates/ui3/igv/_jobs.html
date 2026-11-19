@@ -1,0 +1,40 @@
+<div class="border border-base-300 rounded max-h-48 overflow-y-auto">
+  {% for job in jobs %}
+  <button type="button" class="igv-job-hit"
+          hx-get="{% url 'ui3:igv_files' %}?job={{ job.id }}"
+          hx-target="#igv-file-results"
+          hx-swap="innerHTML"
+          onclick="var box=document.getElementById('igv-current-job'); if(box) box.value='{{ job.id }}';">
+    #{{ job.id }} {{ job.job_name }}{% if job.shared %} <span class="opacity-50">(shared)</span>{% endif %}
+  </button>
+  {% empty %}
+  <div class="px-2 py-3 text-sm opacity-60 text-center">
+    {% if q %}No matching jobs{% else %}No jobs yet{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% if job_page.paginator.num_pages > 1 %}
+<div class="mt-2 flex items-center justify-between gap-1" aria-label="Job pages">
+  {% if job_page.has_previous %}
+  <button type="button" class="ui-btn" aria-label="Previous page"
+          hx-get="{% url 'ui3:igv_jobs' %}"
+          hx-vals='{"page": "{{ job_page.previous_page_number }}"}'
+          hx-include="#igv-job-filter"
+          hx-target="#igv-job-results"
+          hx-swap="innerHTML">Prev</button>
+  {% else %}
+  <span class="ui-btn opacity-40" aria-disabled="true">Prev</span>
+  {% endif %}
+  <span class="text-xs opacity-70">{{ job_page.number }} / {{ job_page.paginator.num_pages }}</span>
+  {% if job_page.has_next %}
+  <button type="button" class="ui-btn" aria-label="Next page"
+          hx-get="{% url 'ui3:igv_jobs' %}"
+          hx-vals='{"page": "{{ job_page.next_page_number }}"}'
+          hx-include="#igv-job-filter"
+          hx-target="#igv-job-results"
+          hx-swap="innerHTML">Next</button>
+  {% else %}
+  <span class="ui-btn opacity-40" aria-disabled="true">Next</span>
+  {% endif %}
+</div>
+{% endif %}

@@ -5,9 +5,16 @@ from __future__ import annotations
 import base64
 import mimetypes
 import os
+import re
 import time
 
-from django.http import FileResponse, Http404, HttpResponse, HttpResponseBadRequest
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpResponse,
+    HttpResponseBadRequest,
+    StreamingHttpResponse,
+)
 
 
 def configured_workspace_base():
@@ -704,6 +711,107 @@ def download_response(job, trace):
     return FileResponse(
         open(path, "rb"), as_attachment=True, filename=os.path.basename(path)
     )
+
+
+_RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+
+def _parse_byte_range(header, size):
+    """Return (start, end) inclusive, or 'invalid'.
+
+    IGV requests one range per call. A multi-range header keeps the first.
+    """
+    header = (header or "").strip()
+    if "," in header:
+        header = header.split(",", 1)[0].strip()
+    match = _RANGE_RE.match(header)
+    if not match or size <= 0:
+        return "invalid"
+    start_s, end_s = match.group(1), match.group(2)
+    if start_s == "" and end_s == "":
+        return "invalid"
+    if start_s == "":
+        length = int(end_s)
+        if length <= 0:
+            return "invalid"
+        if length > size:
+            length = size
+        return size - length, size - 1
+    start = int(start_s)
+    end = int(end_s) if end_s else size - 1
+    if start < 0 or start >= size or end < start:
+        return "invalid"
+    if end >= size:
+        end = size - 1
+    return start, end
+
+
+def _iter_range(fh, length, chunk=256 * 1024):
+    try:
+        left = length
+        while left > 0:
+            data = fh.read(min(chunk, left))
+            if not data:
+                break
+            left -= len(data)
+            yield data
+    finally:
+        fh.close()
+
+
+def byte_range_response(request, job, trace):
+    """Serve a job file with HTTP Range support.
+
+    igv.js reads BAM, CRAM, bigWig, and tabix files by byte range. Django's
+    FileResponse advertises Accept-Ranges but still sends the whole body, and
+    it would also sniff ``.gz`` names. This response is always raw bytes.
+    """
+    path = resolve_job_file(job, trace)
+    if not path:
+        raise Http404("File not found")
+    size = os.path.getsize(path)
+    header = request.META.get("HTTP_RANGE", "")
+    if header:
+        parsed = _parse_byte_range(header, size)
+        if parsed == "invalid":
+            response = HttpResponse(status=416)
+            response["Content-Range"] = "bytes */{}".format(size)
+            response["Accept-Ranges"] = "bytes"
+            return response
+        start, end = parsed
+        status = 206
+        length = end - start + 1
+    else:
+        start, end = 0, (size - 1 if size else 0)
+        status = 200
+        length = size
+
+    def _finish(response):
+        response["Accept-Ranges"] = "bytes"
+        response["Content-Type"] = "application/octet-stream"
+        response["Content-Length"] = str(length)
+        response["Cache-Control"] = "private"
+        response["X-Content-Type-Options"] = "nosniff"
+        if status == 206:
+            response["Content-Range"] = "bytes {}-{}/{}".format(start, end, size)
+        return response
+
+    if request.method == "HEAD":
+        return _finish(HttpResponse(status=status))
+
+    fh = open(path, "rb")
+    try:
+        if start:
+            fh.seek(start)
+    except Exception:
+        fh.close()
+        raise
+    response = StreamingHttpResponse(
+        _iter_range(fh, length),
+        status=status,
+        content_type="application/octet-stream",
+    )
+    return _finish(response)
 
 
 def preview_text(job, trace, max_bytes=2_000_000):
