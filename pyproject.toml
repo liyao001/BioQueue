@@ -47,3 +47,45 @@ accounts = ["templates/**/*"]
 
 [tool.setuptools.exclude-package-data]
 ui = ["node_modules/**", "static_src/**", "plugins/local/**"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "worker2",
+    "recipe",
+    "ui2-frontend",
+    "*conflicted copy*",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "C4",  # flake8-comprehensions
+    "PIE", # flake8-pie
+    "DJ",  # flake8-django
+]
+ignore = [
+    "E501",  # line length is for `ruff format`, not a lint failure
+    "UP031", # percent formatting is used throughout
+    "UP032", # str.format is the existing style
+    "DJ001", # null=True on string fields is an existing model choice
+    "DJ008", # not every model defines __str__
+    "DJ012", # model body order is already established
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These scripts put the repo root on sys.path before importing the package.
+"worker/bioqueue.py" = ["E402"]
+"worker/ml_collector.py" = ["E402"]
+"worker/ml_container.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["BioQueue", "QueueDB", "accounts", "ui", "worker"]
+
+[tool.ruff.format]
+quote-style = "double"

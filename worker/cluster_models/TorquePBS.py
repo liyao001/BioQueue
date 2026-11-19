@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 
-from __future__ import print_function
 
 
 def alter_attribute(job_id, attribute):
@@ -48,9 +47,9 @@ def get_cluster_status():
     Get cluster status
     :return: dict, node status (load, memav, memtol)
     """
-    import subprocess
     import re
-    cluster_status = dict()
+    import subprocess
+    cluster_status = {}
     try:
         step_process = subprocess.Popen(('pbsnodes',), shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stdout, stderr = step_process.communicate()
@@ -59,7 +58,7 @@ def get_cluster_status():
         memory_pattern = re.compile('availmem=(\\d+)kb,', re.IGNORECASE | re.DOTALL)
         total_memory_pattern = re.compile('totmem=(\\d+)kb,', re.IGNORECASE | re.DOTALL)
         for node in nodes:
-            node_status = dict()
+            node_status = {}
             load_m = load_pattern.search(node)
             if load_m:
                 node_status['load'] = float(load_m.group(1))
@@ -99,7 +98,7 @@ def load_template():
     :return: string, script template
     """
     import os
-    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'TorquePBS.tpl'), 'r') as file_handler:
+    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'TorquePBS.tpl')) as file_handler:
         template = file_handler.read()
     return template
 
@@ -110,8 +109,8 @@ def query_job_status(job_id, extras=None):
     :param job_id: int, job id
     :return: int, job status
     """
-    import subprocess
     import re
+    import subprocess
     step_process = subprocess.Popen(('qstat', '-f', str(job_id)), shell=False, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
     stdout, stderr = step_process.communicate()
@@ -187,8 +186,8 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0
     """
-    import subprocess
     import os
+    import subprocess
     template = load_template()
 
     if not os.path.exists(workspace):

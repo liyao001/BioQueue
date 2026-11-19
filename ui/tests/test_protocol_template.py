@@ -218,7 +218,7 @@ class TemplateUiTests(Ui3TestCase):
         self.assertFalse(Job.objects.filter(job_name="no-inputs").exists())
 
     def test_sample_scaffold_uses_declared_fields_and_preserves_parameter_links(self):
-        from ui.services import sample_scaffold, parameter_scaffold
+        from ui.services import parameter_scaffold, sample_scaffold
 
         proto = self._indexed_protocol()
         context = sample_scaffold(proto, "a;b;c;d;")
@@ -234,7 +234,7 @@ class TemplateUiTests(Ui3TestCase):
         )
 
     def test_sample_scaffold_discovers_required_metadata_and_optional_defaults(self):
-        from ui.services import sample_scaffold, prepare_sample_sheet
+        from ui.services import prepare_sample_sheet, sample_scaffold
 
         payload = {"name": "metadata", "pipeline": [{"map": "samples", "steps": [
             {"software": "echo", "parameter": "{{sample.condition}} {{sample.batch||control}}", "outputs": {"bam": "out"}},
@@ -381,7 +381,8 @@ class TemplateUiTests(Ui3TestCase):
         sheet = json.dumps([{"name": "control", "umi_len": "8"}, {"name": "treated"}])
         before = expand_job(original, "a;b;c;d", sheet)
         after = expand_job(restored, "a;b;c;d", sheet)
-        signature = lambda steps: [(step.software, step.parameter, step.version_check, step.hash) for step in steps]
+        def signature(steps):
+            return [(step.software, step.parameter, step.version_check, step.hash) for step in steps]
         self.assertEqual(signature(after), signature(before))
 
     def test_public_template_shows_outline_without_step_editor(self):

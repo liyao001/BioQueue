@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 
-
 ECHO_MARKER = "worker-ok"
 
 
@@ -49,6 +48,7 @@ def seed_echo_job(
     n_steps=1,
 ):
     from django.contrib.auth.models import User
+
     from QueueDB.models import Job, JobStatus, ProtocolList, Step
 
     user = User.objects.filter(username=username).first()

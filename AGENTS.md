@@ -116,6 +116,10 @@ pixi run python manage.py test worker.tests --settings=worker.test_settings
 pixi run python manage.py test ui.tests.test_jobs --settings=ui.test_settings
 ```
 
+Lint and format with Ruff (`pyproject.toml`). `pixi run lint` checks the tree.
+`pixi run lint-fix` applies the safe fixes. `pixi run fmt` formats. Line length
+and `str.format` are not lint failures.
+
 `ui/run_tests.sh` selects its conda environment. `worker/run_tests.sh` prefers
 the environment in `worker/pixi.toml`, then `BIOQUEUE_PYTHON` or an active conda
 environment. Both suites have isolated SQLite settings. ui's settings stub

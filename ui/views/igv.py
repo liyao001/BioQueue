@@ -8,10 +8,10 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_GET
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..genome import GENOMES, describe_igv_file, genomic_files
 from ..http import delegate_for, int_or_none
-from .. import services
 
 
 def _bytes_url(job_id, trace):

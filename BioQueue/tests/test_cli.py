@@ -158,8 +158,9 @@ class PrepareInstallTests(unittest.TestCase):
         os.environ["BIOQUEUE_CUSTOM_CONF"] = bare
         os.environ.pop("BIOQUEUE_SECRET_KEY", None)
         self.addCleanup(os.environ.pop, "BIOQUEUE_CUSTOM_CONF", None)
-        import BioQueue.default_settings as settings
         from django.core.exceptions import ImproperlyConfigured
+
+        import BioQueue.default_settings as settings
 
         with self.assertRaises(ImproperlyConfigured):
             importlib.reload(settings)

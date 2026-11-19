@@ -6,14 +6,14 @@ import threading
 from configparser import ConfigParser
 from copy import copy
 
+from QueueDB.models import _JS_RESOURCELOCK, Job
 from worker import bases
 from worker.queue.input_check import build_input_check_step, non_empty_input_entries
 from worker.step import _Step
-from QueueDB.models import Job, _JS_RESOURCELOCK
 
 logger = logging.getLogger("BioQueue")
 
-class Task(object):
+class Task:
     # Keys used in bases.save_output_dict / load_output_dict — must stay stable on disk.
     _FILE_MAP_KEY_LAST_OUTPUT_STRING = "LAST_OUTPUT_STRING"
     _FILE_MAP_KEY_OUTPUTS = "OUTPUTS"
@@ -68,11 +68,11 @@ class Task(object):
         self._job_parameters = None
         self._outputs = []
         self._new_files = []
-        self._output_dict = dict()
-        self._output_dict_suffix = dict()
+        self._output_dict = {}
+        self._output_dict_suffix = {}
         self._last_output = []
         self._last_output_string = ""
-        self._last_output_suffix = dict()
+        self._last_output_suffix = {}
         self._step_dependency_job_ids = set()
         self._lock = threading.Lock()
 
@@ -340,7 +340,7 @@ class Task(object):
                 return self._prepare_array_workspace(user_folder, nested)
         if self._result is None or self._resume == 0:
             self.job_ver = self.job_ver + 1
-            result_store = "{0}v{1}".format(self.job_id, self.job_ver)
+            result_store = "{}v{}".format(self.job_id, self.job_ver)
             run_folder = os.path.join(user_folder, result_store)
             try:
                 if not os.path.exists(user_folder):
@@ -389,7 +389,7 @@ class Task(object):
             self.job_ver = self.job_ver + 1
         run_folder = result_abspath(user_folder, result_store)
         if not run_folder:
-            raise OSError("Array child result path is not safe: {0}".format(result_store))
+            raise OSError("Array child result path is not safe: {}".format(result_store))
         try:
             os.makedirs(user_folder, exist_ok=True)
             user_abs = os.path.abspath(user_folder)
@@ -483,7 +483,7 @@ class Task(object):
         :param output_files: list, output files
         :return: dict, suffix dictionary
         """
-        suffix_dict = dict()
+        suffix_dict = {}
         for output_file in output_files:
             _, suffix = os.path.splitext(output_file)
             suffix = suffix.replace('.', '')
@@ -495,7 +495,7 @@ class Task(object):
 
     def update_job_file_mapping(self):
         this_output = bases.get_folder_content(self.run_folder)
-        new_files = sorted(list(set(this_output).difference(set(self.last_output))))
+        new_files = sorted(set(this_output).difference(set(self.last_output)))
         self.newfiles = [
             path if os.path.isabs(path) else os.path.join(self.run_folder, path)
             for path in new_files
@@ -523,9 +523,9 @@ class Task(object):
         if not os.path.exists(expected_file):
             snapshot = ConfigParser()
             snapshot.optionxform = str
-            snapshot["input"] = dict()
-            snapshot["output"] = dict()
-            snapshot["version"] = dict()
+            snapshot["input"] = {}
+            snapshot["output"] = {}
+            snapshot["version"] = {}
 
             with open(expected_file, 'w') as configfile:
                 snapshot.write(configfile)
@@ -541,7 +541,7 @@ class Task(object):
                 with open(self._snapshot_file, "w") as fh:
                     config_obj.write(fh)
             else:
-                logger.warning("Cannot update snapshot, the section ({0}) doesn't exist".format(section))
+                logger.warning("Cannot update snapshot, the section ({}) doesn't exist".format(section))
         else:
             logger.warning("Cannot update snapshot, file doesn't exist")
 

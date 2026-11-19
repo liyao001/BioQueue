@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # @Author: Li Yao
 # @Date: 12/29/20
 # 
@@ -13,6 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 from django.db import models
+
 from QueueDB.models import _OwnerModel
 
 

@@ -7,8 +7,8 @@ from QueueDB.notifications import (
     DEFAULT_EVENTS,
     EVENT_KEYS,
     EVENT_LABELS,
-    NotificationError,
     PROVIDERS,
+    NotificationError,
     deliver,
     form_fields,
     provider_choices,
@@ -17,9 +17,9 @@ from QueueDB.notifications import (
     stored_config_text,
 )
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..http import htmx_error, is_htmx, toast_html, with_toast
-from .. import services
 
 
 def _forbidden(request, message="Notification hook not found."):

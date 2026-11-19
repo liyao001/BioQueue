@@ -236,14 +236,13 @@ class VirtualEnvironment(_OwnerModel):
     value = models.TextField()
     activation_command = models.TextField(null=True, blank=True)
     recipe = models.TextField(blank=True, default="")
-    recipe = models.TextField(blank=True, default="")
 
     class Meta:
         try:
             constraints = [
                 models.UniqueConstraint(fields=["name", "user"], name="unique_name")
             ]
-        except:
+        except Exception:
             unique_together = ("name", "user")
 
     def __str__(self):
@@ -738,7 +737,7 @@ class Training(models.Model):
         if self.mem:
             try:
                 return str(round(float(self.mem) / 1024 / 1024 / 1024, 2)) + "GB"
-            except:
+            except Exception:
                 return ""
         else:
             return "-"
@@ -747,7 +746,7 @@ class Training(models.Model):
         if self.vrt_mem:
             try:
                 return str(round(float(self.vrt_mem) / 1024 / 1024 / 1024, 2)) + "GB"
-            except:
+            except Exception:
                 return ""
         else:
             return "-"

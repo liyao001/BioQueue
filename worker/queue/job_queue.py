@@ -10,38 +10,37 @@ import time
 
 import numpy as np
 import psutil
-from django.db.models import Q
 from django.db import close_old_connections
+from django.db.models import Q
 from django.utils import timezone
+
 from QueueDB.models import (
+    _JS_FINISHED,
+    _JS_INTERRUPTED,
+    _JS_RESOURCELOCK,
+    _JS_RUNNING,
+    _JS_WAITING,
+    _JS_WRONG,
     Job,
     Reference,
     Slave,
     Training,
-    _JS_WAITING,
-    _JS_RESOURCELOCK,
-    _JS_RUNNING,
-    _JS_FINISHED,
-    _JS_WRONG,
-    _JS_INTERRUPTED,
 )
 from QueueDB.notifications import notify_job
-
-from worker import bases
-from worker import cluster_support
+from worker import bases, cluster_support
 from worker._bootstrap import PACKAGE_DIR
 from worker.queue.checkpoints import CheckPoints
-from worker.queue.process_runner import ProcessRunner
 from worker.queue.cluster_request import build_cluster_request, resolve_cluster_type
-from worker.queue.protocol import Protocol
-from worker.queue.task import Task
-from worker.queue.input_check import bind_input_dependencies, missing_local_inputs
 from worker.queue.constants import (
     DEPENDENCY_WAIT_INTERVAL,
     PREDICT_BASE,
     PREDICT_LINEAR,
     STEP_USER_INTERRUPTED,
 )
+from worker.queue.input_check import bind_input_dependencies, missing_local_inputs
+from worker.queue.process_runner import ProcessRunner
+from worker.queue.protocol import Protocol
+from worker.queue.task import Task
 from worker.step import _Step
 
 logger = logging.getLogger("BioQueue")
@@ -162,7 +161,7 @@ def format_runner_list():
     return "\n".join(lines)
 
 
-class JobQueue(object):
+class JobQueue:
     def __init__(self, max_job, cpu_pool, memory_pool, disk_pool, work_dir, settings, n_retries=3, slave=None, schedule=None, predict=None):
         self._cpu_pool = cpu_pool
         self._memory_pool = memory_pool
@@ -170,9 +169,9 @@ class JobQueue(object):
         self._workspace_root = work_dir
         self._max_concurrent_jobs = int(max_job) if max_job != "" else 0
         self._running_step_keys = set()
-        self._job_resources = dict()
+        self._job_resources = {}
         self._active_step_count = 0
-        self._queued_jobs = dict()
+        self._queued_jobs = {}
         self._lock = threading.RLock()
         self._is_queue_locked = 0
         self._failed_tasks = []
@@ -183,7 +182,7 @@ class JobQueue(object):
         self._settings = self._with_predict_mode(settings)
         self._n_retries = 1
         self.n_retries = n_retries
-        super(JobQueue, self).__init__()
+        super().__init__()
 
     def dequeue(self, job, is_error=0):
         """
@@ -1299,7 +1298,7 @@ class JobQueue(object):
                 return
 
             if not os.path.exists(job_obj.run_folder):
-                raise IOError("Cannot write content to {dest}".format(dest=job_obj.run_folder))
+                raise OSError("Cannot write content to {dest}".format(dest=job_obj.run_folder))
 
             log_file = os.path.join(self._settings["env"]["log"], "{job_id}.log".format(job_id=job_obj.job_id))
             errlog_file = os.path.join(self._settings["env"]["log"], "{job_id}.err".format(job_id=job_obj.job_id))

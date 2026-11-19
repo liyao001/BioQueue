@@ -45,8 +45,8 @@ def files_root():
 def _protocol_dirname(protocol_id):
     try:
         number = int(protocol_id)
-    except (TypeError, ValueError):
-        raise ProtocolBundleError("Unknown protocol.")
+    except (TypeError, ValueError) as exc:
+        raise ProtocolBundleError("Unknown protocol.") from exc
     if number < 1:
         raise ProtocolBundleError("Unknown protocol.")
     return str(number)

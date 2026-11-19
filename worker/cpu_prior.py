@@ -476,7 +476,7 @@ def _tool_short_flags(names):
         flag = _TOOL_SHORT.get(name)
         if flag is None:
             for tool, tool_flag in _TOOL_SHORT.items():
-                if name.startswith(tool + "-") or name.startswith(tool + "_"):
+                if name.startswith((tool + "-", tool + "_")):
                     flag = tool_flag
                     break
         if flag:

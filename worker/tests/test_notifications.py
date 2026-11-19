@@ -32,15 +32,15 @@ def _queue(**overrides):
         raise unittest.SkipTest("worker django deps unavailable: %s" % _DJANGO_ERR)
     settings = {"cluster": {"type": ""}, "env": {"max_job": 4}, "mail": {"mail_host": "smtp.lab"}}
     settings.update(overrides.pop("settings", {}))
-    kwargs = dict(
-        max_job=4,
-        cpu_pool=10000,
-        memory_pool=1024,
-        disk_pool=2048,
-        work_dir=".",
-        settings=settings,
-        n_retries=1,
-    )
+    kwargs = {
+        "max_job": 4,
+        "cpu_pool": 10000,
+        "memory_pool": 1024,
+        "disk_pool": 2048,
+        "work_dir": ".",
+        "settings": settings,
+        "n_retries": 1,
+    }
     kwargs.update(overrides)
     return JobQueue(**kwargs)
 

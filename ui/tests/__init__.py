@@ -1,8 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from QueueDB.models import Job, JobStatus, ProtocolList, Reference, Step, Workspace
-from ui.services import compute_step_hash, search_jobs
+from QueueDB.models import Job, JobStatus, ProtocolList, Workspace
 
 
 class Ui3TestCase(TestCase):

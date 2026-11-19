@@ -111,8 +111,8 @@ def _apply_pair_fields(document, form):
         elif name.startswith("tp:"):
             try:
                 path_json, index, side = name[len("tp:"):].rsplit(":", 2)
-            except ValueError:
-                raise ProtocolTemplateError("Invalid field row.")
+            except ValueError as exc:
+                raise ProtocolTemplateError("Invalid field row.") from exc
             if side not in ("k", "v"):
                 raise ProtocolTemplateError("Invalid field row.")
             path = _path(path_json)

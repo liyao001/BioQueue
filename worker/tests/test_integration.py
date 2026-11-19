@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -44,15 +44,15 @@ class EchoJobIntegrationTests(TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
 
     def _queue(self, **kwargs):
-        options = dict(
-            max_job=4,
-            cpu_pool=10000,
-            memory_pool=10 * 1024 ** 3,
-            disk_pool=10 * 1024 ** 3,
-            work_dir=self.tmp,
-            settings=worker_settings(self.tmp, str(self.log_dir)),
-            n_retries=1,
-        )
+        options = {
+            "max_job": 4,
+            "cpu_pool": 10000,
+            "memory_pool": 10 * 1024 ** 3,
+            "disk_pool": 10 * 1024 ** 3,
+            "work_dir": self.tmp,
+            "settings": worker_settings(self.tmp, str(self.log_dir)),
+            "n_retries": 1,
+        }
         options.update(kwargs)
         return JobQueue(**options)
 

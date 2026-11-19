@@ -54,16 +54,16 @@ def main() -> int:
 
     workspace, log_dir = _prepare_testdata()
 
-    import worker._bootstrap  # noqa: F401
-    import worker.sqlite_settings  # noqa: F401
     import django
     from django.core.management import call_command
+
+    import worker._bootstrap  # noqa: F401
+    import worker.sqlite_settings  # noqa: F401
 
     django.setup()
     call_command("migrate", run_syncdb=True, interactive=False, verbosity=0)
 
     from QueueDB.models import Job, JobStatus
-
     from worker.queue.job_queue import JobQueue
     from worker.testing import ECHO_MARKER, disable_ml_collector, seed_echo_job, worker_settings
 

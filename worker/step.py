@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # @Author: Li Yao
 # @Date: 1/3/21
 # 
@@ -11,26 +10,40 @@
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-import sys
 
+import html
+import logging
+import os
+import re
+
+import numpy as np
+from django.contrib.auth.models import User
+from scipy.stats import linregress
+
+from QueueDB.models import (
+    _JS_FINISHED,
+    _JS_INTERRUPTED,
+    _JS_WRONG,
+    _PD_CPU,
+    _PD_DISK,
+    _PD_MEM,
+    _PD_VRTMEM,
+    CrossAccess,
+    Job,
+    Prediction,
+    Training,
+)
 from worker import bases
 from worker.cpu_prior import (
     configured_cpu_budget_units,
     estimate_cpu_units,
     user_cpu_prior_units,
 )
-import re
-import os
-import html
-import logging
-from scipy.stats import linregress
-import numpy as np
-from django.contrib.auth.models import User
-from QueueDB.models import Job, Training, Prediction, CrossAccess, _JS_FINISHED, _JS_WRONG, _JS_INTERRUPTED, _PD_DISK, _PD_MEM, _PD_CPU, _PD_VRTMEM
+
 logger = logging.getLogger("BioQueue - Step")
 
 
-class _Step(object):
+class _Step:
     def _predict_resource(self):
         pass
 
@@ -86,7 +99,7 @@ class _Step(object):
             mandatory_keys = ("cpu", "mem", "vrt_mem", "disk")
             # auxiliary keys and their default values
             auxiliary_keys = {"trace": None, }
-            if all([mk in value for mk in mandatory_keys]):
+            if all(mk in value for mk in mandatory_keys):
                 for k, v in auxiliary_keys.items():
                     if k not in value:
                         value[k] = v
@@ -120,7 +133,7 @@ class _Step(object):
         tag = self.SHELL_TAG
         if body.startswith(tag):
             body = body[len(tag):]
-            if body.startswith(" ") or body.startswith("\t"):
+            if body.startswith((" ", "\t")):
                 body = body[1:]
         return body.lstrip("\n")
 
@@ -176,7 +189,7 @@ class _Step(object):
     def is_running(self, value):
         try:
             self._is_running = bool(value)
-        except:
+        except Exception:
             pass
 
     @property
@@ -257,7 +270,7 @@ class _Step(object):
         file_size = 0
         if par.find('{{InputFile}}') != -1:
             init_input = ''
-            for key, value in enumerate(ini_dict):
+            for value in ini_dict:
                 if value.find("{{Uploaded:") == -1:
                     file_size += bases.get_remote_size_factory(value)
                     init_input += value + ' '
@@ -356,9 +369,9 @@ class _Step(object):
                     history_rep = os.path.join(history_rep, history_file)
                     par = par.replace('{{CrossAccess:' + ca_item[0] + '-' + str(history_id) + '-' + history_file + '}}', history_rep)
                 else:
-                    logger.error("User {0} doesn't have read access for {1}'s jobs".format(user, grantor.id))
+                    logger.error("User {} doesn't have read access for {}'s jobs".format(user, grantor.id))
             except CrossAccess.DoesNotExist:
-                logger.error("No CrossAccess record for {0} from {1}".format(user, grantor.id))
+                logger.error("No CrossAccess record for {} from {}".format(user, grantor.id))
             except Exception as e:
                 logger.exception(e)
         return par, need_to_wait, error_flag
@@ -399,7 +412,6 @@ class _Step(object):
         -------
 
         """
-        learning = 0
         outside_size = 0
 
         self._command = self._command.replace("{{Job}}", str(job.job_id))
@@ -412,10 +424,9 @@ class _Step(object):
         self._command = _Step._output_file_map(self._command, job.output_dict)
         self._command, outside_size = _Step._input_file_map(self._command, job.job_input_files, job.user_folder)
         self._command = _Step._suffix_map(self._command, job.output_dict_suffix, job.last_output_suffix)
-        self._command, waiting_parent_1, is_error_1 = _Step._history_map(self._command, job.job_user)
-        self._command, waiting_parent_2, is_error_2 = _Step._cross_access_map(self._command, job.job_user)
+        self._command, waiting_parent_1, _is_error_1 = _Step._history_map(self._command, job.job_user)
+        self._command, waiting_parent_2, _is_error_2 = _Step._cross_access_map(self._command, job.job_user)
         waiting_parent = waiting_parent_1.union(waiting_parent_2)
-        is_error = is_error_1 | is_error_2
 
         for waiting_job in waiting_parent:
             if waiting_job != job.job_id:  # avoid dead lock
@@ -427,7 +438,7 @@ class _Step(object):
         if not os.path.exists(user_bin_dir):
             try:
                 os.makedirs(user_bin_dir)
-            except:
+            except Exception:
                 pass
         self._command = self._command.replace("{{UserBin}}", user_bin_dir)
         if self._settings["cluster"]["type"]:
@@ -526,7 +537,7 @@ class _Step(object):
         :param save:  int, 1 or 0. If save equals 1, the record will be saved to database
         :return: coefficients
         """
-        coefficients = dict()
+        coefficients = {}
         try:
             inputs, out, mem, cpu, vrt_mem = self._load_train_frame()
             x = np.array(inputs, dtype=float)
@@ -534,7 +545,7 @@ class _Step(object):
             # m for memory
             # c for CPU
             # v for virtual memory
-            for y, label in zip((out, mem, cpu, vrt_mem), ("o", "m", "c", "v")):
+            for y, label in zip((out, mem, cpu, vrt_mem), ("o", "m", "c", "v"), strict=True):
                 y_arr = np.array(y, dtype=float)
                 slope, intercept, r = self._fit_resource_line(x, y_arr, intercept_only=(label == "c"))
                 coefficients["r_{l}".format(l=label)] = r
@@ -632,12 +643,14 @@ class _Step(object):
                         predict_need['vrt_mem'] = int(
                             self._linear_resource_value(bv, av, in_size) * float(self._settings['ml']['confidence_weight_mem']))
 
-                    if any([pred is None for pred in predict_need.values()]):
+                    if any(pred is None for pred in predict_need.values()):
                         return unknown
                     # in case the predicted value is negative (resources will be added to the pool)
-                    if any([pred < -1 for pred in predict_need.values()]):
+                    if any(pred < -1 for pred in predict_need.values()):
                         _inputs, out, mem, cpu, vrt_mem = self._load_train_frame()
-                        for pred_l, trainings in zip(("disk", "mem", "cpu", "vrt_mem"), (out, mem, cpu, vrt_mem)):
+                        for pred_l, trainings in zip(
+                            ("disk", "mem", "cpu", "vrt_mem"), (out, mem, cpu, vrt_mem), strict=True
+                        ):
                             pred = predict_need[pred_l]
                             if pred <= 0:
                                 predict_need[pred_l] = np.nanmean(trainings)
@@ -815,8 +828,6 @@ class _Step(object):
         -------
 
         """
-        # LAST_OUTPUT[job_id] = baseDriver.get_folder_content(job['job_folder'])
-        last_output = bases.get_folder_content(job.run_folder)
         training_num = self.get_training_items()
 
         folder_size_before = bases.get_folder_size(job.run_folder)

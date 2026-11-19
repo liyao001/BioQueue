@@ -217,9 +217,7 @@ def listed_display_name(job, trace):
     folder = job.get_result() if hasattr(job, "get_result") else job.result
     folder = (folder or "").rstrip("/\\")
     if folder and (
-        relative == folder
-        or relative.startswith(folder + "/")
-        or relative.startswith(folder + os.sep)
+        relative == folder or relative.startswith((folder + "/", folder + os.sep))
     ):
         return relative[len(folder) :].lstrip("/\\")
     return relative
@@ -820,10 +818,10 @@ def preview_text(job, trace, max_bytes=2_000_000):
     if not path:
         raise Http404("File not found")
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             return fh.read(max_bytes)
     except Exception as exc:
-        raise Http404(str(exc))
+        raise Http404(str(exc)) from exc
 
 
 def preview_response(job, trace):
@@ -835,7 +833,7 @@ def preview_response(job, trace):
     mode = preview_mode_for(path, ctype)
     if mode == "text":
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            with open(path, encoding="utf-8", errors="replace") as fh:
                 body = fh.read(2_000_000)
         except Exception as exc:
             return HttpResponseBadRequest(str(exc))
@@ -851,7 +849,7 @@ def preview_response(job, trace):
         or path.lower().endswith(HTML_EXTS)
     ):
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            with open(path, encoding="utf-8", errors="replace") as fh:
                 body = fh.read(2_000_000)
         except Exception as exc:
             return HttpResponseBadRequest(str(exc))

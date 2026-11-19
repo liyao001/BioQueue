@@ -4,8 +4,8 @@ import sys
 from django.conf import settings
 from django.http import HttpResponse
 from django.urls import path, reverse
-from QueueDB.models import ProtocolShortcut
 
+from QueueDB.models import ProtocolShortcut
 from ui.plugins import Plugin
 from ui.tests import Ui3TestCase
 

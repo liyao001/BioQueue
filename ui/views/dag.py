@@ -2,9 +2,9 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..http import csv_ints, int_or_none
-from .. import services
 
 
 @ui3_login_required

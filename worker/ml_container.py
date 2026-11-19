@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import getopt
 import logging
 import os
@@ -17,18 +16,18 @@ sys.path[:] = [
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-import worker.django_initial  # noqa: F401
 import psutil
 
+import worker.django_initial  # noqa: F401
 from worker import bases
-from worker.step import _Step
 from worker.ml_collector import get_cpu, get_cpu_mem, get_mem
+from worker.step import _Step
 
 logger = logging.getLogger("BioQueue.ml_container")
 
 
 def get_protocol(fn):
-    with open(fn, "r", encoding="utf-8", errors="replace") as pf:
+    with open(fn, encoding="utf-8", errors="replace") as pf:
         return pf.readlines()
 
 

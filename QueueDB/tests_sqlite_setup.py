@@ -20,7 +20,7 @@ class SqliteSetupTests(unittest.TestCase):
         self.assertEqual(cursor.execute("PRAGMA busy_timeout").fetchone()[0], 30000)
 
     def test_memory_database_is_left_alone(self):
-        class MemoryConnection(object):
+        class MemoryConnection:
             vendor = "sqlite"
             settings_dict = {"NAME": ":memory:"}
 

@@ -9,16 +9,17 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from QueueDB.models import JobStatus
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..files import (
     MAX_FILE_NAME,
+    byte_range_response,
     delete_job_file_tree,
     delete_job_files,
-    byte_range_response,
     download_response,
     history_tokens_to_archive_paths,
-    listed_display_name,
     list_workspace_files,
+    listed_display_name,
     page_job_files,
     preview_mode_for,
     preview_response,
@@ -27,7 +28,6 @@ from ..files import (
     resolve_listed_job_file,
     traces_to_archive_paths,
 )
-from ..job_archive import kick_archive_builder
 from ..http import (
     array_parent_from_request,
     combo_query,
@@ -43,8 +43,7 @@ from ..http import (
     toast_html,
     with_toast,
 )
-from .. import services
-
+from ..job_archive import kick_archive_builder
 
 ADVANCED_KEYS = (
     "job_name_not",

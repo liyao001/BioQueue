@@ -1,4 +1,3 @@
-from django.test import TestCase
 from django.urls import reverse
 
 from ui.tests import Ui3TestCase

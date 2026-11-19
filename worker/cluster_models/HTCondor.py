@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # @Time    : 2017/5/3 2:05
 # @Project : BioQueue
 # @Author  : Li Yao
 # @File    : HTCondor.py
 
-from __future__ import print_function
 
 
 def cancel_job(job_id, extras=None):
@@ -31,7 +29,7 @@ def load_template():
     :return: string, script template
     """
     import os
-    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'HTCondor.tpl'), 'r') as file_handler:
+    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'HTCondor.tpl')) as file_handler:
         template = file_handler.read()
     return template
 
@@ -42,8 +40,8 @@ def query_job_status(job_id, extras=None):
     :param job_id: int, job id
     :return: int, job status
     """
-    import subprocess
     import re
+    import subprocess
     step_process = subprocess.Popen(('condor_q', str(job_id)), shell=False, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT)
     stdout, stderr = step_process.communicate()
@@ -124,9 +122,9 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0
     """
-    import subprocess
     import os
     import re
+    import subprocess
     template = load_template()
 
     if not os.path.exists(workspace):

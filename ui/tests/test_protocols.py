@@ -720,6 +720,7 @@ class ProtocolTests(Ui3TestCase):
         import json
 
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from QueueDB.models import Reference
 
         payload = {
@@ -808,6 +809,7 @@ class ProtocolTests(Ui3TestCase):
         import json
 
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from QueueDB.models import VirtualEnvironment
 
         env = VirtualEnvironment.objects.create(
@@ -859,6 +861,7 @@ class ProtocolTests(Ui3TestCase):
 
         from django.contrib.messages import get_messages
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from QueueDB.models import VirtualEnvironment
 
         owned = VirtualEnvironment.objects.create(
@@ -918,6 +921,7 @@ class ProtocolTests(Ui3TestCase):
         import zipfile
 
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from QueueDB.models import Reference
         from QueueDB.protocol_bundle import list_files, resolve_file
 
@@ -1017,6 +1021,7 @@ class ProtocolTests(Ui3TestCase):
         import zipfile
 
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from QueueDB.protocol_bundle import ProtocolBundleError, write_file
 
         self.login()

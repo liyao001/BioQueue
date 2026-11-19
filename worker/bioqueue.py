@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 """BioQueue worker entrypoint (modular layout under ``worker.queue``)."""
 import logging
 import os
@@ -19,9 +18,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import worker._bootstrap  # noqa: F401 — stdlib queue visible; repo root on path
-
 import worker.django_initial  # noqa: F401 — Django setup before QueueDB imports
-
 from worker.cli import parse_args
 from worker.queue.constants import DEFAULT_PREFIX
 from worker.queue.job_queue import format_runner_list, resolve_slave
@@ -65,9 +62,9 @@ def cli(argv=None) -> None:
     if args.list_runners:
         try:
             print(format_runner_list())
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to list runners")
-            raise SystemExit(1)
+            raise SystemExit(1) from exc
         return
 
     if args.slave not in (None, ""):
@@ -75,7 +72,7 @@ def cli(argv=None) -> None:
             resolve_slave(args.slave)
         except ValueError as exc:
             logger.error("%s", exc)
-            raise SystemExit(2)
+            raise SystemExit(2) from exc
 
     main(
         n_retries=args.n_retry,

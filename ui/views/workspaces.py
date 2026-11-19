@@ -6,9 +6,17 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from QueueDB.models import Workspace
 
-from ..decorators import ui3_login_required
-from ..http import delegate_for, htmx_error, is_htmx, list_params, querystring, render_htmx, with_toast
 from .. import services
+from ..decorators import ui3_login_required
+from ..http import (
+    delegate_for,
+    htmx_error,
+    is_htmx,
+    list_params,
+    querystring,
+    render_htmx,
+    with_toast,
+)
 
 
 def _forbidden(request, message="Workspace not found or not accessible."):

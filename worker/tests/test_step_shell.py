@@ -9,6 +9,7 @@ _DJANGO_OK, _DJANGO_ERR = setup_django()
 
 if _DJANGO_OK:
     import numpy as np
+
     from worker.step import _Step
 else:
     np = None  # type: ignore
@@ -154,14 +155,19 @@ class ShellStepTests(unittest.TestCase):
         self.assertIn("bash " + script_path + " --version", step.version_check)
 
     def test_output_placeholder_keeps_colon(self):
-        step = _Step("echo", "{{Output:1-1}}", "", "h", None, 0, "", _settings())
         mapped = _Step._output_file_map("use {{Output:1-1}}", {1: ["/tmp/a.fq"]})
         self.assertEqual(mapped, "use /tmp/a.fq")
         untouched = _Step._output_file_map("use {{Output:2-1}}", {1: ["/tmp/a.fq"]})
         self.assertEqual(untouched, "use {{Output:2-1}}")
 
     def test_parent_wait_includes_resourcelock(self):
-        from QueueDB.models import _JS_FINISHED, _JS_INTERRUPTED, _JS_RESOURCELOCK, _JS_RUNNING, _JS_WRONG
+        from QueueDB.models import (
+            _JS_FINISHED,
+            _JS_INTERRUPTED,
+            _JS_RESOURCELOCK,
+            _JS_RUNNING,
+            _JS_WRONG,
+        )
 
         self.assertEqual(_Step._parent_job_wait_state(_JS_FINISHED), "ready")
         self.assertEqual(_Step._parent_job_wait_state(_JS_RESOURCELOCK), "wait")

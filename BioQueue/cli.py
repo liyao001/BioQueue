@@ -15,7 +15,12 @@ import sys
 import time
 from configparser import ConfigParser
 
-from BioQueue.paths import bundled_config_template, checkout_root, config_file, django_settings_module
+from BioQueue.paths import (
+    bundled_config_template,
+    checkout_root,
+    config_file,
+    django_settings_module,
+)
 
 DATA_SUBDIRS = ("logs", "outputs", "training", "batch_job", "file_comment")
 
@@ -40,7 +45,7 @@ def update_ini(path, values):
     written. A missing file is created.
     """
     if os.path.isfile(path):
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             lines = handle.read().splitlines(keepends=True)
     else:
         lines = []
@@ -80,7 +85,7 @@ def _apply_section(lines, section, keys):
     pending = dict(keys)
     for index in range(start + 1, end):
         stripped = lines[index].strip()
-        if not stripped or stripped.startswith("#") or stripped.startswith(";"):
+        if not stripped or stripped.startswith(("#", ";")):
             continue
         name, sep, _rest = stripped.partition("=")
         if not sep:

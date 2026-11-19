@@ -18,7 +18,8 @@ from worker.tests.harness import setup_django
 _DJANGO_OK, _DJANGO_ERR = setup_django()
 
 if _DJANGO_OK:
-    from worker.cluster_support import _with_extras, main as cluster_main
+    from worker.cluster_support import _with_extras
+    from worker.cluster_support import main as cluster_main
     from worker.queue.task import Task
 else:
     _with_extras = None  # type: ignore
@@ -876,7 +877,7 @@ class SlurmStatusAndFetchTests(unittest.TestCase):
         remote = {"host": "done-hpc", "user": "bob"}
 
         def fake_states(job_ids, extras):
-            return {jid: 0 for jid in job_ids}
+            return dict.fromkeys(job_ids, 0)
 
         with patch.object(Slurm, "_query_job_states", side_effect=fake_states):
             self.assertEqual(

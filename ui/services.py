@@ -17,12 +17,12 @@ from django.db.utils import NotSupportedError
 from django.utils import timezone
 
 from QueueDB.models import (
+    LIVE_JOB_STATUSES,
     Audition,
     CrossAccess,
     FileArchive,
     Job,
     JobStatus,
-    LIVE_JOB_STATUSES,
     LiveJobError,
     NotificationHook,
     ProtocolList,
@@ -46,20 +46,18 @@ from QueueDB.protocol_template import (
     outline_document,
     parse_sample_sheet,
     resolve_template_environments,
-    split_input_files,
     template_input_files,
     template_step_items,
 )
 
 from .http import csv_ints, delegate_for, int_or_none
-from .template_editor import (
+from .template_editor import (  # noqa: F401  protocol views call these through services
     apply_posted_block_names,
     blank_template_document,
     edit_template_document,
     read_template_form,
     template_editor_context,
 )
-
 
 PAGE_SIZE_DEFAULT = 12
 PAGE_SIZE_MAX = 100
@@ -412,7 +410,7 @@ def find_dependents(user, job, depth=1):
         )
         if not level_pairs:
             break
-        new_frontier = {jid: uid for jid, uid in level_pairs}
+        new_frontier = dict(level_pairs)
         level_ids = set(new_frontier.keys())
         all_found_ids |= level_ids
         visited_ids |= level_ids
@@ -873,7 +871,7 @@ def resolve_shortcut_href(sc, job):
     href = (sc.href_template or "").replace("{id}", str(job.id))
     extra = (sc.params_template or "").replace("{id}", str(job.id)).strip()
     if extra:
-        if extra.startswith("?") or extra.startswith("&") or extra.startswith("/"):
+        if extra.startswith(("?", "&", "/")):
             href += extra
         else:
             href += ("&" if "?" in href else "?") + extra
@@ -1025,8 +1023,8 @@ def find_share_recipient(username):
         raise ShareProtocolError("That username is too long.")
     try:
         return User.objects.get(username=name)
-    except User.DoesNotExist:
-        raise ShareProtocolError("The person you want to share with doesn't exist.")
+    except User.DoesNotExist as exc:
+        raise ShareProtocolError("The person you want to share with doesn't exist.") from exc
 
 
 def _copy_step(step, protocol, user, env):
@@ -1557,13 +1555,13 @@ def import_protocol_from_json(user, payload):
         try:
             template = normalize_template(payload)
         except ProtocolTemplateError as exc:
-            raise ProtocolImportError(str(exc))
+            raise ProtocolImportError(str(exc)) from exc
         with transaction.atomic():
             env_notes = _import_environments(owner, payload.get("environment"))
             try:
                 resolve_template_environments(json.loads(template), owner.id)
             except ProtocolTemplateError as exc:
-                raise ProtocolImportError(str(exc))
+                raise ProtocolImportError(str(exc)) from exc
             proto = ProtocolList.objects.create(
                 name=name, description=description, user=owner, template=template
             )
@@ -1625,7 +1623,12 @@ def list_protocol_bundle(protocol):
 
 
 def save_protocol_bundle_file(protocol, role, upload):
-    from QueueDB.protocol_bundle import MAX_FILE_BYTES, ProtocolBundleError, clean_relative, write_file
+    from QueueDB.protocol_bundle import (
+        MAX_FILE_BYTES,
+        ProtocolBundleError,
+        clean_relative,
+        write_file,
+    )
 
     if upload is None:
         raise ProtocolBundleError("Choose a file.")
@@ -1733,8 +1736,8 @@ def _read_protocol_bundle(raw):
 
     try:
         archive = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
-        raise ProtocolImportError("Invalid protocol bundle.")
+    except zipfile.BadZipFile as exc:
+        raise ProtocolImportError("Invalid protocol bundle.") from exc
     payload = None
     references = {}
     scripts = []
@@ -1759,14 +1762,14 @@ def _read_protocol_bundle(raw):
         if relative == "protocol.json":
             try:
                 payload = json.loads(data.decode("utf-8"))
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                raise ProtocolImportError("protocol.json is not valid JSON.")
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ProtocolImportError("protocol.json is not valid JSON.") from exc
             continue
         if relative == "references.json":
             try:
                 references = json.loads(data.decode("utf-8"))
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                raise ProtocolImportError("references.json is not valid JSON.")
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ProtocolImportError("references.json is not valid JSON.") from exc
             if not isinstance(references, dict):
                 raise ProtocolImportError("references.json must be an object.")
             continue
@@ -1776,7 +1779,7 @@ def _read_protocol_bundle(raw):
             try:
                 stored = clean_relative("/".join(parts[1:]))
             except ValueError as exc:
-                raise ProtocolImportError(str(exc))
+                raise ProtocolImportError(str(exc)) from exc
             (scripts if parts[0] == "scripts" else assets).append((stored, data))
             continue
         raise ProtocolImportError("Bundle contains an unexpected file: {}.".format(relative))
@@ -1828,12 +1831,12 @@ def import_protocol_bundle(user, raw):
     except ProtocolBundleError as exc:
         if proto is not None:
             delete_bundle(proto.id)
-        raise ProtocolImportError(str(exc))
+        raise ProtocolImportError(str(exc)) from exc
 
 
 def _upload_is_zip(raw, name):
     filename = (name or "").lower()
-    return filename.endswith(".zip") or raw.startswith(b"PK\x03\x04") or raw.startswith(b"PK\x05\x06")
+    return filename.endswith(".zip") or raw.startswith((b"PK\x03\x04", b"PK\x05\x06"))
 
 
 def import_protocol_from_upload(user, upload):
@@ -1850,10 +1853,10 @@ def import_protocol_from_upload(user, upload):
         raise ProtocolImportError("File is too large (max 1 MB).")
     try:
         payload = json.loads(raw.decode("utf-8"))
-    except UnicodeDecodeError:
-        raise ProtocolImportError("File is not valid UTF-8.")
-    except json.JSONDecodeError:
-        raise ProtocolImportError("Invalid protocol JSON.")
+    except UnicodeDecodeError as exc:
+        raise ProtocolImportError("File is not valid UTF-8.") from exc
+    except json.JSONDecodeError as exc:
+        raise ProtocolImportError("Invalid protocol JSON.") from exc
     return import_protocol_from_json(user, payload)
 
 
@@ -2077,8 +2080,8 @@ def parse_migrate_job_ids(raw):
     for token in text.replace(",", " ").split():
         try:
             ids.append(int(token))
-        except (TypeError, ValueError):
-            raise JobMigrateError("Job IDs must be integers.")
+        except (TypeError, ValueError) as exc:
+            raise JobMigrateError("Job IDs must be integers.") from exc
     if not ids:
         raise JobMigrateError("Job IDs must be integers.")
     return ids
@@ -2594,8 +2597,13 @@ def sample_scaffold(protocol, input_file=""):
     for record in records:
         row = {"name": record["name"]}
         for key, value in fields.items():
+            def _fill_token(match, record=record):
+                if match.group(1).strip() in ("index", "sample.index"):
+                    return record["index"]
+                return match.group(0)
+
             row[key] = TOKEN_RE.sub(
-                lambda match: record["index"] if match.group(1).strip() in ("index", "sample.index") else match.group(0),
+                _fill_token,
                 "" if value is None else str(value),
             )
         rows.append(row)
@@ -2739,8 +2747,8 @@ def parameter_scaffold(protocol, user=None, *, input_file="", sample_sheet="", l
             try:
                 schema = json.loads(raw_template).get("samples") or {}
                 group = int(schema.get("group") or 1)
-            except (ValueError, TypeError, AttributeError):
-                raise ProtocolTemplateError("Invalid sample schema.")
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise ProtocolTemplateError("Invalid sample schema.") from exc
             # Prefilled metadata rows do not supply files. Preview each row
             # until real input groups (or explicit sheet files) are available.
             count = max(1, len(parse_sample_sheet(sample_sheet)))
@@ -3495,8 +3503,8 @@ def _lock_user(target):
 
     try:
         return User.objects.select_for_update().get(pk=target.pk)
-    except User.DoesNotExist:
-        raise UserManageError("Account not found.")
+    except User.DoesNotExist as exc:
+        raise UserManageError("Account not found.") from exc
 
 
 def _locked_active_staff_count(exclude):
@@ -3591,19 +3599,19 @@ def create_managed_user(actor, *, username, password, password_2, email="", firs
     try:
         user.full_clean(exclude=["password"])
     except ValidationError as exc:
-        raise UserManageError("; ".join(msg for msgs in exc.message_dict.values() for msg in msgs))
+        raise UserManageError("; ".join(msg for msgs in exc.message_dict.values() for msg in msgs)) from exc
     try:
         validate_password(password, user)
     except ValidationError as exc:
-        raise UserManageError("; ".join(exc.messages))
+        raise UserManageError("; ".join(exc.messages)) from exc
     user.set_password(password)
     try:
         with transaction.atomic():
             user.save()
             group, _created = Group.objects.get_or_create(name="normal")
             user.groups.add(group)
-    except IntegrityError:
-        raise UserManageError("That username is already taken.")
+    except IntegrityError as exc:
+        raise UserManageError("That username is already taken.") from exc
     return user
 
 
@@ -3683,7 +3691,7 @@ def grant_cross_access(user, username, allow_read=True, allow_write=False):
     try:
         recipient = find_share_recipient(username)
     except ShareProtocolError as exc:
-        raise CrossAccessError(str(exc))
+        raise CrossAccessError(str(exc)) from exc
     grantee = delegate_for(recipient)
     if grantee.id == owner.id:
         raise CrossAccessError("That account already owns these jobs.")

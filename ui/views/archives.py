@@ -3,10 +3,10 @@ import os
 from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.views.decorators.http import require_GET, require_http_methods
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..http import list_params, querystring, render_htmx
 from ..job_archive import present_archive, resolve_archive_download
-from .. import services
 
 
 @ui3_login_required

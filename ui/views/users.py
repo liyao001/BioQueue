@@ -4,9 +4,9 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..http import htmx_error, is_htmx, list_params, querystring, render_htmx, with_toast
-from .. import services
 
 
 def _forbidden(request, message="Staff access required."):

@@ -1,9 +1,10 @@
-from django.http import JsonResponse
-from django.shortcuts import render
-from .forms import LoginForm, PasswordChangeForm, UserRegisterForm
 from django.contrib.auth import authenticate, login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
+from django.http import JsonResponse
+from django.shortcuts import render
+
+from .forms import LoginForm, PasswordChangeForm, UserRegisterForm
 
 
 def success(message, jump_url=".", msg_title="success", status=1, wait_second=1):

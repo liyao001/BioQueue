@@ -55,8 +55,8 @@ def parse_sample_sheet(text):
         return []
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise ProtocolTemplateError("Sample sheet is not valid JSON.")
+    except json.JSONDecodeError as exc:
+        raise ProtocolTemplateError("Sample sheet is not valid JSON.") from exc
     if not isinstance(data, list):
         raise ProtocolTemplateError("Sample sheet must be a JSON list of records.")
     for index, row in enumerate(data, start=1):
@@ -138,6 +138,7 @@ def resolve_template_environments(document, owner_id):
     if not names:
         return {}
     from django.db.models import Q
+
     from QueueDB.models import VirtualEnvironment
 
     available = list(VirtualEnvironment.objects.filter(
@@ -164,8 +165,8 @@ def expand_job(protocol, input_file, sample_sheet):
         return None
     try:
         document = json.loads(raw)
-    except json.JSONDecodeError:
-        raise ProtocolTemplateError("Stored protocol template is not valid JSON.")
+    except json.JSONDecodeError as exc:
+        raise ProtocolTemplateError("Stored protocol template is not valid JSON.") from exc
     if not isinstance(document, dict):
         raise ProtocolTemplateError("Stored protocol template is not a JSON object.")
     environments = resolve_template_environments(document, getattr(protocol, "user_id", None))
@@ -488,8 +489,8 @@ def _reject_field_typos(document, blocks):
 def _group_size(schema):
     try:
         group = int(schema.get("group") or 1)
-    except (TypeError, ValueError):
-        raise ProtocolTemplateError("samples.group must be an integer.")
+    except (TypeError, ValueError) as exc:
+        raise ProtocolTemplateError("samples.group must be an integer.") from exc
     if group < 1:
         raise ProtocolTemplateError("samples.group must be at least 1.")
     return group

@@ -27,26 +27,26 @@ def _queue(**overrides):
         raise unittest.SkipTest("worker django deps unavailable: %s" % _DJANGO_ERR)
     settings = {"cluster": {"type": ""}, "env": {"max_job": 4}}
     settings.update(overrides.pop("settings", {}))
-    kwargs = dict(
-        max_job=4,
-        cpu_pool=100,
-        memory_pool=1024,
-        disk_pool=2048,
-        work_dir=".",
-        settings=settings,
-        n_retries=1,
-    )
+    kwargs = {
+        "max_job": 4,
+        "cpu_pool": 100,
+        "memory_pool": 1024,
+        "disk_pool": 2048,
+        "work_dir": ".",
+        "settings": settings,
+        "n_retries": 1,
+    }
     kwargs.update(overrides)
     return JobQueue(**kwargs)
 
 
-class FakeStep(object):
+class FakeStep:
     def __init__(self, cpu, mem, disk, order=0):
         self.is_running = False
         self.resources = {"cpu": cpu, "mem": mem, "disk": disk, "order": order}
 
 
-class FakeJob(object):
+class FakeJob:
     def __init__(self, job_id, cpu, mem, disk, status=0, resume=0):
         self.job_id = job_id
         self.status = status
@@ -532,14 +532,14 @@ class JobQueueMaintenanceTests(unittest.TestCase):
     def test_dequeue_missing_queue_entry(self):
         queue = _queue()
 
-        class FakeDb(object):
+        class FakeDb:
             status = 0
             ter = 1
 
             def save(self):
                 return None
 
-        class FakeTask(object):
+        class FakeTask:
             job_id = 99
             db_obj = FakeDb()
             file_map = {}
@@ -720,7 +720,7 @@ class JobQueueMaintenanceTests(unittest.TestCase):
         queue = _queue(n_retries=3)
         failures = []
 
-        class Boom(object):
+        class Boom:
             id = 7
 
             def save(self):
@@ -758,14 +758,14 @@ class JobQueueMaintenanceTests(unittest.TestCase):
         queue = _queue()
         from QueueDB.models import _JS_INTERRUPTED
 
-        class FakeDb(object):
+        class FakeDb:
             status = 0
             ter = 1
 
             def save(self):
                 return None
 
-        class FakeTask(object):
+        class FakeTask:
             job_id = 99
             db_obj = FakeDb()
             file_map = {}

@@ -4,12 +4,16 @@ import shutil
 import subprocess
 import time
 
-from worker import bases
 import psutil
 from django.db import close_old_connections
-from QueueDB.models import Job, _JS_RESOURCELOCK, _JS_RUNNING
 
-from worker.queue.constants import STEP_USER_INTERRUPTED, VERSION_CHECK_TIMEOUT, TERMINATION_POLL_INTERVAL
+from QueueDB.models import _JS_RESOURCELOCK, _JS_RUNNING, Job
+from worker import bases
+from worker.queue.constants import (
+    STEP_USER_INTERRUPTED,
+    TERMINATION_POLL_INTERVAL,
+    VERSION_CHECK_TIMEOUT,
+)
 
 logger = logging.getLogger("BioQueue")
 
@@ -26,7 +30,7 @@ def _needs_shell(command):
     return False
 
 
-class ProcessRunner(object):
+class ProcessRunner:
     def __init__(self, n_retries, kill_process_fn):
         self._n_retries = n_retries
         self._kill_process_fn = kill_process_fn

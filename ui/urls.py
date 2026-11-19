@@ -1,18 +1,20 @@
 from django.urls import path
 
-from .views import access
-from .views import archives
-from .views import auth
-from .views import dag
-from .views import environments
-from .views import igv
-from .views import jobs
-from .views import notifications
-from .views import protocols
-from .views import references
-from .views import runners
-from .views import users
-from .views import workspaces
+from .views import (
+    access,
+    archives,
+    auth,
+    dag,
+    environments,
+    igv,
+    jobs,
+    notifications,
+    protocols,
+    references,
+    runners,
+    users,
+    workspaces,
+)
 
 app_name = "ui3"
 

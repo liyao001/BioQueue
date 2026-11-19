@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # @Time    : 2017/4/26 10:04
 # @Project : BioQueue
 # @Author  : Li Yao
@@ -10,7 +9,7 @@ import os
 common_suffix = os.path.split(os.path.realpath(__file__))[0]
 pip_import_path = common_suffix + '/prerequisites.txt'
 pip_import_fallback_path = common_suffix + '/prerequisites.fallback.txt'
-pip_list_handler = open(pip_import_path, 'r')
+pip_list_handler = open(pip_import_path)
 pip_list = pip_list_handler.read()
 pip_list = pip_list.replace('MySQL-python==1.2.5', 'PyMySQL')
 pip_list_handler.close()
@@ -27,7 +26,7 @@ except ImportError:
     pass
 """
 manage_py_path = os.path.split(os.path.split(os.path.realpath(__file__))[0])[0] + '/manage.py'
-mpp_handler = open(manage_py_path, 'r')
+mpp_handler = open(manage_py_path)
 mpp = mpp_handler.read()
 mpp = mpp.replace('import sys\n', 'import sys\n' + import_string)
 mpp_handler.close()

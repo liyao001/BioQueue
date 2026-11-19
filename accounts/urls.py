@@ -1,6 +1,7 @@
-from django.urls import re_path
-from . import views
 import django.contrib.auth.views
+from django.urls import re_path
+
+from . import views
 
 app_name = "accounts"
 

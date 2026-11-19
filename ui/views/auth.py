@@ -7,10 +7,10 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
+from .. import services
 from ..decorators import LOGIN_URL, ui3_login_required
 from ..files import clean_unlinked_job_folders
 from ..http import htmx_error, hx_redirect, is_htmx
-from .. import services
 
 
 def _next_inside_ui(request):

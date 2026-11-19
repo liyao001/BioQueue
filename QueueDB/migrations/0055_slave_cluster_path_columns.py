@@ -1,6 +1,5 @@
 from django.db import migrations
 
-
 # 0054 adds these columns. A faked migrate records 0054 without altering
 # QueueDB_slave, so create any of them that are still missing.
 _COLUMNS = ("stage_in", "scripts_dir", "result_root", "log_root", "workdir")

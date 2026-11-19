@@ -639,7 +639,7 @@ class JobTests(Ui3TestCase):
         filtered = self.client.get(reverse("ui3:job_files", args=[job.id]), {"q": "nope", "partial": "1"})
         self.assertContains(filtered, "No files found")
         self.assertContains(filtered, 'id="job-files-results-{}'.format(job.id))
-        from ui.files import encode_trace, list_job_files
+        from ui.files import list_job_files
         files = list_job_files(job)
         self.assertEqual(len(files), 2)
         by_name = {f["name"]: f for f in files}
@@ -978,9 +978,10 @@ class JobTests(Ui3TestCase):
         self.assertIn("FormData proxy", multi.content.decode())
 
     def test_list_params_compacts_duplicate_empty_query(self):
-        from ui.http import compact_querydict, list_params
         from django.http import QueryDict
         from django.test import RequestFactory
+
+        from ui.http import compact_querydict, list_params
 
         bloated = QueryDict("q=&q=&q=&protocol=&protocol=&page=2")
         cleaned = compact_querydict(bloated)
@@ -996,9 +997,9 @@ class JobTests(Ui3TestCase):
     def test_logs_no_typeerror(self):
         job = self.make_job()
         self.login()
-        from unittest.mock import MagicMock, patch
         import sys
         import types
+        from unittest.mock import MagicMock, patch
 
         fake_bases = types.ModuleType("worker.bases")
         fake_bases.get_config = MagicMock(return_value="/tmp/ui3-logs")
@@ -1151,6 +1152,7 @@ class JobTests(Ui3TestCase):
     def test_legacy_mark_finished_url(self):
         import os
         import tempfile
+
         from QueueDB.models import Audition
 
         tmp = tempfile.mkdtemp()

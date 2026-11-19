@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import inspect
 import logging
 import numbers
@@ -8,7 +7,7 @@ import time
 
 from django.utils import timezone
 
-from QueueDB.models import Job, Training, _JS_RESOURCELOCK, _JS_RUNNING, _JS_WAITING
+from QueueDB.models import _JS_RESOURCELOCK, _JS_RUNNING, _JS_WAITING, Job, Training
 from worker.queue.constants import STEP_USER_INTERRUPTED
 
 logger = logging.getLogger("BioQueue.cluster_support")
@@ -66,7 +65,7 @@ def get_cluster_models():
         logger.error("get_cluster_models: cannot list %s: %s", models_path, e)
         return models
     for model_name in names:
-        if not model_name.endswith('.py') or model_name.startswith('_') or model_name.startswith('cluster'):
+        if not model_name.endswith('.py') or model_name.startswith(('_', 'cluster')):
             continue
         models.append(model_name.replace('.py', ''))
     return models

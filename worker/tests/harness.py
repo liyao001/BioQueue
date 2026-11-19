@@ -19,7 +19,7 @@ def _install_optional_stubs() -> None:
             stub.ZombieProcess = type("ZombieProcess", (Exception,), {})
             stub.wait_procs = lambda *args, **kwargs: ([], [])
             stub.Process = object
-            stub.pids = lambda: []
+            stub.pids = list
             sys.modules["psutil"] = stub
 
     if "scipy" not in sys.modules:
@@ -58,10 +58,10 @@ def setup_django():
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "worker.test_settings")
     _install_optional_stubs()
 
+    import django
+
     import worker._bootstrap  # noqa: F401
     import worker.test_settings  # noqa: F401
-
-    import django
 
     if not django.apps.apps.ready:
         django.setup()

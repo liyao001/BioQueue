@@ -4,9 +4,10 @@ import os
 from QueueDB.models import Step
 from worker.step import _Step
 
-class Protocol(object):
+
+class Protocol:
     def __init__(self, poj, settings):
-        super(Protocol, self).__init__()
+        super().__init__()
         # super(Protocol, self).__init__(poj, settings)
         self.id = poj.id
         self._ver = poj.ver

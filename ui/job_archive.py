@@ -160,8 +160,8 @@ def _log_members(job):
 def _load_file_list(archive):
     try:
         data = json.loads(archive.files or "")
-    except (TypeError, ValueError):
-        raise ArchiveBuildError("Archive file list is invalid.")
+    except (TypeError, ValueError) as exc:
+        raise ArchiveBuildError("Archive file list is invalid.") from exc
     return data
 
 

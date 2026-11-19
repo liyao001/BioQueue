@@ -53,6 +53,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/psycopg2-2.9.13-py311hcaf2391_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.11.17-h5f976f7_2_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/ruff-0.17.5-hf19af3b_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h1df4ec4_4.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_7.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.18-hbd8a1cb_0.conda
@@ -92,6 +93,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/psycopg2-2.9.12-py311h0c7bfbf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/python-3.11.17-h6907cb8_2_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/readline-8.3-h000c2f7_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/ruff-0.17.5-h3047c83_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-ha6c374e_4.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/4f/ef/c66110d46fb800dda0bf33164182dfadabe26a90e4476844d502a23dca8e/pytz-2026.5-py2.py3-none-any.whl
@@ -127,6 +129,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/psycopg2-2.9.12-py311hda1d16c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.11.17-hd05a0c4_2_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/readline-8.3-h8b90a29_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/ruff-0.17.5-ha19a7bb_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-hbeba79b_4.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/0e/0d/f5957185c0ee2f3e12f78715aa9e3b353fd83633316c8532b38faa37e3f6/numpy-2.4.6-cp311-cp311-macosx_11_0_arm64.whl
@@ -591,6 +594,21 @@ packages:
     - readline >=8.3,<9.0a0
   size: 348899
   timestamp: 1787033801506
+- conda: https://conda.anaconda.org/conda-forge/linux-64/ruff-0.17.5-hf19af3b_1.conda
+  sha256: 3821fb7ad80d2543b887be8f739e9c6abc03fd87108ee86b7ab401f3fd67ab40
+  md5: 9d18101313ac89f8ec909852403d208f
+  depends:
+  - libgcc >=15
+  - __glibc >=2.17,<3.0.a0
+  constrains:
+  - __glibc >=2.17
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/ruff?source=compressed-mapping
+  run_exports: {}
+  size: 8940686
+  timestamp: 1794928860317
 - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h1df4ec4_4.conda
   build_number: 104
   sha256: a1a241d172c1ccab067ba245206dd048bc3c2d1b84504b53c9468e99adfc16a1
@@ -963,6 +981,20 @@ packages:
     - readline >=8.3,<9.0a0
   size: 319279
   timestamp: 1787034454836
+- conda: https://conda.anaconda.org/conda-forge/osx-64/ruff-0.17.5-h3047c83_1.conda
+  sha256: fcc1f6641d81a00478516025e66cf1723b3c089982f5cd812b137b96dac495de
+  md5: 9c58b2da1faf65cc2f21737f670b2ef5
+  depends:
+  - __osx >=11.0
+  constrains:
+  - __osx >=11.0
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/ruff?source=compressed-mapping
+  run_exports: {}
+  size: 8826679
+  timestamp: 1794929017295
 - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-ha6c374e_4.conda
   sha256: 74e5fabcaf6ca0db052c645646ea04ded98a5eb7540483217f8101a819eb3107
   md5: 71c9f1f0267f2639523e898c6b50a4dc
@@ -1288,6 +1320,20 @@ packages:
     - readline >=8.3,<9.0a0
   size: 314395
   timestamp: 1787033878899
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/ruff-0.17.5-ha19a7bb_1.conda
+  sha256: b6a4f1c99d7d0cdd65b913b30f60525216b8445c6f78cbf2febb49ca2f6efbc2
+  md5: b7283cb3cb4f8580341ef422a9d18fac
+  depends:
+  - __osx >=11.0
+  constrains:
+  - __osx >=11.0
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/ruff?source=compressed-mapping
+  run_exports: {}
+  size: 8138400
+  timestamp: 1794928878826
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-hbeba79b_4.conda
   sha256: 857d89087ae7f2c328cf256728affcb7343031a148b4af847334d248a9cf564c
   md5: 90a01bf394d1c594e0eb9258f967d828

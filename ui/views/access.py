@@ -3,9 +3,9 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from .. import services
 from ..decorators import ui3_login_required
 from ..http import htmx_error, is_htmx, with_toast
-from .. import services
 
 
 def _forbidden(request, message="That access grant was not found."):

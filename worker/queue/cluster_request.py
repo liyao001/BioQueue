@@ -8,7 +8,6 @@ That index is not a cluster array range.
 """
 from __future__ import annotations
 
-
 # Values stored on Slave.cluster_manager. Names match worker/cluster_models modules.
 # 0 runs the step on this machine. A manager with no SSH host calls its
 # commands here (BioQueue is on the cluster and can see the files). An SSH

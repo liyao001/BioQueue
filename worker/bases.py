@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from __future__ import division
-from __future__ import print_function
 
 try:
     from ConfigParser import ConfigParser
@@ -9,9 +7,10 @@ except ImportError:
 
 import logging
 import os
-import psutil
-import magic
 from multiprocessing import cpu_count
+
+import magic
+import psutil
 
 logger = logging.getLogger("BioQueue.bases")
 
@@ -43,7 +42,7 @@ def get_all_config(const=0):
     configurations = {}
     for section in config.sections():
         tmp = config.items(section)
-        opts = dict()
+        opts = {}
         for opt in tmp:
             opts[opt[0]] = opt[1]
         configurations[section] = opts
@@ -166,7 +165,7 @@ def get_init_resource():
 def get_folder_size(folder):
     folder_size = 0
     try:
-        for (path, dirs, files) in os.walk(folder):
+        for (path, _dirs, files) in os.walk(folder):
             for fn in files:
                 file_name = os.path.join(path, fn)
                 folder_size += os.path.getsize(file_name)
@@ -182,7 +181,7 @@ def get_path(url):
     head = str(url).split(":")[0]
     try:
         port = str(url).split(':')[2].split('/')[0]
-    except Exception as e:
+    except Exception:
         port = ""
     reg_site.match(url)
     
@@ -351,7 +350,6 @@ def del_output_dict(job):
 
 
 def build_upload_file_path(user_folder, file_name):
-    import sys
     upload_path = os.path.join(user_folder, 'uploads')
     file_path = os.path.join(upload_path, file_name)
     if os.path.exists(file_path):
@@ -369,7 +367,7 @@ def get_user_folder_size(user):
 def get_folder_content(folder_path):
     import os
     folder_content = []
-    for root, dirs, files in os.walk(folder_path):
+    for root, _dirs, files in os.walk(folder_path):
         for file_name in files:
             file_full_path = os.path.join(root, file_name)
             folder_content.append(file_full_path)

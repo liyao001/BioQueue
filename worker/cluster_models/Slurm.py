@@ -1,5 +1,4 @@
 """Slurm backend: render a self-contained sbatch script, submit locally or over SSH."""
-from __future__ import print_function
 
 import base64
 import hashlib
@@ -349,7 +348,7 @@ def parse_sacct_usage(stdout, job_id):
 
 def load_template():
     path = os.path.join(os.path.split(os.path.realpath(__file__))[0], "Slurm.tpl")
-    with open(path, "r") as handle:
+    with open(path) as handle:
         return handle.read()
 
 
@@ -808,7 +807,7 @@ def _rewrite_dir_prefix(body, local_dir, shell_var):
     for variant in (local_dir + "/", local_dir + os.sep, local_dir):
         if not variant or variant not in body:
             continue
-        if variant.endswith("/") or variant.endswith(os.sep):
+        if variant.endswith(("/", os.sep)):
             body = body.replace(variant, replacement + "/")
         else:
             body = body.replace(variant, replacement)
@@ -1096,7 +1095,7 @@ def _query_job_states(job_ids, extras):
         if jid and jid not in seen:
             seen.add(jid)
             ids.append(jid)
-    result = {jid: STATUS_UNKNOWN for jid in ids}
+    result = dict.fromkeys(ids, STATUS_UNKNOWN)
     if not ids:
         return result, set()
     extras = _extras(extras)
@@ -1186,7 +1185,7 @@ class _BoardClosed(Exception):
     pass
 
 
-class _StatusBoard(object):
+class _StatusBoard:
     """One poller per login node. Threads wait here instead of calling squeue."""
 
     def __init__(self, key, extras):

@@ -592,12 +592,12 @@ def _send(request, label, secrets=()):
         except Exception:
             detail = ""
         detail = _redact(detail, secrets)
-        raise NotificationError("{} returned HTTP {}{}.".format(label, exc.code, ": " + detail if detail else ""))
+        raise NotificationError("{} returned HTTP {}{}.".format(label, exc.code, ": " + detail if detail else "")) from exc
     except urllib.error.URLError as exc:
         reason = _redact(str(getattr(exc, "reason", exc)), secrets)
-        raise NotificationError("Could not reach {} ({}).".format(label, reason))
+        raise NotificationError("Could not reach {} ({}).".format(label, reason)) from exc
     except Exception as exc:
-        raise NotificationError("Could not reach {} ({}).".format(label, _redact(str(exc), secrets)))
+        raise NotificationError("Could not reach {} ({}).".format(label, _redact(str(exc), secrets))) from exc
     if status is None or status >= 300:
         raise NotificationError("{} returned HTTP {}.".format(label, status))
 
@@ -768,8 +768,8 @@ def _send_email(config, notice, message, mail_settings):
     port_text = config.get("smtp_port") or ("" if own_smtp else (mail.get("mail_port") or "")) or "587"
     try:
         port = int(port_text)
-    except (TypeError, ValueError):
-        raise NotificationError("SMTP port is not a number.")
+    except (TypeError, ValueError) as exc:
+        raise NotificationError("SMTP port is not a number.") from exc
     user = config.get("smtp_user") or ("" if own_smtp else (mail.get("mail_user") or ""))
     password = config.get("smtp_password") or ("" if own_smtp else (mail.get("mail_password") or ""))
     security = config.get("smtp_security") or ""
@@ -798,7 +798,7 @@ def _send_email(config, notice, message, mail_settings):
     except NotificationError:
         raise
     except Exception as exc:
-        raise NotificationError("Email failed ({}).".format(_redact(str(exc), (password or "", user))))
+        raise NotificationError("Email failed ({}).".format(_redact(str(exc), (password or "", user)))) from exc
     finally:
         if client is not None:
             try:

@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # @Time    : 2017/12/1 0:10
 # @Project : BioQueue
 # @Author  : Li Yao
 # @File    : LSF.py
 # @Description: Minimal support for IBM LSF
 
-from __future__ import print_function
 
 
 def cancel_job(job_id, extras=None):
@@ -32,7 +30,7 @@ def load_template():
     :return: string, script template
     """
     import os
-    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'LSF.tpl'), 'r') as file_handler:
+    with open(os.path.join(os.path.split(os.path.realpath(__file__))[0], 'LSF.tpl')) as file_handler:
         template = file_handler.read()
     return template
 
@@ -113,9 +111,9 @@ def submit_job(protocol, job_id, job_step, cpu=0, mem='', vrt_mem='', queue='', 
     :param workspace: string, job path
     :return: int, if success, return trace id, else return 0
     """
-    import subprocess
     import os
     import re
+    import subprocess
     template = load_template()
 
     if not os.path.exists(workspace):

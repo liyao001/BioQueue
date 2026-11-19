@@ -273,7 +273,7 @@ def _predict_settings(cpu="16", cluster_type="", cluster_cpu=""):
     }
 
 
-class _Job(object):
+class _Job:
     def __init__(self, options=None, raw_parameter=None):
         self.run_folder = "/tmp"
         self.input_size = 0

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import os
 import sys
 
@@ -12,10 +11,12 @@ sys.path[:] = [
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-import worker.django_initial  # noqa: F401
-import psutil
-import time
 import getopt
+import time
+
+import psutil
+
+import worker.django_initial  # noqa: F401
 from QueueDB.models import Training
 
 vrt_mem_list = []
