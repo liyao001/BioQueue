@@ -87,6 +87,29 @@ class ClusterRequestTests(unittest.TestCase):
         extras = build_cluster_request(job, SimpleNamespace(gpu_step=False), {}, 1, "", "", "", "")["extras"]
         self.assertEqual(extras["sbatch_cli"], "--array=0-3 --nice=10")
 
+    def test_bioqueue_child_index_is_not_a_cluster_array(self):
+        child = SimpleNamespace(
+            user_options={},
+            db_obj=SimpleNamespace(array_setting="4", is_gpu_job=0, slave=None, parent_job_id=9),
+        )
+        extras = build_cluster_request(child, SimpleNamespace(gpu_step=False), {}, 1, "", "", "", "")["extras"]
+        self.assertEqual(extras["array"], "")
+        self.assertEqual(extras["sbatch_cli"], "")
+
+        ranged = SimpleNamespace(
+            user_options={},
+            db_obj=SimpleNamespace(array_setting="0-7", is_gpu_job=0, slave=None, parent_job_id=9),
+        )
+        extras = build_cluster_request(ranged, SimpleNamespace(gpu_step=False), {}, 1, "", "", "", "")["extras"]
+        self.assertEqual(extras["array"], "0-7")
+
+        plain = SimpleNamespace(
+            user_options={},
+            db_obj=SimpleNamespace(array_setting="4", is_gpu_job=0, slave=None, parent_job_id=None),
+        )
+        extras = build_cluster_request(plain, SimpleNamespace(gpu_step=False), {}, 1, "", "", "", "")["extras"]
+        self.assertEqual(extras["array"], "4")
+
     def test_remote_from_slave(self):
         slave = SimpleNamespace(
             ssh_connection="cluster.example.edu",

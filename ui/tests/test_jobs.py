@@ -1519,6 +1519,82 @@ class JobTests(Ui3TestCase):
         children = Job.objects.filter(parent_job=parent)
         self.assertEqual(children.count(), 2)
         self.assertContains(response, "Array parent #{}".format(parent.id))
+        self.assertEqual(
+            sorted(child.result for child in children),
+            ["{}/0".format(parent.result), "{}/1".format(parent.result)],
+        )
+
+    def test_array_children_inherit_gpu_unless_a_line_overrides_it(self):
+        self.login()
+        response = self.client.post(
+            reverse("ui3:job_create_array"),
+            {
+                "job_name": "gpu-array",
+                "protocol": self.protocol.id,
+                "job_list": "a.fq\tx=1\nb.fq\ty=2\t0\n",
+                "is_gpu_job": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "GPU for each child")
+        parent = Job.objects.get(job_name="gpu-array")
+        children = list(Job.objects.filter(parent_job=parent).order_by("id"))
+        self.assertEqual([child.is_gpu_job for child in children], [1, 0])
+
+    def test_array_resume_requeues_failed_children_only(self):
+        parent = self.make_job(job_name="arr-resume", is_executable=0, status=JobStatus.INTERRUPTED)
+        failed = self.make_job(
+            job_name="arr-failed",
+            parent_job=parent,
+            status=JobStatus.WRONG,
+            resume=2,
+            array_setting="0",
+            ter=1,
+        )
+        done = self.make_job(
+            job_name="arr-done",
+            parent_job=parent,
+            status=JobStatus.FINISHED,
+            resume=1,
+            array_setting="1",
+        )
+        self.login()
+        response = self.client.post(reverse("ui3:job_resume", args=[parent.id]), {"from_failed": "1"})
+        self.assertEqual(response.status_code, 302)
+        failed.refresh_from_db()
+        done.refresh_from_db()
+        parent.refresh_from_db()
+        self.assertEqual(failed.status, JobStatus.WAITING)
+        self.assertEqual(failed.resume, 2)
+        self.assertEqual(failed.ter, 0)
+        self.assertEqual(done.status, JobStatus.FINISHED)
+        self.assertEqual(parent.status, JobStatus.WAITING)
+
+        chosen = self.client.post(reverse("ui3:job_resume", args=[parent.id]), {"rollback_to": "0"})
+        self.assertEqual(chosen.status_code, 302)
+        failed.refresh_from_db()
+        done.refresh_from_db()
+        self.assertEqual(failed.status, JobStatus.WAITING)
+        self.assertEqual(failed.resume, 0)
+        self.assertEqual(done.status, JobStatus.WAITING)
+        self.assertEqual(done.resume, 0)
+
+    def test_array_parent_mark_finished_waits_for_children(self):
+        parent = self.make_job(job_name="arr-done-parent", is_executable=0, status=JobStatus.WAITING)
+        child = self.make_job(job_name="arr-open", parent_job=parent, status=JobStatus.RUNNING, array_setting="0")
+        self.login()
+        blocked = self.client.post(reverse("ui3:job_mark_finished", args=[parent.id]))
+        self.assertEqual(blocked.status_code, 400)
+        self.assertContains(blocked, "still open", status_code=400)
+        parent.refresh_from_db()
+        self.assertEqual(parent.status, JobStatus.WAITING)
+        child.status = JobStatus.FINISHED
+        child.save(update_fields=["status"])
+        ready = self.client.post(reverse("ui3:job_mark_finished", args=[parent.id]))
+        self.assertEqual(ready.status_code, 302)
+        parent.refresh_from_db()
+        self.assertEqual(parent.status, JobStatus.FINISHED)
+
 
     def test_card_inline_workspace_runner_array(self):
         from QueueDB.models import Slave

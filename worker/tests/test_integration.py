@@ -511,3 +511,102 @@ class EchoJobIntegrationTests(TestCase):
         self.assertEqual(job.status, JobStatus.FINISHED)
         log_text = (self.log_dir / "{}.log".format(job.id)).read_text()
         self.assertEqual(log_text.count("Checking 1 input file(s) before launch."), 1)
+
+    def test_array_parent_status_follows_children(self):
+        from QueueDB.array_job import array_parent_status
+
+        waiting = JobStatus.WAITING
+        running = JobStatus.RUNNING
+        locked = JobStatus.RESOURCELOCK
+        finished = JobStatus.FINISHED
+        failed = JobStatus.WRONG
+        stopped = JobStatus.INTERRUPTED
+        self.assertEqual(array_parent_status([waiting, waiting]), waiting)
+        self.assertEqual(array_parent_status([running, waiting]), running)
+        self.assertEqual(array_parent_status([locked, finished]), locked)
+        self.assertEqual(array_parent_status([finished, waiting]), waiting)
+        self.assertEqual(array_parent_status([finished, finished]), finished)
+        self.assertEqual(array_parent_status([finished, failed]), failed)
+        self.assertEqual(array_parent_status([finished, stopped]), stopped)
+        self.assertEqual(array_parent_status([failed, stopped]), failed)
+
+    def test_array_children_finish_inside_the_parent_folder(self):
+        from worker.step import _Step
+
+        parent = seed_echo_job(self.tmp, job_name="array-parent")
+        parent.is_executable = 0
+        parent.input_file = ";"
+        parent.parameter = ";"
+        parent.result = "{}v0".format(parent.id)
+        parent.save()
+        children = []
+        for index in (0, 1):
+            child = seed_echo_job(self.tmp, job_name="array-parent-{}".format(index))
+            child.parent_job = parent
+            child.array_setting = str(index)
+            child.result = "{}/{}".format(parent.result, index)
+            child.user = parent.user
+            child.save()
+            children.append(child)
+
+        queue = self._queue()
+        queue.fetch_jobs()
+        snapshot = queue.queued_jobs_snapshot()
+        self.assertNotIn(parent.id, snapshot)
+        self.assertEqual(set(snapshot), {child.id for child in children})
+        parent.refresh_from_db()
+        self.assertEqual(parent.status, JobStatus.RUNNING)
+
+        for child in children:
+            task = snapshot[child.id]
+            disable_ml_collector(task)
+            queue.run_step(task)
+            child.refresh_from_db()
+            self.assertEqual(child.status, JobStatus.FINISHED)
+            self.assertEqual(child.result, "{}/{}".format(parent.result, child.array_setting))
+            folder = Path(self.tmp) / str(parent.user_id) / parent.result / child.array_setting
+            self.assertTrue((folder / ".snapshot.ini").is_file())
+
+        parent.refresh_from_db()
+        self.assertEqual(parent.status, JobStatus.FINISHED)
+        token = "{{{{History:{}-0/.snapshot.ini}}}}".format(parent.id)
+        replaced, waiting, error = _Step._history_map(token, parent.user)
+        self.assertEqual(waiting, set())
+        self.assertEqual(error, 0)
+        self.assertNotIn("History:", replaced)
+        self.assertTrue(os.path.isfile(replaced))
+
+    def test_settle_moves_finished_child_folders_onto_the_parent(self):
+        from QueueDB.array_job import settle_finished_arrays
+
+        parent = seed_echo_job(self.tmp, job_name="left-waiting")
+        parent.is_executable = 0
+        parent.status = JobStatus.WAITING
+        parent.result = "{}v0".format(parent.id)
+        parent.save()
+        user = Path(self.tmp) / str(parent.user_id)
+        (user / parent.result).mkdir(parents=True)
+        children = []
+        for index in (0, 1):
+            child = seed_echo_job(self.tmp, job_name="left-{}".format(index))
+            child.parent_job = parent
+            child.user = parent.user
+            child.array_setting = str(index)
+            child.status = JobStatus.FINISHED
+            child.result = "{}v0".format(child.id)
+            child.save()
+            folder = user / child.result
+            folder.mkdir(parents=True)
+            (folder / "out{}.txt".format(index)).write_text("ok")
+            children.append(child)
+
+        settle_finished_arrays()
+
+        parent.refresh_from_db()
+        self.assertEqual(parent.status, JobStatus.FINISHED)
+        for child in children:
+            child.refresh_from_db()
+            self.assertEqual(child.result, "{}/{}".format(parent.result, child.array_setting))
+            published = user / parent.result / child.array_setting / "out{}.txt".format(child.array_setting)
+            self.assertEqual(published.read_text(), "ok")
+            self.assertFalse((user / "{}v0".format(child.id)).exists())

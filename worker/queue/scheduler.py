@@ -91,6 +91,7 @@ def run_worker_main(n_retries=3, slave=None, schedule=None, predict=None):
         predict=predict,
     )
     job_queue.clean_dead_jobs()
+    job_queue.settle_array_parents()
     consecutive_failures = 0
 
     while True:
@@ -107,6 +108,7 @@ def run_worker_main(n_retries=3, slave=None, schedule=None, predict=None):
             # Running rows this process is not executing are leftovers from a
             # dead worker or a runner change. Recover them without a restart.
             job_queue.clean_dead_jobs(exclude_ids=set(job_queue.queued_jobs_snapshot()))
+            job_queue.settle_array_parents()
             job_table = job_queue.queued_jobs_snapshot()
             job_queue.collect_schedulable_resources(job_table)
 

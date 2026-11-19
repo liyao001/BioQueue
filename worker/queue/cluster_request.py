@@ -2,6 +2,9 @@
 
 Later sources win: cluster config → job/step GPU flags → Job.array_setting →
 ``Cluster*`` keys in the job parameter string (``key=value;...``).
+
+A BioQueue array child's ``array_setting`` is its task index (``0``, ``1``, …).
+That index is not a cluster array range.
 """
 from __future__ import annotations
 
@@ -118,6 +121,14 @@ def _remote_from_slave_and_settings(slave, cluster):
     }
 
 
+def _is_bioqueue_child_index(db, setting):
+    """True when ``setting`` is the numeric index of a BioQueue array child."""
+    if db is None or not getattr(db, "parent_job_id", None):
+        return False
+    text = _text(setting)
+    return bool(text) and text.isdigit()
+
+
 def _split_array_setting(setting, array):
     sbatch_cli = ""
     text = _text(setting)
@@ -231,6 +242,8 @@ def build_cluster_request(job, step, cluster, allocate_cpu, allocate_mem, alloca
         setting = _text(getattr(db, "array_setting", None))
     if not setting:
         setting = _text(getattr(job, "array_setting", None))
+    if _is_bioqueue_child_index(db, setting):
+        setting = ""
     array, sbatch_cli = _split_array_setting(setting, array)
 
     if not gpus and not gres:

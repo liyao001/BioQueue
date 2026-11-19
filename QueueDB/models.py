@@ -386,7 +386,19 @@ class Job(_OwnerModel):
     def __str__(self):
         return str(self.id) + "-" + self.job_name
 
-    def terminate_job(self):
+    def _sync_array_parent(self):
+        try:
+            from QueueDB.array_job import sync_array_parent
+
+            sync_array_parent(self)
+        except Exception:
+            import logging
+
+            logging.getLogger("BioQueue").exception(
+                "Failed to update array parent for job %s", self.pk
+            )
+
+    def terminate_job(self, sync=True):
         # Only a job the worker may still be executing should record a stop.
         # Setting ter on an already interrupted (or finished) job makes the
         # next resume kill itself and land back on Interrupted.
@@ -418,9 +430,14 @@ class Job(_OwnerModel):
                 pass
         if self.is_executable == 0:
             for child_job in Job.objects.filter(parent_job=self):
-                child_job.terminate_job()
+                child_job.terminate_job(sync=False)
+            if sync:
+                self._sync_array_parent()
+            return
+        if sync and self.parent_job_id:
+            self._sync_array_parent()
 
-    def rerun_job(self, insitu=0):
+    def rerun_job(self, insitu=0, sync=True):
         if not self.locked:
             self.status = 0
             self.resume = 0
@@ -445,11 +462,42 @@ class Job(_OwnerModel):
             ).save()
             if self.is_executable == 0:
                 for child_job in Job.objects.filter(parent_job=self):
-                    # no need to delete files, since they are moved to the parent folder
-                    # and get taken care when the parent job reruns.
-                    child_job.rerun_job()
+                    # Outputs sit in this parent's result folder. A clean rerun
+                    # removes that folder; each child clears its own subfolder
+                    # when the worker starts it.
+                    child_job.rerun_job(insitu, sync=False)
+            if sync and (self.parent_job_id or self.is_executable == 0):
+                self._sync_array_parent()
 
-    def resume_job(self, rollback):
+    def resume_job(self, rollback, include_finished=True, sync=True):
+        """Queue this job again. ``rollback`` None keeps the current step.
+
+        An array parent resumes each unlocked child. Finished children are
+        included only when ``include_finished`` is set (a chosen step). A
+        child that is running or waiting for resources is left alone.
+        Returns how many jobs were queued (children, for a parent).
+        """
+        if self.locked:
+            return 0
+        if self.is_executable == 0:
+            statuses = [JobStatus.WAITING, JobStatus.WRONG, JobStatus.INTERRUPTED]
+            if include_finished:
+                statuses.append(JobStatus.FINISHED)
+            children = list(Job.objects.filter(parent_job=self, locked=0, status__in=statuses))
+            if not children:
+                return 0
+            for child_job in children:
+                child_job.resume_job(rollback, include_finished=include_finished, sync=False)
+            self._write_resume(self.resume if rollback is None else rollback)
+            if sync:
+                self._sync_array_parent()
+            return len(children)
+        self._write_resume(self.resume if rollback is None else rollback)
+        if sync and self.parent_job_id:
+            self._sync_array_parent()
+        return 1
+
+    def _write_resume(self, rollback):
         if not self.locked:
             self.resume = rollback
             self.status = 0
@@ -495,6 +543,8 @@ class Job(_OwnerModel):
                     msg=self.job_name + " (" + str(self.id) + ") " + "is done.",
                     user=self.user,
                 ).save()
+            if self.parent_job_id:
+                self._sync_array_parent()
 
     def set_result(self, value):
         if not self.locked:
@@ -505,6 +555,8 @@ class Job(_OwnerModel):
         if not self.locked:
             self.status = status
             self.save()
+            if self.parent_job_id:
+                self._sync_array_parent()
 
     def set_wait(self, for_what):
         if not self.locked:

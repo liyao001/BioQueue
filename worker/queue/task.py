@@ -334,6 +334,10 @@ class Task(object):
         :return: tuple, path to user folder and job folder
         """
         user_folder = os.path.join(self._work_dir, str(self._user.id))
+        if self._resume == 0 or not (self._result or "").strip():
+            nested = self._array_child_result_name()
+            if nested:
+                return self._prepare_array_workspace(user_folder, nested)
         if self._result is None or self._resume == 0:
             self.job_ver = self.job_ver + 1
             result_store = "{0}v{1}".format(self.job_id, self.job_ver)
@@ -362,6 +366,51 @@ class Task(object):
                 except Exception as e:
                     logger.exception(e)
 
+        self._user_folder = user_folder
+        self._run_folder = run_folder
+        self._result_store = result_store
+        self.init_snapshot()
+        return user_folder, run_folder, result_store
+
+    def _array_child_result_name(self):
+        try:
+            from QueueDB.array_job import array_child_result_name
+
+            return array_child_result_name(self.db_obj)
+        except Exception:
+            logger.exception("Could not resolve array child folder for job %s", self.job_id)
+            return None
+
+    def _prepare_array_workspace(self, user_folder, result_store):
+        """Run an array child inside ``{parent result}/{index}``."""
+        from QueueDB.array_job import result_abspath
+
+        if self._resume == 0:
+            self.job_ver = self.job_ver + 1
+        run_folder = result_abspath(user_folder, result_store)
+        if not run_folder:
+            raise OSError("Array child result path is not safe: {0}".format(result_store))
+        try:
+            os.makedirs(user_folder, exist_ok=True)
+            user_abs = os.path.abspath(user_folder)
+            run_abs = os.path.abspath(run_folder)
+            if run_abs != user_abs and not run_abs.startswith(user_abs + os.sep):
+                raise OSError("Array child result escapes the user folder")
+            if self._resume == 0 and os.path.isdir(run_folder):
+                shutil.rmtree(run_folder)
+            old = (self._result or "").replace("\\", "/").strip("/")
+            if old and old != result_store.replace("\\", "/").strip("/"):
+                old_dir = result_abspath(user_folder, old)
+                if old_dir and os.path.isdir(old_dir):
+                    old_abs = os.path.abspath(old_dir)
+                    parent_abs = os.path.abspath(os.path.dirname(run_folder))
+                    if old_abs not in (user_abs, parent_abs) and not parent_abs.startswith(old_abs + os.sep):
+                        shutil.rmtree(old_dir)
+            os.makedirs(run_folder, exist_ok=True)
+            self._result = result_store
+            self.db_obj.set_result(result_store)
+        except Exception as e:
+            logger.exception(e)
         self._user_folder = user_folder
         self._run_folder = run_folder
         self._result_store = result_store
@@ -420,6 +469,12 @@ class Task(object):
             return
         self.db_obj.wait_for = checkpoint
         self.db_obj.status = _JS_RESOURCELOCK
+        try:
+            from QueueDB.array_job import sync_array_parent
+
+            sync_array_parent(self.db_obj)
+        except Exception:
+            logger.exception("Failed to update array parent for job %s", self.job_id)
 
     @staticmethod
     def build_suffix_dict(output_files):

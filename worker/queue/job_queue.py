@@ -233,6 +233,8 @@ class JobQueue(object):
                 outcome,
                 mail_settings=(self._settings or {}).get("mail"),
             )
+        self._publish_array_child(job.db_obj)
+        self._sync_array_parent(job.db_obj)
 
     def enqueue(self, job):
         """
@@ -347,6 +349,7 @@ class JobQueue(object):
                     )
                     j.status = _JS_WAITING
                     j.save()
+                    self._sync_array_parent(j)
                     continue
                 logger.warning(
                     "The status of job %s (%s) is %s, now BioQueue marks it as failed.",
@@ -357,6 +360,7 @@ class JobQueue(object):
                 j.status = _JS_WRONG
                 j.save()
                 notify_job(j, "failed", mail_settings=(self._settings or {}).get("mail"))
+                self._sync_array_parent(j)
         except Exception as e:
             logger.exception(e)
 
@@ -710,6 +714,45 @@ class JobQueue(object):
             on_failure()
         return False
 
+    def settle_array_parents(self):
+        """Close array parents whose children have all stopped, and publish outputs."""
+        try:
+            from QueueDB.array_job import settle_finished_arrays
+
+            settle_finished_arrays(mail_settings=(self._settings or {}).get("mail"))
+        except Exception:
+            logger.exception("Failed to settle finished array parents")
+
+    def _publish_array_child(self, job):
+        """Move a finished array child's outputs under the parent. Never raises."""
+        job_id = getattr(job, "id", None) if job is not None else None
+        if isinstance(job_id, bool) or not isinstance(job_id, int):
+            return
+        try:
+            from QueueDB.array_job import publish_child_outputs
+
+            publish_child_outputs(job)
+        except Exception:
+            logger.exception(
+                "Failed to publish array outputs for job %s",
+                getattr(job, "id", None),
+            )
+
+    def _sync_array_parent(self, job):
+        """Fold a BioQueue array child's status onto its parent. Never raises."""
+        parent_id = getattr(job, "parent_job_id", None) if job is not None else None
+        if isinstance(parent_id, bool) or not isinstance(parent_id, int):
+            return
+        try:
+            from QueueDB.array_job import sync_array_parent
+
+            sync_array_parent(job, mail_settings=(self._settings or {}).get("mail"))
+        except Exception:
+            logger.exception(
+                "Failed to update array parent for job %s",
+                getattr(job, "id", None),
+            )
+
     def _job_stop_requested(self, job_id):
         try:
             row = Job.objects.filter(id=job_id).values_list("ter", "status").first()
@@ -851,6 +894,7 @@ class JobQueue(object):
                     job.status = _JS_RUNNING
                     self.enqueue(t_job)
                     notify_job(job, "started", mail_settings=(self._settings or {}).get("mail"))
+                    self._sync_array_parent(job)
                 except Exception as exc:
                     from QueueDB.protocol_template import ProtocolTemplateError
 
@@ -861,12 +905,14 @@ class JobQueue(object):
                             notify_job(job, "failed", mail_settings=(self._settings or {}).get("mail"))
                         except Exception:
                             logger.exception("Failed to mark job %s failed after template error", job.id)
+                        self._sync_array_parent(job)
                         continue
                     logger.exception("Failed to enqueue claimed job %s; returning it to WAITING", job.id)
                     try:
                         Job.objects.filter(id=job.id, status=_JS_RUNNING).update(status=_JS_WAITING)
                     except Exception:
                         logger.exception("Failed to unclaim job %s", job.id)
+                    self._sync_array_parent(job)
 
     def query_job_status(self, job_id):
         for _ in range(self.n_retries):
@@ -1291,6 +1337,7 @@ class JobQueue(object):
                         update_time=timezone.now(),
                     )
                     if not owned:
+                        self._sync_array_parent(job_obj.db_obj)
                         self._update_resource_pool(step_obj.resources)
                         with self._lock:
                             self.remove_resources(current_job_id)
@@ -1302,6 +1349,7 @@ class JobQueue(object):
                         return
                     job_obj.db_obj.status = _JS_RUNNING
                     job_obj.db_obj.resume = job_obj.resume
+                    self._sync_array_parent(job_obj.db_obj)
                 else:
                     job_obj.db_obj.status = _JS_RUNNING
                     job_obj.db_obj.resume = job_obj.resume

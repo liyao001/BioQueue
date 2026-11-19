@@ -762,6 +762,12 @@ def mark_job_finished(job, *, snapshot=True):
     """Mark a job finished (audit + optional ``.snapshot.ini``), matching legacy mark-finished."""
     if job.locked:
         raise JobActionError("This job is locked, please unlock first.")
+    if getattr(job, "is_executable", 1) == 0:
+        pending = Job.objects.filter(parent_job_id=job.id).exclude(status=JobStatus.FINISHED).count()
+        if pending:
+            raise JobActionError(
+                "This array finishes when every task finishes. {} task(s) are still open.".format(pending)
+            )
     job.set_done()
     if snapshot:
         try:
@@ -795,6 +801,13 @@ def resume_job_from(job, rollback_to=None):
         target = min(max(int(rollback_to), 0), max_step) if n_steps else max(int(rollback_to), 0)
         if target > current:
             target = current
+    if getattr(job, "is_executable", 1) == 0:
+        resumed = job.resume_job(None if rollback_to is None else target, include_finished=rollback_to is not None)
+        if not resumed:
+            raise JobActionError(
+                "No array task can be resumed. Rerun the array to run finished tasks again."
+            )
+        return job
     job.resume_job(target)
     return job
 
@@ -2877,14 +2890,19 @@ def create_array_job(user, *, protocol, job_name, job_list, workspace=None, is_g
         try:
             in_file = cols[0]
             param = cols[1]
-            try:
-                is_gpu = int(cols[2]) if len(cols) >= 3 and cols[2] != "" else 0
-            except Exception:
-                is_gpu = 0
+            parent_gpu = 1 if is_gpu_job else 0
+            if len(cols) >= 3 and cols[2] != "":
+                try:
+                    is_gpu = int(cols[2])
+                except Exception:
+                    is_gpu = parent_gpu
+            else:
+                is_gpu = parent_gpu
             try:
                 suffix = cols[3] if len(cols) >= 4 and cols[3] != "" else i
             except Exception:
                 suffix = i
+            parent_result = (parent_job.result or "").replace("\\", "/").strip("/")
             children.append(
                 Job(
                     parent_job=parent_job,
@@ -2897,6 +2915,7 @@ def create_array_job(user, *, protocol, job_name, job_list, workspace=None, is_g
                     user=user,
                     is_gpu_job=is_gpu,
                     array_setting=str(i),
+                    result="{}/{}".format(parent_result, i) if parent_result else "",
                     visibility=0,
                     workspace=workspace,
                     slave=slave,
