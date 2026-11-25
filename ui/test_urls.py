@@ -6,6 +6,7 @@ from ui.plugins.api_urls import urlpatterns as api_urlpatterns
 
 urlpatterns = [
     path("", RedirectView.as_view(url="/ui/", permanent=False)),
+    path("api/v1/", include("ui.agent_urls")),
     path("ui/", include("ui.urls")),
     re_path(r"^ui3/(?P<rest>.*)$", redirect_ui3_prefix),
 ]

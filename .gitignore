@@ -38,6 +38,7 @@ QueueDB/migrations/*
 !QueueDB/migrations/0055_merge_20261010_1247.py
 !QueueDB/migrations/0055_slave_cluster_path_columns.py
 !QueueDB/migrations/0056_slave_cluster_managers.py
+!QueueDB/migrations/0057_api_idempotency.py
 .pixi/
 **/.pixi/
 worker/.testdata/

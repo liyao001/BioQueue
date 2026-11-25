@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import Group, User
@@ -118,11 +120,17 @@ def register_view(request):
     return render(request, "ui3/register.html", {"error": error, "form": form})
 
 
+def _signed_in_profile(user):
+    """Profile of the account that signed in, not its delegate project."""
+    return getattr(user, "queuedb_profile_related", None)
+
+
 def _account_context(request, *, password_error=None, folder_error=None):
     profile = services.profile_for(request.user)
     folders = services.folder_defaults_for(request.user)
     return {
         "profile": profile,
+        "agent_profile": _signed_in_profile(request.user),
         "folders": folders,
         "password_error": password_error,
         "folder_error": folder_error,
@@ -185,6 +193,21 @@ def account_view(request):
                     if is_htmx(request):
                         return hx_redirect(reverse("ui3:account"))
                     return redirect("ui3:account")
+        elif section == "agent_token":
+            profile = _signed_in_profile(request.user)
+            if profile is None:
+                message = "No profile found for this account."
+                if is_htmx(request):
+                    return htmx_error(message)
+                messages.error(request, message)
+                return redirect("ui3:account")
+            profile.api_key = str(uuid4())
+            profile.api_secret = str(uuid4())
+            profile.save(update_fields=["api_key", "api_secret"])
+            messages.success(request, "Agent token rotated. Agents using the old key will be rejected.")
+            if is_htmx(request):
+                return hx_redirect(reverse("ui3:account"))
+            return redirect("ui3:account")
         else:
             if is_htmx(request):
                 return htmx_error("Unknown account form.")

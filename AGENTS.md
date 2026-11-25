@@ -55,6 +55,7 @@ use this module; keep their interpretation consistent.
 | --- | --- | --- |
 | Database fields, statuses, audit history | `QueueDB/models.py`, `QueueDB/migrations/` | Tests for affected UI and worker behavior |
 | Job creation, search, permissions, actions | `ui/services.py`, `ui/views/jobs.py` | `ui/tests/test_jobs.py` |
+| Agent HTTP API (`/api/v1/`) and the skill that calls it | `ui/agent_api.py`, `.cursor/skills/bioqueue/SKILL.md` | `ui/tests/test_agent_api.py` |
 | Protocol editing, import/export, step ordering | `ui/views/protocols.py`, `ui/services.py` | `ui/tests/test_protocols.py` |
 | Template expansion or sample sheets | `QueueDB/protocol_template.py`, `worker/queue/task.py` | `ui/tests/test_protocol_template.py`, worker integration tests |
 | Files, previews, downloads, renames, purge | `ui/files.py`, `ui/views/jobs.py` | `ui/tests/test_jobs.py` |

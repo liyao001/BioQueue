@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head mb-4">
   <h1 class="text-2xl font-semibold">Account</h1>
-  <p class="text-sm opacity-70 page-head-sub">Password and workspace folder paths for {{ user.username }}</p>
+  <p class="text-sm opacity-70 page-head-sub">Password, agent token, and workspace folder paths for {{ user.username }}</p>
 </div>
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -67,6 +67,25 @@
       </div>
     </form>
   </div>
+</div>
+
+<div class="card bg-base-100 shadow-sm p-5 mt-4">
+  <h2 class="text-lg font-semibold">Agent token</h2>
+  <p class="text-sm opacity-70 mt-1">Send this key as <code class="text-xs">Authorization: Bearer …</code> to <code class="text-xs">/api/v1/</code>. A repeated create with the same <code class="text-xs">Idempotency-Key</code> does not make a second job.</p>
+  {% if agent_profile %}
+    <label class="form-control mt-3">
+      <div class="label"><span class="label-text">API key</span></div>
+      <input class="ui-input w-full font-mono" type="text" readonly value="{{ agent_profile.api_key }}" spellcheck="false" autocomplete="off">
+    </label>
+    <form method="post" action="{% url 'ui3:account' %}" class="mt-3 flex justify-end"
+          onsubmit="return confirm('Rotate the agent token? Agents using the current key will be rejected.');">
+      {% csrf_token %}
+      <input type="hidden" name="section" value="agent_token">
+      <button class="ui-btn" type="submit">Rotate agent token</button>
+    </form>
+  {% else %}
+    <p class="text-sm mt-3">No profile found for this account.</p>
+  {% endif %}
 </div>
 
 <div class="card bg-base-100 shadow-sm p-5 mt-4">

@@ -914,6 +914,27 @@ class NotificationHook(models.Model):
         return destination_summary(self.provider, self.config)
 
 
+class ApiIdempotency(models.Model):
+    """Stored response for one agent POST, keyed by account and Idempotency-Key.
+
+    A retry with the same key and the same body returns this response instead of
+    creating another job or protocol. ``status_code`` 0 means the first request
+    has not finished.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_idempotency")
+    key = models.CharField(max_length=200)
+    request_hash = models.CharField(max_length=64)
+    status_code = models.PositiveSmallIntegerField(default=0)
+    response_body = models.TextField(blank=True, default="")
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "key"], name="api_idempotency_user_key"),
+        ]
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

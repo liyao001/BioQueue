@@ -14,6 +14,7 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/ui/", permanent=False)),
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
+    path("api/v1/", include("ui.agent_urls")),
     path("ui/", include("ui.urls")),
     re_path(r"^ui3/(?P<rest>.*)$", redirect_ui3_prefix),
 ]
